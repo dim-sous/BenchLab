@@ -14,7 +14,7 @@ from .skin import TABLE
 
 class CompareTable(JSComponent):
     """``heads`` (the shown runs, in the order they were ticked), ``corner`` (the words over the
-    terms) and ``rows`` (``kind``, ``key``, ``term``, ``hover``, ``differs``, ``open`` and the
+    terms) and ``rows`` (``kind``, ``key``, ``term``, ``differs``, ``open`` and the
     ``values`` per run, written out) in. A click on a ``number`` row reaches :attr:`on_number`
     with its key as a MESSAGE, so the same row clicked twice reaches it twice. The table is as
     wide as its pane, whatever it holds (RCWS's): the words take :data:`skin.TERMS_SHARE` per
@@ -56,7 +56,6 @@ class CompareTable(JSComponent):
           const tr = el('tr', [r.differs ? 'differs' : '', click ? 'click' : '',
                                r.open ? 'open' : ''].join(' ').trim());
           const term = el('td', '', r.term);
-          term.title = (r.hover || '') + (click ? ' · Click to plot it against a setting' : '');
           if (click) term.addEventListener('click', () => model.send_msg({ number: r.key }));
           tr.append(term);
           for (const v of r.values) tr.append(el('td', '', v));

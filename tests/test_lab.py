@@ -17,6 +17,7 @@ import shlex
 import sys
 import types
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -37,7 +38,9 @@ _ALLOWED = {# the declared project: its pieces, and its command and title -- wor
             # rule, 2026-10-27)
             "benchlab.record": {"read_header", "COMPONENT_KEY", "PANELS_KEY", "NUMBER_SPECS_KEY",
                                 "PANEL_GROUPS_KEY", "HEADER_KEYS", "capital"},
-            "benchlab.record.config": {"fields_of"},
+            # the settings' declarations; and a typed value read as the run will read it, so
+            # Run refuses what the run would refuse before queueing it (decision 5)
+            "benchlab.record.config": {"fields_of", "coerce_value"},
             # the one constant saying where records live
             "benchlab.cli": {"DEFAULT_OUT_DIR"},
             # how a record name and the form's words become runs, the command line's own rule
@@ -417,3 +420,120 @@ def test_the_form_ends_where_the_strip_begins(two_runs) -> None:
     lab._open_strip(True)
     assert lab.drawer.styles["height"] == (
         f"calc(100vh - {skin.HEADER_PX + skin.STRIP_PX + skin.STRIP_LIST_PX}px)")
+
+
+# --- no hovers (``docs/design.md`` decision 5) -----------------------------------------------
+
+def _drawn(lab: Lab) -> list[Any]:
+    """Every Panel object the page draws: the header, both panes, the drawer, the strip."""
+    import panel as pn
+    page = lab.page()
+    return [o for part in (page, lab.split.left, lab.split.right) for o in part.select()
+            if isinstance(o, pn.viewable.Viewable)]
+
+
+def test_no_setting_number_chart_or_plain_button_wears_a_hover(two_runs) -> None:
+    """The mockup's round 2: no hover on a setting, a compare row, a card's title or foot, a
+    button of the list or the index, or a card's close. A greyed card control keeps its reason
+    on its hover: those words are Benchlab's own."""
+    import panel as pn
+
+    from benchlab.lab import skin
+    root, out_dir = two_runs
+    lab = _lab(root, out_dir, jobs.Queue(at_once=1, start=lambda run: Process()))
+    lab.tick_listed()
+    lab._on_settings("all")
+    lab._on_chart("u", True)
+    lab.open_number("rms_y")
+    lab.open_drawer()
+    drawn = _drawn(lab)
+    titled = [o.object for o in drawn if isinstance(o, pn.pane.HTML) and "title=" in o.object]
+    assert titled and all(skin.GREYED in t for t in titled), \
+        [t for t in titled if skin.GREYED not in t]
+    assert not [o for o in drawn if isinstance(o, pn.widgets.TooltipIcon)]
+    assert not [o.name or o.label for o in drawn
+                if isinstance(o, pn.widgets.Widget) and getattr(o, "description", None)]
+    assert lab.compare_table.rows and not [r for r in lab.compare_table.rows if "hover" in r]
+
+
+def _note(lab: Lab, name: str) -> str:
+    """The words under a setting, as the page shows them; ``""`` when it shows none."""
+    note = lab._notes[name]
+    return re.sub(r"<[^>]+>", "", note.object) if note.visible else ""
+
+
+def test_a_greyed_setting_says_why_under_it(two_runs) -> None:
+    """Behind a closed gate, or as the sweep axis, a setting is greyed and says why under it:
+    what its hover used to say."""
+    root, out_dir = two_runs
+    lab = _lab(root, out_dir, jobs.Queue(at_once=1, start=lambda run: Process()))
+    lab.open_drawer()
+    assert lab._controls["duty"].disabled
+    assert _note(lab, "duty") == "Duty applies only when Shape is square; it is sine"
+    lab._on_pick("shape", "square")
+    assert not lab._controls["duty"].disabled and _note(lab, "duty") == ""
+    lab._on_sweep(field="frequency", values="1,2")
+    assert _note(lab, "frequency") == "f is the sweep axis; its values come from the sweep row"
+    assert _note(lab, "amplitude") == "", "an open setting says nothing"
+
+
+@pytest.mark.parametrize("picks, name, text, words", [
+    ({}, "amplitude", "-1", "A must be at least 0, got -1"),
+    ({}, "samples", "2.5", "N takes a whole number, got 2.5"),
+    ({}, "frequency", "fast", "f takes a number, got fast"),
+    ({"shape": "square"}, "duty", "1", "Duty must be below 1, got 1"),
+    ({"shape": "square"}, "duty", "0", "Duty must be above 0, got 0"),
+])
+def test_a_value_its_setting_refuses_is_said_under_it_and_nothing_is_queued(
+        two_runs, picks, name, text, words) -> None:
+    """``docs/design.md`` decision 5, the developer's answer of 2026-11-14: refused when Run is
+    pressed, under the setting; the form stays open and nothing is queued. Edited, the words go."""
+    from benchlab.lab import skin
+    root, out_dir = two_runs
+    queue = jobs.Queue(at_once=1, start=lambda run: Process())
+    lab = _lab(root, out_dir, queue)
+    lab.open_drawer()
+    for pick, value in picks.items():
+        lab._on_pick(pick, value)
+    lab._on_type(name, text)
+    assert _note(lab, name) == "", "not before Run: the range is not shown"
+    lab._run()
+    assert queue.runs() == [] and lab.drawer.visible
+    assert _note(lab, name) == words and skin.SIGNAL in lab._notes[name].object, "in red"
+    lab._on_type(name, text + "0" if text != "fast" else "3")
+    assert _note(lab, name) == "", "edited, its words go"
+
+
+def test_a_sweep_value_its_setting_refuses_is_said_under_the_sweep_row(two_runs) -> None:
+    root, out_dir = two_runs
+    queue = jobs.Queue(at_once=1, start=lambda run: Process())
+    lab = _lab(root, out_dir, queue)
+    lab.open_drawer()
+    lab._on_sweep(field="amplitude", values="1, -1, 2")
+    lab._run()
+    assert queue.runs() == [] and lab.drawer.visible
+    assert lab.sweep_note.visible and "A must be at least 0, got -1" in lab.sweep_note.object
+    lab._on_sweep(values="1, 2")
+    assert not lab.sweep_note.visible
+    lab._run()
+    assert [r.name for r in queue.runs()] == ["wave-1-amplitude-1", "wave-1-amplitude-2"]
+    queue.stop_all()
+
+
+def test_another_piece_leaves_no_box_holding_the_last_forms_words(two_runs) -> None:
+    """The name and sweep boxes outlive a form: picking a piece left them, and the form's head,
+    saying what the last form held, which the next Run no longer used (found driving 2b's
+    hand-off, 2026-11-14). The toy declares one piece; picking it again is a new form too."""
+    root, out_dir = two_runs
+    lab = _lab(root, out_dir, jobs.Queue(at_once=1, start=lambda run: Process()))
+    lab.open_drawer(from_run="second")
+    lab.sweep_field.value = "frequency"
+    lab.sweep_values.value_input = "1, 3"
+    lab.run_name.value_input = "mine"
+    assert (lab.form.name, lab.form.sweep_values) == ("mine", "1, 3")
+    assert "From second" in lab.from_words.object
+    lab._on_piece("wave")
+    assert (lab.run_name.value_input, lab.sweep_values.value_input, lab.sweep_field.value) == \
+        ("", "", "")
+    assert (lab.form.name, lab.form.sweep_values, lab.form.set) == ("", "", {})
+    assert "From defaults" in lab.from_words.object

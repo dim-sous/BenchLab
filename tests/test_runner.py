@@ -183,6 +183,33 @@ def test_every_word_is_checked_before_any_run_is_queued(name, words, error) -> N
     assert queue.runs() == [] and started == []
 
 
+@pytest.mark.parametrize("name, opened", [
+    ("amplitude", {}), ("frequency", {}), ("samples", {}), ("noise", {}), ("seed", {}),
+    ("delay", {}), ("duty", {"shape": "square"}),
+])
+def test_the_lab_refuses_a_value_exactly_when_the_settings_would(name, opened) -> None:
+    """The one rule the Lab restates (:func:`jobs.refusals`), held to its source: for values at,
+    just inside and just outside each declared bound, NaN, both infinities and text that is no
+    number, the Lab refuses exactly when reading the text as the run does and building the Config
+    with it raises -- which only a test may do. ``opened``: the gate the setting needs, open."""
+    from benchlab.record.config import coerce_value
+    from tests.toy.wave import Config
+    p = Config.param[name]
+    texts = ["nan", "inf", "-inf", "2.5", "fast", "0", "-1"]
+    for bound in p.bounds or ():
+        if bound is not None:
+            texts += [repr(bound), repr(bound - 1e-9), repr(bound + 1e-9), str(bound - 1),
+                      str(bound + 1)]
+    for text in texts:
+        said = jobs.refusals("wave", {name: text})[0].get(name, "")
+        try:
+            Config(**opened, **{name: coerce_value(p, text)})
+        except ValueError:
+            assert said, (name, text, "the settings refuse it; the Lab took it")
+        else:
+            assert not said, (name, text, said)
+
+
 def test_a_name_a_run_in_progress_writes_is_refused_until_it_ends() -> None:
     """Two runs saving one record at once lose one, or leave it unreadable (2a review)."""
     queue, started = _queue(2)

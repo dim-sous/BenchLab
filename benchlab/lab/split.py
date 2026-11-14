@@ -27,7 +27,7 @@ class Split(JSComponent):
       const box = document.createElement('div'); box.className = 'split';
       const left = model.get_child('left'), right = model.get_child('right');
       const handle = document.createElement('div'); handle.className = 'handle';
-      handle.title = 'drag to resize · double-click to reset';
+      handle.setAttribute('role', 'separator'); handle.setAttribute('aria-orientation', 'vertical');
       const apply = () => { box.style.gridTemplateColumns = model.left_px + 'px 6px minmax(0,1fr)'; };
       let drag = false;
       handle.addEventListener('pointerdown', e => {

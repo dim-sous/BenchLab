@@ -62,6 +62,13 @@ efficiency").
    `alpha_CRH_min`; `x0`, `u_min`), and the hover was the only place their meaning showed. When
    a project moves, each such label is renamed to its standard term, the developer choosing
    every word, and its description is deleted.
+   **Refined 2026-11-14** (the developer, planning branch 2b): a value outside its range, or one
+   its setting cannot read, is refused when Run is pressed, in words under the setting, with
+   nothing queued; a greyed setting says why in a line under it, as the mockup did. The
+   descriptions are deleted knowing they have two other readers, the code's documentation of each
+   setting, chart and number, and each saved picture's JSON note. In DeePC the naming pass covers
+   System and Open loop; the old Dataset and Closed loop keep their labels and descriptions until
+   DeePC's own rewrite deletes them.
 6. **The tree.** A sidebar lists the pieces. Under the open piece sit its charts and numbers by
    group, each opening its card. The developer drove three layouts (tabs, tree, chain) and chose
    this one.
@@ -183,9 +190,11 @@ onto Benchlab is planned against where that rewrite stands, never on top of a ha
 2. **The page and the runner.** The tree, runs, compare, cards, form and runs in progress, from
    BESS's Lab, with the runner (each run its own process) in place of the terminal, on Benchlab's
    own test project. The runner comes here with its first user, the page. Driven in DeePC.
-   Built as four branches, each driven before the next (the developer, 2026-11-14): **2a** runs
-   in progress (`docs/plan-branch-2a.md`), **2b** words as slots and no hovers, **2c** the tree,
-   **2d** the cards' full controls.
+   Built as branches, each driven before the next (the developer, 2026-11-14): **2a** runs in
+   progress (`docs/plan-branch-2a.md`), **2b** no hovers (`docs/plan-branch-2b.md`), **2c** words
+   as slots, **2d** the tree, **2e** the cards' full controls. The old 2b, words as slots and no
+   hovers, was split in two on 2026-11-14: one changes what the page shows and is driven, the
+   other changes none of it and proves itself by the page's text staying word for word the same.
 3. **Hydrofoil moves**, with its naming pass.
 4. **Shared calculations**: the RMS family, run cost and solver outcomes. DeePC's and Hydrofoil's
    numbers are declared instead of hand-written.

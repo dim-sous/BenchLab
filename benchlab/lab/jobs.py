@@ -12,7 +12,10 @@ when the Lab stops, whatever still runs is stopped with it.
 
 Every word that becomes a run is checked against a declaration this module read (the registry,
 :func:`benchlab.record.config.fields_of`); what the run makes of it is the runner's, refusals
-included, and a failed run says so in the last line it wrote -- the Lab restates no rule.
+included, and a failed run says so in the last line it wrote. One rule is restated, and held to
+its source by a test: a typed value outside the bounds its setting declares, or one its setting
+cannot read, is refused before any run is queued (:func:`refusals`, ``docs/design.md``
+decision 5), in param's own comparisons; the piece's Config is still never built.
 """
 
 from __future__ import annotations
@@ -29,11 +32,15 @@ import sys
 import threading
 import time
 from dataclasses import dataclass, field
-from typing import Callable, Optional, Sequence
+from typing import Any, Callable, Mapping, Optional, Sequence
+
+import param
 
 from benchlab.cli import DEFAULT_OUT_DIR
 from benchlab.project import command, get_component, piece_names
-from benchlab.record.config import fields_of
+from benchlab.record.config import coerce_value, fields_of
+
+from .form import as_text
 
 QUEUED, RUNNING, DONE, FAILED, STOPPED = "queued", "running", "done", "failed", "stopped"
 
@@ -81,6 +88,48 @@ def checked(piece: str, planned: Sequence[tuple[str, Sequence[tuple[str, str]]]]
             _setting(f"{key}={value}", piece, names)
         out.append((_name(name), [(key, value) for key, value in pairs]))
     return out
+
+
+def refusals(piece: str, typed: Mapping[str, str], swept: str = "",
+             rungs: Sequence[str] = ()) -> tuple[dict[str, str], str]:
+    """What ``piece``'s settings refuse before any run is queued (``docs/design.md`` decision
+    5): each ``typed`` value, by setting, and the first refused rung of the ``swept`` setting, in
+    words; ``({}, "")`` when they take everything. A value is read as the run will read it
+    (:func:`benchlab.record.config.coerce_value`, on the setting's declaration) and held to the
+    bounds the setting declares; the piece's Config is never built."""
+    cls = get_component(_piece(piece)).Config
+    fields = {f["name"]: f for f in fields_of(cls)}
+    by_setting = {name: words for name, text in typed.items()
+                  if (words := _refusal(cls.param[name], fields[name], text))}
+    sweep = next((words for rung in rungs
+                  if (words := _refusal(cls.param[swept], fields[swept], rung))), "") \
+        if swept else ""
+    return by_setting, sweep
+
+
+def _refusal(p: param.Parameter, f: dict[str, Any], text: str) -> str:
+    """Why the setting ``f`` (declared as ``p``) refuses ``text``, or ``""``: a text its kind
+    cannot read, then a value outside its bounds. The bounds are compared as param compares
+    them (param 2.4.2, ``Number._validate_bounds``): the upper bound first, ``not v <= high`` for
+    an included end and ``not v < high`` for an excluded one, so a NaN is outside every bound."""
+    try:
+        value = coerce_value(p, text)
+    except ValueError as exc:
+        kind = ("a whole number" if isinstance(p, param.Integer) else
+                "a number" if isinstance(p, param.Number) else
+                "a list of numbers" if isinstance(p, param.List) and p.item_type is not str
+                else "")
+        return f"{f['label']} takes {kind}, got {text}" if kind else str(exc)
+    if not isinstance(p, param.Number) or value is None:
+        return ""
+    low, high = f["low"], f["high"]
+    if high is not None and not (value < high if f["high_exclusive"] else value <= high):
+        return (f"{f['label']} must be {'below' if f['high_exclusive'] else 'at most'} "
+                f"{as_text(high)}, got {text}")
+    if low is not None and not (value > low if f["low_exclusive"] else value >= low):
+        return (f"{f['label']} must be {'above' if f['low_exclusive'] else 'at least'} "
+                f"{as_text(low)}, got {text}")
+    return ""
 
 
 def run_argv(piece: str, overrides: Sequence[str] = (), name: str = "",

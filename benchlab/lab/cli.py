@@ -13,7 +13,7 @@ import signal
 
 from benchlab.cli import DEFAULT_OUT_DIR
 
-from . import jobs
+from . import jobs, words
 from .app import serve
 
 DEFAULT_PORT = 8765
@@ -52,6 +52,10 @@ def stop_runs_on_sigterm() -> None:
 
 def main(argv=None) -> int:
     args = build_parser().parse_args(argv)
+    try:
+        words.words()                       # a missing word stops the Lab before it serves
+    except (ValueError, LookupError, OSError) as exc:
+        raise SystemExit(f"lab: {exc}") from exc
     root = os.path.abspath(args.root or os.getcwd())
     stop_runs_on_sigterm()
     print(f"Lab on http://127.0.0.1:{args.port}   (root {root}, records under {args.out_dir}/, "

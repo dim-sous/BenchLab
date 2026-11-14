@@ -29,3 +29,30 @@ made by Claude, with its reason. Each is easy to change; say which.
    its form empty (its name and sweep boxes kept the last piece's words).
 9. **A refusal in a folded group opens the group**, so its words show (the review found Run
    otherwise changed nothing on screen).
+
+## Found on the way, not fixed (each its own branch, if you want it)
+
+- **A browser error from plotly, now and then** ("Cannot read properties of undefined (reading
+  '_guiEditing')"), in 3 of 5 tours of DeePC's page on v0.3.0: after ticking runs, opening a
+  number card from the compare table and filtering the list to nothing and back, opening the runs
+  in progress raised it. Nothing visible broke. Seven plain opens and closes of the form and the
+  strip with two charts open raised none, so it needs that history; the 2b review met it once in a
+  browser test, which passed again.
+
+## 2c: words as slots
+
+1. **One file of the page's own words per project**: DeePC's `devkit/harness/words.toml`, TOML,
+   one table per part of the page, holding today's words; change a word there. A piece's words stay
+   in its folder.
+2. **The title stays where it was** (`TITLE` in `devkit/harness/__init__.py`), not in the words
+   file: one change less to what a project declares.
+3. **Marks are not words**: the ✕ buttons are slots, but the ▸ and ▾ arrows and the ` · ` between
+   counts stay Benchlab's.
+4. **A word that counts is two slots**, `.one` and `.many` (`{n} record` and `{n} records`), so
+   English's plural is written by the project.
+5. **The file is checked strictly**: a missing or unknown slot, a field the slot does not offer, or
+   a stray brace stops `uv run lab`, naming each; a word may leave a field out ("Running" without
+   its count).
+6. **Not slots**: words the page shows but does not write: the figure layer's (legends, a card's
+   refusal), a record's, param's and the runner's refusals. They stay those layers' own; moving
+   them would be a later branch.

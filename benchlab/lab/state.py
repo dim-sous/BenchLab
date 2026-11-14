@@ -19,6 +19,8 @@ from benchlab.record import (COMPONENT_KEY, HEADER_KEYS, NUMBER_SPECS_KEY, PANEL
                     read_header)
 from benchlab.record.config import fields_of
 
+from .words import say, say_n
+
 _HEADER = HEADER_KEYS
 #: The keys every listed record carries, and nothing else.
 RECORD_KEYS = ("piece", "name", "path", "mtime", "panels", "panel_groups", "number_specs",
@@ -100,7 +102,7 @@ def _panels(held: Any) -> tuple[list[str], str]:
     if held is None:
         return [], ""
     if not isinstance(held, list) or not all(isinstance(p, str) for p in held):
-        return [], f"its {PANELS_KEY!r} header is not a list of names"
+        return [], say("runs.stale.panels", key=repr(PANELS_KEY))
     return list(held), ""
 
 
@@ -117,12 +119,12 @@ def _number_specs(held: Any) -> tuple[list[dict[str, Any]], str]:
     if held is None:
         return [], ""
     if not isinstance(held, list):
-        return [], f"its {NUMBER_SPECS_KEY!r} header is not a list"
+        return [], say("runs.stale.specs", key=repr(NUMBER_SPECS_KEY))
     out = []
     for spec in held:
         if not isinstance(spec, dict) or not isinstance(spec.get("name"), str) \
                 or not isinstance(spec.get("label"), str):
-            return [], f"its {NUMBER_SPECS_KEY!r} header does not declare a name and a label"
+            return [], say("runs.stale.spec", key=repr(NUMBER_SPECS_KEY))
         out.append(spec)
     return out, ""
 
@@ -137,15 +139,15 @@ def _stale(piece: str, raw: dict[str, Any]) -> str:
     """
     held_piece = raw.get(COMPONENT_KEY)
     if held_piece != piece:
-        return f"is a {held_piece!r} record in the {piece} folder"
+        return say("runs.stale.piece", held=repr(held_piece), piece=piece)
     declared = {f.name for f in dataclasses.fields(get_component(piece).Record)}
     held = set(raw) - set(_HEADER)
     missing, gone = sorted(declared - held), sorted(held - declared)
     parts = []
     if missing:
-        parts.append(f"predates the field{'s' if len(missing) > 1 else ''} {', '.join(missing)}")
+        parts.append(say_n("runs.stale.predates", len(missing), fields=", ".join(missing)))
     if gone:
-        parts.append(f"holds gone field{'s' if len(gone) > 1 else ''} {', '.join(gone)}")
+        parts.append(say_n("runs.stale.gone", len(gone), fields=", ".join(gone)))
     return "; ".join(parts)
 
 

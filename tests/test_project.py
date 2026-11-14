@@ -82,7 +82,7 @@ def test_a_module_lacking_a_declared_name_is_refused_naming_each(monkeypatch) ->
     monkeypatch.setitem(sys.modules, "lacking", lacking)
     _declare(monkeypatch, "lacking")
     with pytest.raises(LookupError, match=r"^lacking, the module declared to Benchlab, does not "
-                                          r"hold COMMAND, ROOT, LIBRARIES$"):
+                                          r"hold COMMAND, ROOT, LIBRARIES, WORDS$"):
         project.declared()
 
 

@@ -33,7 +33,9 @@ SOURCES = sorted(p for p in LAB.glob("*.py"))
 #: Exactly what the Lab may take from the rest of Benchlab, by module and name.
 _ALLOWED = {# the declared project: its pieces, and its command and title -- words, never the
             # project's module, which holds every piece (before the move: NAMES, get_component)
-            "benchlab.project": {"piece_names", "get_component", "command", "title"},
+            "benchlab.project": {"piece_names", "get_component", "command", "title",
+                                 # and the file of the page's own words (lab.words)
+                                 "words_path"},
             # a record's header keys, and how every word the page shows begins (the developer's
             # rule, 2026-10-27)
             "benchlab.record": {"read_header", "COMPONENT_KEY", "PANELS_KEY", "NUMBER_SPECS_KEY",

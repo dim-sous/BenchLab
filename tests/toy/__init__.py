@@ -18,6 +18,8 @@ TITLE = "Toy Lab"
 ROOT = Path(__file__).resolve().parents[2]
 #: Not in alphabetical order, so a record's versions can only have taken theirs from here.
 LIBRARIES: tuple[str, ...] = ("param", "numpy")
+#: Every word the Lab's page writes itself (``benchlab.lab.words``).
+WORDS = Path(__file__).with_name("words.toml")
 
 
 def get_component(name: str) -> ModuleType:

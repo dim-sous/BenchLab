@@ -46,13 +46,13 @@ from .compare import CompareTable
 from .form import Form, as_text
 from .runlist import RunList
 from .strip import RunsInProgress
+from .words import say, say_n, word
 from .split import DEFAULT_PX, Split
 
 _POLL_MS = 700
-#: A run's state, as the strip says it (written here until branch 2c makes the page's words slots).
-#: In the order the head counts them: the mockup's (running, waiting, then what ended).
-_STATES = {jobs.RUNNING: "Running", jobs.QUEUED: "Queued", jobs.DONE: "Done",
-           jobs.FAILED: "Failed", jobs.STOPPED: "Stopped"}
+#: A run's states, in the order the strip's head counts them: the mockup's (running, waiting,
+#: then what ended). Each says itself through ``strip.state.<state>`` and ``strip.count.<state>``.
+_STATES = (jobs.RUNNING, jobs.QUEUED, jobs.DONE, jobs.FAILED, jobs.STOPPED)
 _PLOT_CONFIG = {"displaylogo": False, "responsive": True, "displayModeBar": "hover",
                 "modeBarButtonsToRemove": ["lasso2d", "select2d", "autoScale2d", "toImage"]}
 _SANS = skin.SANS.replace('"', "'")
@@ -70,8 +70,9 @@ _TOOL_MARGIN = (2, 3)
 _GROUP_PX = skin.LABEL_PX
 #: The columns the chart list's index of groups is read down (RCWS).
 _INDEX_COLUMNS = 3
-#: The words of the compare table's settings choice, and what each asks for (``view.SETTINGS``).
-_SETTINGS = {"None": "none", "Differing": "differ", "All": "all"}
+#: The compare table's settings choice: each choice's slot, and what it asks for (``view.SETTINGS``).
+_SETTINGS = {"compare.settings_none": "none", "compare.settings_differing": "differ",
+             "compare.settings_all": "all"}
 
 
 def _shown_in_page(exc: BaseException) -> None:
@@ -291,31 +292,36 @@ class Lab:
                                     value=self.piece["name"])
         self.piece_select.param.watch(lambda e: self._on_piece(e.new), "value")
         self.where = _html("")
-        self.new_run_btn = _widget(pn.widgets.Button, label="New run", color="primary", width=92)
+        self.new_run_btn = _widget(pn.widgets.Button, label=say("header.new_run"), color="primary",
+                                   width=92)
         self.new_run_btn.on_click(lambda _e: self.open_drawer())
-        self.refresh = _widget(pn.widgets.Button, label="Refresh", width=72)
+        self.refresh = _widget(pn.widgets.Button, label=say("header.refresh"), width=72)
         self.refresh.on_click(lambda _e: self.reload())
 
         # -- the left pane: the runs, the shown ones compared
         self.runs_count = _html("", style=_DIM, stylesheets=[skin.BAR_FILL])
-        self.run_filter = _tool(pn.widgets.TextInput, placeholder="Filter runs",
+        self.run_filter = _tool(pn.widgets.TextInput, placeholder=say("runs.filter"),
                                 sizing_mode="stretch_width")
         self.run_filter.param.watch(lambda _e: self._draw_list(), "value_input")
-        self.all_btn = _tool(pn.widgets.Button, label="All", width=_width("All"))
+        self.all_btn = _tool(pn.widgets.Button, label=say("runs.all"), width=_width(say("runs.all")))
         self.all_btn.on_click(lambda _e: self.tick_listed())
-        self.none_btn = _tool(pn.widgets.Button, label="None", width=_width("None"))
+        self.none_btn = _tool(pn.widgets.Button, label=say("runs.none"),
+                              width=_width(say("runs.none")))
         self.none_btn.on_click(lambda _e: self.untick_listed())
-        self.run_list = RunList(rows=[], shown=[], sizing_mode="stretch_width", styles=skin.RUNS)
+        self.run_list = RunList(rows=[], shown=[], sizing_mode="stretch_width", styles=skin.RUNS,
+                                words={"use": say("runs.use"), "delete": say("runs.delete"),
+                                       "delete_label": word("runs.delete_label")})
         self.run_list.on_use = self.open_drawer
         self.run_list.on_delete = self._ask_delete_run
         self.run_list.param.watch(lambda e: self._on_shown(list(e.new)), "shown")
         self.compare_count = _html("", style=_DIM, stylesheets=[skin.BAR_FILL])
-        self.settings_choice = _tool(pn.widgets.RadioButtonGroup, options=_SETTINGS,
+        self.settings_choice = _tool(pn.widgets.RadioButtonGroup,
+                                     options={say(slot): v for slot, v in _SETTINGS.items()},
                                      value="none")
         self.settings_choice.param.watch(lambda e: self._on_settings(e.new), "value")
         self.compare_table = CompareTable(sizing_mode="stretch_width",
-                                          empty="No run shown: tick one above",
-                                          corner="Column by column",
+                                          empty=say("compare.empty"),
+                                          corner=say("compare.corner"),
                                           styles={"background": skin.PAPER,
                                                   "border-radius": "6px", "overflow": "auto"})
         self.compare_table.on_number = self.open_number
@@ -331,17 +337,20 @@ class Lab:
         self._tabs_hold: Optional[tuple] = None
         self._groups_shown: set[str] = set()
         self._groups_met: set[int] = set()
-        self.show_all = _tool(pn.widgets.Button, label="Show all", width=_width("Show all"))
+        self.show_all = _tool(pn.widgets.Button, label=say("figures.show_all"),
+                              width=_width(say("figures.show_all")))
         self.show_all.on_click(lambda _e: self._show_groups(True))
-        self.hide_all = _tool(pn.widgets.Button, label="Hide all", width=_width("Hide all"))
+        self.hide_all = _tool(pn.widgets.Button, label=say("figures.hide_all"),
+                              width=_width(say("figures.hide_all")))
         self.hide_all.on_click(lambda _e: self._show_groups(False))
         self.cards_box = pn.Column(sizing_mode="stretch_width")
 
         # -- deleting asks first, in a dialog of its own: nothing else can be clicked meanwhile
         self.question = pn.pane.HTML("")
-        self.yes = _widget(pn.widgets.Button, label="Delete", color="danger", width=72)
+        self.yes = _widget(pn.widgets.Button, label=say("messages.delete_yes"), color="danger",
+                           width=72)
         self.yes.on_click(lambda _e: self._on_yes())
-        self.no = _widget(pn.widgets.Button, label="Cancel", width=72)
+        self.no = _widget(pn.widgets.Button, label=say("messages.delete_no"), width=72)
         self.no.on_click(lambda _e: self._on_no())
         self.asking = pn.Modal(self.question, pn.Row(self.no, self.yes), show_close_button=False)
 
@@ -350,7 +359,8 @@ class Lab:
         self.from_words = _html("", style=_DIM)
         self.form_note = _html("")
         self.sweep_field = _widget(pn.widgets.Select, width=170)
-        self.sweep_values = _widget(pn.widgets.TextInput, width=150, placeholder="v1, v2, …")
+        self.sweep_values = _widget(pn.widgets.TextInput, width=150,
+                                    placeholder=say("form.sweep_values"))
         self.sweep_field.param.watch(lambda e: self._on_sweep(field=e.new), "value")
         # A text box is read on `value_input` alone, every keystroke: a browser message that
         # carries both of a box's values at once (a paste, a key and Tab together) reached one
@@ -364,22 +374,24 @@ class Lab:
         self.name_note = _html("", style=_DIM)
         #: what Run refused in the sweep row, under it
         self.sweep_note = _html("", visible=False)
-        self.run_btn = _widget(pn.widgets.Button, label="Run", color="primary", width=70)
+        self.run_btn = _widget(pn.widgets.Button, label=say("form.run"), color="primary", width=70)
         self.run_btn.on_click(lambda _e: self._run())
-        self.clear_btn = _widget(pn.widgets.Button, label="Clear", width=62)
+        self.clear_btn = _widget(pn.widgets.Button, label=say("form.clear"), width=62)
         self.clear_btn.on_click(lambda _e: self._clear())
-        self.close_btn = _widget(pn.widgets.Button, label="Close", width=64)
+        self.close_btn = _widget(pn.widgets.Button, label=say("form.close"), width=64)
         self.close_btn.on_click(lambda _e: self.close_drawer())
         self.banner = pn.pane.HTML("", visible=False, styles={"color": skin.SIGNAL})
         self.drawer = pn.Column(
-            pn.Row(_html("<b style='font-size:15px'>New run</b>"), self.from_words,
+            pn.Row(_html(f"<b style='font-size:15px'>{html.escape(say('form.heading'))}</b>"),
+                   self.from_words,
                    pn.layout.HSpacer(), self.clear_btn, self.close_btn,
                    styles=skin.DRAWER_HEAD, stylesheets=[skin.BAR],
                    sizing_mode="stretch_width"),
             pn.Column(self.form_box, styles=skin.DRAWER_BODY, sizing_mode="stretch_both",
                       scroll=True),
-            pn.Column(pn.Row(_html("Name", style=_DIM), self.run_name,
-                             _html("Sweep", style=_DIM), self.sweep_field, self.sweep_values,
+            pn.Column(pn.Row(_html(html.escape(say("form.name")), style=_DIM), self.run_name,
+                             _html(html.escape(say("form.sweep")), style=_DIM), self.sweep_field,
+                             self.sweep_values,
                              pn.layout.HSpacer(), self.run_btn, stylesheets=[skin.BAR],
                              sizing_mode="stretch_width"),
                       self.sweep_note, self.name_note, self.banner, self.form_note,
@@ -387,12 +399,17 @@ class Lab:
             visible=False, styles=skin.DRAWER, width=skin.DRAWER_PX)
 
         # -- runs in progress, along the bottom where the terminal was (decision 3)
-        self.strip_btn = _widget(pn.widgets.Button, label="▸ Runs in progress", width=150,
+        self.strip_btn = _widget(pn.widgets.Button, label=f"▸ {say('strip.toggle')}", width=150,
                                  css_classes=["quiet"])
         self.strip_btn.on_click(lambda _e: self._open_strip(not self.strip_list.visible))
-        self.strip_summary = _html("Nothing running", style=_DIM, stylesheets=[skin.BAR_FILL])
-        self.strip_cap = _html(f"up to {self.queue.at_once} side by side", style=_DIM)
-        self.strip_rows = RunsInProgress(rows=[], sizing_mode="stretch_width")
+        self.strip_summary = _html(html.escape(say("strip.nothing")), style=_DIM,
+                                   stylesheets=[skin.BAR_FILL])
+        self.strip_cap = _html(html.escape(say("strip.cap", n=self.queue.at_once)), style=_DIM)
+        self.strip_rows = RunsInProgress(rows=[], sizing_mode="stretch_width",
+                                         words={"stop": say("strip.stop"),
+                                                "dismiss": say("strip.dismiss"),
+                                                "stop_label": word("strip.stop_label"),
+                                                "dismiss_label": word("strip.dismiss_label")})
         self.strip_rows.on_stop = self._stop
         self.strip_rows.on_dismiss = self._dismiss
         self.strip_list = pn.Column(self.strip_rows, scroll=True, height=skin.STRIP_LIST_PX,
@@ -416,9 +433,9 @@ class Lab:
         self._offer_saved()
         # the piece's own: with two pieces, every piece's count stood beside one piece's folder
         n = len(self.runs())
+        where = say_n("header.where", n, folder=f"{self.out_dir}/{self.piece['name']}")
         self.where.object = (f"<span style='{_MONO};font-size:12px;{_DIM}'>"
-                             f"{html.escape(self.out_dir)}/{html.escape(self.piece['name'])}"
-                             f" · {n} record{'s' if n != 1 else ''}</span>")
+                             f"{html.escape(where)}</span>")
         readable = [r for r in self.runs() if not r["stale"]]
         names = {r["name"] for r in readable}
         kept = [name for name in self.shown if name in names]
@@ -486,14 +503,14 @@ class Lab:
         self.run_list.rows = [{"name": r["name"], "stale": r["stale"],
                                "colour": colour.get(r["name"], "")}
                               for r in view.run_rows(listed)]
-        self.run_list.empty = ("No run holds every word typed" if self.runs()
-                               else f"No records yet: {self.piece['produced_by']}")
+        self.run_list.empty = (say("runs.none_listed") if self.runs()
+                               else say("runs.empty", command=self.piece["produced_by"]))
         if list(self.run_list.shown) != self.shown:
             self.run_list.shown = list(self.shown)
         n = len(self.runs())
-        self.runs_count.object = (f"<span style='{_DIM}'>{n} on disk · {len(self.shown)} shown"
-                                  + (f" · {len(listed)} listed" if len(listed) != n else "")
-                                  + "</span>")
+        count = (say("runs.count_listed", on_disk=n, shown=len(self.shown), listed=len(listed))
+                 if len(listed) != n else say("runs.count", on_disk=n, shown=len(self.shown)))
+        self.runs_count.object = f"<span style='{_DIM}'>{html.escape(count)}</span>"
 
     def _on_shown(self, names: list[str]) -> None:
         if names == self.shown:
@@ -538,7 +555,7 @@ class Lab:
 
     # ------------------------------------------------------------------ deleting
     def _ask_delete_run(self, name: str) -> None:
-        self._ask(f"Delete {self.out_dir}/{self.piece['name']}/{name}.json?",
+        self._ask(say("messages.delete_ask", path=f"{self.out_dir}/{self.piece['name']}/{name}.json"),
                   functools.partial(self._delete, records=[name]))
 
     def _ask(self, question: str, then: Callable[[], None]) -> None:
@@ -562,11 +579,11 @@ class Lab:
         try:
             gone = jobs.delete(self.piece["name"], records, root=self.root, out_dir=self.out_dir)
         except ValueError as exc:
-            self.toast(f"Not deleted: {exc}")
+            self.toast(say("messages.not_deleted", words=exc))
             return
         print("lab: deleted " + " ".join(gone))
         self.shown = [n for n in self.shown if n not in records]
-        self.toast(f"Deleted {' '.join(gone)}")
+        self.toast(say("messages.deleted", paths=" ".join(gone)))
         self.reload()
 
     # ------------------------------------------------------------------ the chart list
@@ -635,7 +652,7 @@ class Lab:
         named = [group for group in cells if group]
         self.show_all.visible = self.hide_all.visible = bool(named)
         if not rows:
-            items: list[Any] = [_html("Tick a run to see what it can draw", style=_DIM)]
+            items: list[Any] = [_html(html.escape(say("figures.empty")), style=_DIM)]
         elif not named:
             items = [pn.FlexBox(*cells.get("", []), align_items="flex-start", margin=0,
                                 gap="0 2px", sizing_mode="stretch_width")]
@@ -663,8 +680,9 @@ class Lab:
                 toggle.param.update(value=on, label=f"{'▾' if on else '▸'} {group}")
             for group, line in self._lines.items():
                 line.visible = not group or group in shown
-        self.open_count.object = (f"<span style='{_DIM}'>{len(self.open_charts)} of "
-                                  f"{len(rows)} open</span>")
+        self.open_count.object = (f"<span style='{_DIM}'>"
+                                  f"{html.escape(say('figures.open', open=len(self.open_charts), total=len(rows)))}"
+                                  f"</span>")
 
     def _groups_on_show(self, rows: list[dict[str, Any]]) -> set[str]:
         """The groups the list shows below its index: the ones the developer showed, and the
@@ -771,11 +789,10 @@ class Lab:
         runs = self.shown_runs()
         self.drawn = {}
         if not runs:
-            self.cards_box.objects = [_html("Tick a run to see its charts", style=_DIM)]
+            self.cards_box.objects = [_html(html.escape(say("cards.empty_runs")), style=_DIM)]
             return
         if not self.cards:
-            self.cards_box.objects = [_html("Open a chart above, or click a number in the "
-                                            "compare table", style=_DIM)]
+            self.cards_box.objects = [_html(html.escape(say("cards.empty")), style=_DIM)]
             return
         declared = [row["name"] for row in view.chart_rows([self._drawable(r) for r in runs],
                                                             self.open_charts)]
@@ -797,7 +814,7 @@ class Lab:
         groups, a whole group wrapping onto the next line when the card is too narrow for it;
         then what it draws; then a foot -- why it could not draw. No hover: the title is the
         chart's or the number's own words (``docs/design.md`` decision 5)."""
-        close = _widget(pn.widgets.Button, label="✕", width=34)
+        close = _widget(pn.widgets.Button, label=say("cards.close"), width=34)
         close.on_click(lambda _e: self._close(card))
         # the panel's name rides on the title as data-panel: the tests found a card by its
         # title's text, which found none once a title showed words, not the name (2026-10-27)
@@ -828,8 +845,8 @@ class Lab:
         for s, why in shaping.offered(card, ctx):
             value, options = s.shown(card, ctx), s.options(card, ctx)
             cell: list[Any] = []
-            if s.words:
-                cell.append(_html(html.escape(s.words), style=_LABEL, margin=(0, 2, 0, 4)))
+            if s.slot:
+                cell.append(_html(html.escape(say(s.slot)), style=_LABEL, margin=(0, 2, 0, 4)))
             if why:
                 said = ([next((w for w, v, _ in options if v == value), "")] if s.kind == "list"
                         else [" | ".join(w for w, _, _ in options)])
@@ -933,12 +950,11 @@ class Lab:
         title = spec.label if spec else card.number
         fields = {f["name"]: f for f in self.form.fields}
         if card.x:
-            title = f"{title} vs {fields[card.x]['label']}"
+            title = say("cards.number_title", number=title, setting=fields[card.x]["label"])
         body: Any = pn.pane.HTML("")
         foot, warn = " · ".join(refused), bool(refused)
         if not card.x:
-            foot, warn = ("One run shown, or nothing differs between the shown runs: tick runs "
-                          "that differ in a setting"), True
+            foot, warn = say("cards.number_foot"), True
         else:
             try:
                 panel = sweep_of(pairs, card.number, **shaping.draw_keywords(card, ctx))
@@ -988,9 +1004,8 @@ class Lab:
         """Open the form; from a run's ``use``, loaded with that run's settings."""
         if from_run is not None:
             self._use(from_run)
-        self.from_words.object = (f"<span style='{_DIM}'>From "
-                                  f"{html.escape(self._from) if self._from else 'defaults'}"
-                                  f"</span>")
+        said = say("form.from_run", run=self._from) if self._from else say("form.from_defaults")
+        self.from_words.object = f"<span style='{_DIM}'>{html.escape(said)}</span>"
         self.drawer.visible = True
 
     def close_drawer(self) -> None:
@@ -1028,7 +1043,8 @@ class Lab:
                                              sizing_mode="stretch_width"),
                                       body, sizing_mode="stretch_width", margin=(6, 0)))
         self.form_box.objects = sections
-        self.sweep_field.options = {"none": "", **{words: n for n, words in self.form.axes()}}
+        self.sweep_field.options = {say("form.sweep_none"): "",
+                                    **{words: n for n, words in self.form.axes()}}
         self._apply_gates()
 
     def _on_fold(self, group: str, body: pn.Column, head: Any, show: bool) -> None:
@@ -1129,8 +1145,9 @@ class Lab:
             moved = changed.get(g, 0)
             note.object = (f"<span style='color:{skin.ACCENT if moved else skin.INK3};"
                            f"font-size:12px'>"
-                           + (f"{moved} of {total} changed" if moved
-                              else f"{total} at defaults") + "</span>")
+                           + html.escape(say("form.group_changed", changed=moved, total=total)
+                                         if moved else say("form.group_defaults", total=total))
+                           + "</span>")
         note_words, warns = self.form.note()
         self.form_note.object = (f"<span style='{_RED if warns else _DIM}'>"
                                  f"{html.escape(note_words)}</span>")
@@ -1182,7 +1199,7 @@ class Lab:
         try:
             self._planned()
         except ValueError as exc:
-            self._say(f"refused: {exc}")
+            self._say(say("form.refused", words=exc))
             return
         self._say("")
 
@@ -1246,22 +1263,22 @@ class Lab:
     def _use(self, run_name: str) -> None:
         run = next((r for r in self.runs() if r["name"] == run_name), None)
         if run is None:
-            self._say(f"no record {run_name!r} any more; press refresh")
+            self._say(say("messages.no_record", name=repr(run_name)))
             return
         n, dropped = self.form.use(run["config"])
         self._from = run_name
         self._fill_controls()
-        words = f"{n} setting{'s' if n != 1 else ''} loaded from {run_name}"
+        words = say_n("messages.loaded", n, run=run_name)
         if dropped:
-            words += f"; {', '.join(dropped)} no longer declared"
+            words += "; " + say("messages.no_longer_declared", settings=", ".join(dropped))
         if self.form.taken:
-            words += f"; {len(self.form.taken)} behind a closed gate taken back"
+            words += "; " + say("messages.taken_back", n=len(self.form.taken))
         self.toast(words)
 
     def _clear(self) -> None:
         self.form.clear()
         self._from = None
-        self.from_words.object = f"<span style='{_DIM}'>From defaults</span>"
+        self.from_words.object = f"<span style='{_DIM}'>{html.escape(say('form.from_defaults'))}</span>"
         self._fill_controls()
 
     def _on_piece(self, name: str) -> None:
@@ -1301,7 +1318,7 @@ class Lab:
             runs = self.queue.submit(self.piece["name"], self._planned(), root=self.root,
                                      out_dir=self.out_dir)
         except ValueError as exc:
-            self._say(f"refused: {exc}")
+            self._say(say("form.refused", words=exc))
             return
         self._say("")
         for run in runs:                            # the side-door command that makes the same
@@ -1321,7 +1338,7 @@ class Lab:
             self._tick()
         except Exception as exc:  # noqa: BLE001 -- shown on the page, the docstring says why
             _shown_in_page(exc)
-            self._say(f"reading the runs failed: {exc}")
+            self._say(say("messages.reading_failed", words=exc))
 
     def _tick(self) -> None:
         runs = self.queue.runs()
@@ -1344,7 +1361,7 @@ class Lab:
     # ------------------------------------------------------------------ runs in progress
     def _open_strip(self, open_it: bool) -> None:
         self.strip_list.visible = open_it
-        self.strip_btn.label = ("▾" if open_it else "▸") + " Runs in progress"
+        self.strip_btn.label = f"{'▾' if open_it else '▸'} {say('strip.toggle')}"
         self._fit_drawer()
 
     def _fit_drawer(self) -> None:
@@ -1357,14 +1374,15 @@ class Lab:
     def _draw_strip(self, runs: list[jobs.Run]) -> None:
         """The head's count of each state, and the rows, newest first, as the strip draws them."""
         now = time.monotonic()
-        counts = [f"{n} {words.lower()}" for state, words in _STATES.items()
+        counts = [say(f"strip.count.{state}", n=n) for state in _STATES
                   if (n := sum(r.state == state for r in runs))]
         self.strip_summary.object = (f"<span style='{_DIM}'>"
-                                     f"{' · '.join(counts) or 'Nothing running'}</span>")
+                                     f"{html.escape(' · '.join(counts) or say('strip.nothing'))}"
+                                     f"</span>")
         labels = {p["name"]: p["label"] for p in self.pieces}
         self.strip_rows.rows = [
             {"id": r.id, "name": r.name, "piece": labels.get(r.piece, r.piece), "state": r.state,
-             "words": _STATES[r.state], "clock": self._clock(r, now), "error": r.error,
+             "words": say(f"strip.state.{r.state}"), "clock": self._clock(r, now), "error": r.error,
              "finished": r.finished}
             for r in reversed(runs)]
 
@@ -1378,7 +1396,7 @@ class Lab:
 
     def _stop(self, run_id: int) -> None:
         if self.queue.stop(run_id):
-            self.toast("Stopping…")
+            self.toast(say("messages.stopping"))
         self._poll()
 
     def _dismiss(self, run_id: int) -> None:
@@ -1394,19 +1412,19 @@ class Lab:
             pn.layout.HSpacer(), self.where, self.refresh, self.new_run_btn,
             styles=skin.TOP, stylesheets=[skin.BAR], sizing_mode="stretch_width")
         left = pn.Column(
-            pn.Row(_h2("Runs"), self.runs_count, stylesheets=[skin.BAR],
+            pn.Row(_h2(say("runs.heading")), self.runs_count, stylesheets=[skin.BAR],
                    sizing_mode="stretch_width"),
             pn.Row(self.run_filter, self.all_btn, self.none_btn, stylesheets=[skin.BAR],
                    sizing_mode="stretch_width"),
             self.run_list,
-            pn.Row(_h2("Compare"), self.compare_count, stylesheets=[skin.BAR],
+            pn.Row(_h2(say("compare.heading")), self.compare_count, stylesheets=[skin.BAR],
                    sizing_mode="stretch_width", margin=(14, 0, 0, 0)),
-            pn.Row(_html("Settings", style=_LABEL), self.settings_choice,
+            pn.Row(_html(html.escape(say("compare.settings")), style=_LABEL), self.settings_choice,
                    stylesheets=[skin.BAR], sizing_mode="stretch_width"),
             self.compare_table,
             styles=skin.LEFT, scroll=True, sizing_mode="stretch_width")
         right = pn.Column(
-            pn.Row(_h2("Figures"), self.open_count, self.show_all, self.hide_all,
+            pn.Row(_h2(say("figures.heading")), self.open_count, self.show_all, self.hide_all,
                    pn.layout.HSpacer(),
                    stylesheets=[skin.BAR], sizing_mode="stretch_width"),
             self.tabs,

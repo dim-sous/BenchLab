@@ -15,7 +15,7 @@ The bench every project shares. A project brings its pieces: for each one its se
 It began as DeePC's bench, moved here unchanged but for what tied it to DeePC
 (`docs/plan-branch-1.md`, v0.1.0); the page its developer designed is being built on it, a branch at a time
 (`docs/design.md` §8: runs in progress first, `docs/plan-branch-2a.md`, v0.2.0; no hovers,
-`docs/plan-branch-2b.md`, v0.3.0).
+`docs/plan-branch-2b.md`, v0.3.0; words as slots, `docs/plan-branch-2c.md`, v0.4.0).
 
 ## How a project declares itself
 
@@ -28,6 +28,7 @@ COMMAND = "deepc"                                       # the command its pyproj
 TITLE = "DeePC Lab"                                     # the Lab's title
 ROOT = Path(__file__).resolve().parent.parent.parent    # the repository whose commit stamps a record
 LIBRARIES = ("numpy", "scipy", "cvxpy", "osqp", "scs")  # the libraries whose versions a record keeps
+WORDS = Path(__file__).with_name("words.toml")          # every word the Lab's page writes itself
 ```
 
 and in its `pyproject.toml`, Benchlab pinned at a tag, the two commands, and the entry point that
@@ -45,12 +46,18 @@ lab = "benchlab.lab:main"
 project = "harness"
 
 [tool.uv.sources]
-benchlab = { git = "https://github.com/dim-sous/BenchLab", tag = "v0.3.0" }
+benchlab = { git = "https://github.com/dim-sous/BenchLab", tag = "v0.4.0" }
 ```
 
 then `uv sync`. Benchlab refuses, in words, an environment where no project declares itself, where
 two do, or where the module lacks one of these names. A record's provenance keeps the commit of
 `ROOT`, the versions of `LIBRARIES`, then Benchlab's own version.
+
+The words file fills every slot Benchlab names for its page (`benchlab/lab/words.py`): TOML, one
+table per part of the page, `[strip] cap = "up to {n} side by side"`; a word that counts has a
+`.one` and a `.many`. The Lab will not start on a file that leaves a slot empty, names one
+Benchlab does not have, or writes a field a slot does not offer, and names each. The made-up
+project's, `tests/toy/words.toml`, holds every slot.
 
 While Benchlab and a project are worked on together on one computer, the project points at the
 local copy instead, `benchlab = { path = "../BenchLab", editable = true }`, and that line is never

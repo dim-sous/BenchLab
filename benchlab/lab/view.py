@@ -6,12 +6,13 @@ from __future__ import annotations
 from typing import Any
 
 from .form import as_text, term
+from .words import say, say_n
 
 
 def text(value: Any) -> str:
     """A saved value as words: an em dash for nothing, four significant digits, lists joined."""
     if value is None:
-        return "\u2014"
+        return say("compare.no_value")
     if isinstance(value, bool):
         return as_text(value)
     if isinstance(value, float):
@@ -73,11 +74,11 @@ def chart_rows(runs: list[dict[str, Any]], open_names: list[str]) -> list[dict[s
     for panel in declared + [p for p in open_names if p not in declared]:
         holders = [r for r in runs if panel in r["panels"]]
         if not holders:
-            sub = "No shown run draws it"
+            sub = say("figures.held_by_none")
         elif len(holders) == len(runs):
             sub = ""
         else:
-            sub = f"{len(holders)} of {len(runs)} runs"
+            sub = say("figures.held_by_some", held=len(holders), runs=len(runs))
         # the first group a holder names: a run whose file predates groups names none, and
         # must not blank the chart's group for the runs that do (code review, 2026-10-27)
         group = next((g for r in holders if (g := (r.get("panel_groups") or {}).get(panel, ""))),
@@ -145,7 +146,8 @@ def compare_rows(runs: list[dict[str, Any]], fields: list[dict[str, Any]], *,
             specs.setdefault(spec["name"], spec)
     declared_order = _in_declared_order(held, "number_specs", lambda s: s["name"])
     order = sorted(declared_order, key=lambda n: not specs[n].get("headline"))  # headline first
-    groups = list(dict.fromkeys(specs[n].get("group") or "Numbers" for n in declared_order))
+    groups = list(dict.fromkeys(specs[n].get("group") or say("compare.numbers_group")
+                                for n in declared_order))
 
     rows: list[dict[str, Any]] = []
 
@@ -155,7 +157,8 @@ def compare_rows(runs: list[dict[str, Any]], fields: list[dict[str, Any]], *,
                      "differs": len({as_text(v) for v in held}) > 1})
 
     for group in groups:
-        in_group = [n for n in order if (specs[n].get("group") or "Numbers") == group]
+        in_group = [n for n in order
+                    if (specs[n].get("group") or say("compare.numbers_group")) == group]
         add("head", group, "", group, [])
         for name in in_group:
             spec = specs[name]
@@ -183,9 +186,10 @@ def compare_rows(runs: list[dict[str, Any]], fields: list[dict[str, Any]], *,
         kept = [k for k in keys
                 if settings == "all" or len({as_text(h.get(k)) for h in flat}) > 1]
         if kept:
-            add("head", "Constants", "", "Constants", [])
+            constants = say("compare.constants")
+            add("head", constants, "", constants, [])
             for key in kept:
-                add("constant", "Constants", key, key, [h.get(key) for h in flat])
+                add("constant", constants, key, key, [h.get(key) for h in flat])
     return rows
 
 
@@ -196,10 +200,10 @@ def compare_count(rows: list[dict[str, Any]], runs: list[dict[str, Any]],
     run nothing is being compared, so it does not say that nothing differs."""
     numbers = sum(1 for r in rows if r["kind"] == "number")
     if len(runs) < 2:
-        return f"{numbers} number{'s' if numbers != 1 else ''}; tick another run to compare"
+        return say_n("compare.alone", numbers)
     settings = len(varying(runs, fields))
     moved = sum(1 for r in rows if r["kind"] == "number" and r["differs"])
     if not settings and not moved:
-        return f"{numbers} number{'s' if numbers != 1 else ''}, none of them differs"
-    return (f"{settings} setting{'s' if settings != 1 else ''} · "
-            f"{moved} number{'s' if moved != 1 else ''} differ")
+        return say_n("compare.same", numbers)
+    return (say_n("compare.differ_settings", settings) + " · "
+            + say_n("compare.differ_numbers", moved))

@@ -18,6 +18,8 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
+from .words import say
+
 __all__ = ["Card", "Context", "Shaping", "SHAPINGS", "offered", "draw_keywords"]
 
 
@@ -58,7 +60,7 @@ class Shaping:
     the figure layer; ``unusable`` why the whole control is greyed, ``""`` when it is not;
     ``kinds`` the cards it stands on."""
     field: str
-    words: str
+    slot: str                                     # its words' slot (lab.words)
     kind: str
     group: int
     shown: Callable[[Card, Context], Any]
@@ -76,12 +78,13 @@ def _chart_runs(card: Card, ctx: Context) -> str:
 
 
 def _chart_runs_options(card: Card, ctx: Context) -> list[tuple[str, Any, str]]:
-    return [("Overlay", "one", ""), ("Split", "rows", ""),
-            ("Mean", "mean", ctx.pool.get("mean", "")), ("RMS", "rms", ctx.pool.get("rms", ""))]
+    return [(say("cards.overlay"), "one", ""), (say("cards.split"), "rows", ""),
+            (say("cards.mean"), "mean", ctx.pool.get("mean", "")),
+            (say("cards.rms"), "rms", ctx.pool.get("rms", ""))]
 
 
 def _one_run(card: Card, ctx: Context) -> str:
-    return "One run shown" if ctx.runs < 2 else ""
+    return say("cards.one_run") if ctx.runs < 2 else ""
 
 
 # -- the numbers card's runs: each a point, or a colour's runs at one value pooled
@@ -92,18 +95,19 @@ def _numbers_runs(card: Card, ctx: Context) -> str:
 
 #: Every way of shaping a card, in the order a card shows them.
 SHAPINGS: tuple[Shaping, ...] = (
-    Shaping("x", "X", "list", 1, kinds=("numbers",),
+    Shaping("x", "cards.x", "list", 1, kinds=("numbers",),
             options=lambda card, ctx: [(w, v, "") for w, v in ctx.axes.items()],
-            unusable=lambda card, ctx: "" if ctx.axes else "Nothing differs between the shown runs",
+            unusable=lambda card, ctx: "" if ctx.axes else say("cards.nothing_differs"),
             shown=lambda card, ctx: card.x,
             keywords=lambda card, ctx: {"vs": card.x}),
-    Shaping("runs", "Runs", "one", 2, kinds=("chart",), options=_chart_runs_options,
+    Shaping("runs", "cards.runs", "one", 2, kinds=("chart",), options=_chart_runs_options,
             unusable=_one_run, shown=_chart_runs,
             keywords=lambda card, ctx: {"runs": _chart_runs(card, ctx)}),
-    Shaping("runs", "Runs", "one", 2, kinds=("numbers",),
-            options=lambda card, ctx: [("All", "each", ""), ("Mean", "mean", ""),
-                                       ("RMS", "rms", "")],
-            unusable=lambda card, ctx: "" if ctx.pools else "No colour holds two runs at one value",
+    Shaping("runs", "cards.runs", "one", 2, kinds=("numbers",),
+            options=lambda card, ctx: [(say("cards.each"), "each", ""),
+                                       (say("cards.mean"), "mean", ""),
+                                       (say("cards.rms"), "rms", "")],
+            unusable=lambda card, ctx: "" if ctx.pools else say("cards.no_colour"),
             shown=_numbers_runs,
             keywords=lambda card, ctx: {"runs": _numbers_runs(card, ctx)}),
 )

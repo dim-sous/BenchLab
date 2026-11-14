@@ -6,8 +6,9 @@
 That module holds the project's registry -- ``NAMES``, its pieces in the order every surface shows
 them, and ``get_component(name)``, a piece's module -- and its declaration: ``COMMAND``, the
 command its ``pyproject.toml`` installs (the side door; the Lab prints its line beside each run),
-``TITLE``, the Lab's title, ``ROOT``, the repository whose commit stamps a record, and
-``LIBRARIES``, the libraries whose versions a record keeps.
+``TITLE``, the Lab's title, ``ROOT``, the repository whose commit stamps a record,
+``LIBRARIES``, the libraries whose versions a record keeps, and ``WORDS``, the path of its words
+file, which fills every slot the Lab's page names (:mod:`benchlab.lab.words`).
 
 Nothing is looked up when Benchlab is imported: the project is found on first use and kept. Every
 other module of Benchlab reaches the project through this one (``tests/test_layers.py``).
@@ -20,12 +21,13 @@ from importlib.metadata import EntryPoint, entry_points
 from pathlib import Path
 from types import ModuleType
 
-__all__ = ["GROUP", "DECLARED", "declared", "piece_names", "get_component", "command", "title"]
+__all__ = ["GROUP", "DECLARED", "declared", "piece_names", "get_component", "command", "title",
+           "words_path"]
 
 #: The entry-point group a project declares itself in.
 GROUP = "benchlab"
 #: The names the declared module must hold (the module docstring says what each is).
-DECLARED = ("NAMES", "get_component", "COMMAND", "TITLE", "ROOT", "LIBRARIES")
+DECLARED = ("NAMES", "get_component", "COMMAND", "TITLE", "ROOT", "LIBRARIES", "WORDS")
 
 
 @functools.cache
@@ -77,3 +79,8 @@ def command() -> str:
 def title() -> str:
     """The Lab's title, the declared project's."""
     return declared().TITLE
+
+
+def words_path() -> Path:
+    """The declared project's words file: every word the Lab's page writes itself."""
+    return Path(declared().WORDS)

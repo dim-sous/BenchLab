@@ -1,7 +1,7 @@
 # Benchlab: where the work stands
 
-Start here in a new session. Updated 2026-11-14, with branch 2a merged (`v0.2.0`) and 2b's PRs
-open (VS Code on the developer's computer, WSL2, 12 CPUs).
+Start here in a new session. Updated 2026-11-14, with branch 2b merged (`v0.3.0`) and 2c to 2e
+being built straight through (VS Code on the developer's computer, WSL2, 12 CPUs).
 
 ## Where it stands
 
@@ -53,23 +53,25 @@ open (VS Code on the developer's computer, WSL2, 12 CPUs).
 
 ## Next
 
-1. **2b no hovers** (`docs/plan-branch-2b.md`, approved 2026-11-14): hovers off settings, compare rows, card titles and feet, the list's and index's
-   buttons, a card's ✕ and the panes' divider (the browser test found that one); a greyed
-   setting's reason under it; a value outside its range, or unreadable, refused at Run under its
-   setting (`jobs.refusals`, held to param's verdict by a test); the toy's `duty` (a gate and an
-   open interval); version 0.3.0; six deliberate breaks of the new code each caught. In DeePC:
-   System's and Open loop's help lines deleted, `x0` now `x_0` (the developer:
-   "standard math stuff ... symbols and acronyms", every other label kept), its tests and
-   `lab-words.md` without hovers. A bug from before Benchlab, found driving the hand-off and
-   fixed on the developer's word: another piece left the old form's name and sweep in their
-   boxes. Checked: Benchlab 182 passed, ruff clean; DeePC 244 passed; its side door as before
-   but System's and Open loop's notes and number docs, now empty. Driven by the developer in
-   DeePC's Lab (2026-11-14), on a walkthrough Claude drove first. On their word, steps 1 and 2:
-   this branch, `no-hovers`, pushed with its PR; then DeePC's branch of the same name, pinned
-   to it, its whole suite and side door rerun, with its PR. Then, on their standing word
-   (below), parallel review and step 3: merge, tag `v0.3.0`, DeePC re-pinned to the tag, its
-   checks again, merge, branches deleted.
-2. 2c words as slots, 2d the tree, 2e the cards' full controls, built straight through (below).
+1. **2b no hovers merged** (2026-11-14, `docs/plan-branch-2b.md` with its "As built"):
+   BenchLab #3 (merge `b629c25`, tagged `v0.3.0`) and DeePC-Sandbox #19 (merge `eafdf77`),
+   pinned at `v0.3.0`. No hover on a setting, a chart, a number or a plain button; a greyed
+   setting's reason under it; a value outside its range, or unreadable, refused at Run under
+   its setting (`jobs.refusals`, held to param's verdict); DeePC's System and Open loop
+   without help lines, `x0` now `x_0`. Driven by the developer; reviewed by four parallel
+   reviewers (34 findings, 31 confirmed, all fixed or written in "As built"). Checked:
+   Benchlab 185 passed; DeePC 244 on the tag, its side door as before but those pieces'
+   descriptions. A slip closing it, recovered: `docs/project/failures.md` [L1].
+2. **2c words as slots, built** (`docs/plan-branch-2c.md` with its "As built"; branch
+   `words-as-slots` here and in DeePC, not yet committed): 136 slots (`benchlab/lab/words.py`),
+   `WORDS` declared, the toy's and DeePC's `words.toml` holding today's words; both pages'
+   words identical to v0.3.0's in every toured state; Benchlab 198 passed. Then its review and
+   git steps, then 2d the tree, 2e the cards' full controls, built straight through (below).
+   2c's proof that no word moves: a tour of the page's states collecting every word it shows
+   (scratchpad `words2c/`: `tour.py`, the toy's `test_toy_tour.py` run with `-p tests.conftest`,
+   DeePC's `deepc_tour.sh`); taken on v0.3.0 before any 2c code: `toy-before-a.json` and
+   `deepc-before-a.json` (two tours of each matched). A tour that raises plotly's `_guiEditing`
+   error is run again (`docs/for-review.md`, found on the way).
    Then Hydrofoil moves (with its naming pass), the shared calculations, BESS, old runs and Re-fly
    (`docs/design.md` §8). Waiting for a later branch: progress percentages, when a piece reports
    one; DeePC still pins panel itself and lists matplotlib, which only Benchlab uses now.
@@ -97,6 +99,9 @@ open (VS Code on the developer's computer, WSL2, 12 CPUs).
   and written with its reason in `docs/for-review.md`. Stop only for a change to the run file,
   anything outside these two repositories, or a failure not fixable inside the branch. At the
   end: one walkthrough of everything, and that list.
+  From 2c on, no parallel reviewers (the developer, 2026-11-14, at 93% of their weekly
+  usage: "skip the reviwers ... Mistakes and bugs are fine for now. We will fix everything
+  at the delivery"): tests, Claude's own drive, then the git steps; lean on tokens.
 - **A hand-off is a walkthrough**: what to click, what to type, what the page should then show,
   each step driven by Claude first, never squeezed into a question's dialog (2026-11-14: a list
   of steps without them was "not clear as to what to run/drive and what to observe").

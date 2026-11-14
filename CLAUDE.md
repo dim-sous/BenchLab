@@ -39,8 +39,8 @@ new session starts from `.claude/memory/MEMORY.md`: keep it current and commit i
 - **Benchlab names no project.** Its code and the words its page shows reach a project only
   through the project's declaration (`benchlab/project.py`); what a test can hold of this,
   `tests/test_layers.py` holds. A word only one project needs belongs to that project, as a cell
-  Benchlab names (`docs/design.md` decision 4). Until that branch, DeePC's page words stay
-  written in `benchlab/lab/`.
+  Benchlab names (`docs/design.md` decision 4): the page's own words are slots
+  (`benchlab/lab/words.py`), filled by each project's words file.
 - **The run file is a contract with every project.** A change to what a record saves, or how it
   loads, is a new Benchlab version, and every project takes it by raising its pin and running
   its own suite. A run saved before the change is still listed and drawn (`docs/design.md` §4).

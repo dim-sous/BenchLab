@@ -44,7 +44,7 @@ lab = "benchlab.lab:main"
 project = "harness"
 
 [tool.uv.sources]
-benchlab = { git = "https://github.com/dim-sous/BenchLab", tag = "v0.1.0" }
+benchlab = { git = "https://github.com/dim-sous/BenchLab", tag = "v0.2.0" }
 ```
 
 then `uv sync`. Benchlab refuses, in words, an environment where no project declares itself, where

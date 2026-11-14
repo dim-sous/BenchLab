@@ -1,9 +1,13 @@
 """The made-up project's one piece: a wave u of amplitude A and frequency f over N samples, and
-y = u plus Gaussian noise of standard deviation σ, drawn from a seed; the RMS of each."""
+y = u plus Gaussian noise of standard deviation σ, drawn from a seed; the RMS of each. Its Run
+group is test machinery for the runs in progress: a wait before it computes; a print to stdout,
+left in Python's buffer and holding a byte that is not UTF-8; a crash, or a refusal written over
+several lines as Benchlab's own ``Record.load`` writes one."""
 
 from __future__ import annotations
 
 import dataclasses
+import sys
 import time
 
 import numpy as np
@@ -29,6 +33,13 @@ class Config(Settings):
                          doc="The noise's standard deviation.", metadata={"group": "Noise"})
     seed = param.Integer(0, label="Seed", doc="The noise's draw.",
                          metadata={"group": "Noise", "replicate": True})
+    delay = param.Number(0.0, bounds=(0.0, None), label="Delay",
+                         doc="Seconds the run waits before it computes.", metadata={"group": "Run"})
+    noisy = param.Boolean(False, label="Noisy", doc="The run prints to stdout first.",
+                          metadata={"group": "Run"})
+    fail = param.Selector(default="no", objects=["no", "crash", "refuse"], label="Fail",
+                          doc="The run crashes, or refuses, instead of computing.",
+                          metadata={"group": "Run"})
 
 
 @dataclasses.dataclass(frozen=True)
@@ -58,6 +69,16 @@ class Record(_Record):
 
 def run(cfg: Config) -> Record:
     started = time.perf_counter()
+    if cfg.noisy:
+        print("the wave says hello on stdout")
+        sys.stdout.buffer.write(b"and a byte UTF-8 has no word for: \xff\n")
+        sys.stdout.buffer.flush()                  # below the print, which is left buffered
+    time.sleep(cfg.delay)
+    if cfg.fail == "crash":
+        raise RuntimeError("the wave was told to fail")
+    if cfg.fail == "refuse":
+        raise FileNotFoundError("no Record record at results/wave/gone.json. Run it first:\n"
+                                "    uv run toy run wave\nwhich writes that file.")
     t = np.linspace(0.0, 1.0, cfg.samples)
     wave = np.sin(2 * np.pi * cfg.frequency * t)
     u = cfg.amplitude * (wave if cfg.shape == "sine" else np.sign(wave))

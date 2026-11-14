@@ -1,75 +1,50 @@
-"""Launching the terminal's commands -- the same line a person would type, in a subprocess.
+"""Runs in progress: each run its own process, queued and started by the Lab, never more at once
+than the machine has cores (``docs/design.md`` decision 3 and §4).
 
-Three consequences. The command is the typeable line and is printed as ``lab: <line>``; it is an
-argv list, never a shell string, and every word in it is checked against a declaration this
-module read (the registry, :func:`record.config.fields_of`); its output is the terminal's own,
-refusals included -- the Lab restates no rule.
+A run is the program ``python -m benchlab.runner`` (:mod:`benchlab.runner`) under the Lab's own
+interpreter, in the project root: the Lab never goes through the command line. A run moves
+``queued`` -> ``running`` -> ``done`` | ``failed`` | ``stopped``; ``queued`` -> ``stopped`` (never
+started) or ``failed`` (could not start); and ``stopped`` -> ``done`` when its process had saved
+its record before the Stop reached it. A run reads Stopped as soon as Stop is pressed, before its
+process has ended. Two runs of one record never go at once: a name already queued or running is
+refused. The queue is the Lab's, one per process: every browser tab shows the same runs, and
+when the Lab stops, whatever still runs is stopped with it.
+
+Every word that becomes a run is checked against a declaration this module read (the registry,
+:func:`benchlab.record.config.fields_of`); what the run makes of it is the runner's, refusals
+included, and a failed run says so in the last line it wrote -- the Lab restates no rule.
 """
 
 from __future__ import annotations
 
+import atexit
+import itertools
+import json
 import os
 import re
 import shlex
+import signal
 import subprocess
+import sys
 import threading
+import time
 from dataclasses import dataclass, field
-from typing import Optional, Sequence
+from typing import Callable, Optional, Sequence
 
+from benchlab.cli import DEFAULT_OUT_DIR
 from benchlab.project import command, get_component, piece_names
 from benchlab.record.config import fields_of
-from benchlab.cli import DEFAULT_OUT_DIR
+
+QUEUED, RUNNING, DONE, FAILED, STOPPED = "queued", "running", "done", "failed", "stopped"
 
 #: A record's name: letters, digits, '.', '_' or '-', starting with a letter or digit, so it
 #: can never read as a flag, a path or a second word.
 _NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*\Z")
 
-#: One command per process. Each browser session builds its own
-#: page, so two tabs of one server would otherwise run two `uv run` at once -- which race the
-#: venv and, under the same record name, interleave two JSON streams into one file.
-_LAUNCHED: "Optional[Job]" = None
-_LAUNCHING = threading.Lock()
-
-
-def _in_flight() -> Optional[str]:
-    """The command this process is already running, as its line; ``None`` when it is free.
-    Read under :data:`_LAUNCHING`."""
-    if _LAUNCHED is not None and _LAUNCHED.running:
-        return _LAUNCHED.line
-    return None
-
 
 def line_of(argv: Sequence[str]) -> str:
     """The argv as one typeable line; ``shlex.split`` of it gives the argv back."""
     return shlex.join(argv)
-
-
-@dataclass
-class Job:
-    """One launched command: its argv, the lines it printed so far, and how it ended."""
-
-    argv: list[str]
-    output: list[str] = field(default_factory=list)
-    returncode: Optional[int] = None
-    process: Optional[subprocess.Popen] = None
-    #: True once :meth:`stop` terminated it, so its exit code is not read as a refusal.
-    stopped: bool = False
-
-    @property
-    def line(self) -> str:
-        return line_of(self.argv)
-
-    @property
-    def running(self) -> bool:
-        return self.process is not None and self.returncode is None
-
-    def stop(self) -> bool:
-        """Terminate a running job; False when it never started or already ended."""
-        if not self.running:
-            return False
-        self.stopped = True
-        self.process.terminate()
-        return True
 
 
 def _piece(piece: str) -> str:
@@ -94,17 +69,30 @@ def _name(name: str) -> str:
     return name
 
 
+def checked(piece: str, planned: Sequence[tuple[str, Sequence[tuple[str, str]]]]
+            ) -> list[tuple[str, list[tuple[str, str]]]]:
+    """``planned`` -- ``(record name, setting pairs)`` per run, as :func:`benchlab.runner.planned`
+    makes them -- with every word checked against what ``piece`` declares; refused in words."""
+    piece = _piece(piece)
+    names = {f["name"] for f in fields_of(get_component(piece).Config)}
+    out = []
+    for name, pairs in planned:
+        for key, value in pairs:
+            _setting(f"{key}={value}", piece, names)
+        out.append((_name(name), [(key, value) for key, value in pairs]))
+    return out
+
+
 def run_argv(piece: str, overrides: Sequence[str] = (), name: str = "",
-             out_dir: str = DEFAULT_OUT_DIR, sweeps: Sequence[str] = ()) -> list[str]:
-    """``uv run <command> run <piece> [--set K=V]* [--sweep K=V1,V2]* --name <name> [--out-dir D]``,
-    ``--out-dir`` only when it is not the terminal's default. Every word checked."""
+             out_dir: str = DEFAULT_OUT_DIR) -> list[str]:
+    """``uv run <command> run <piece> [--set K=V]* --name <name> [--out-dir D]``, ``--out-dir``
+    only when it is not the command line's default: the side-door command that makes the same
+    record as one run. Every word checked."""
     piece = _piece(piece)
     names = {f["name"] for f in fields_of(get_component(piece).Config)}
     argv = ["uv", "run", command(), "run", piece]
     for item in overrides:
         argv += ["--set", _setting(item, piece, names)]
-    for item in sweeps:
-        argv += ["--sweep", _setting(item, piece, names)]
     argv += ["--name", _name(name)]
     if out_dir != DEFAULT_OUT_DIR:
         argv += ["--out-dir", out_dir]
@@ -131,36 +119,209 @@ def delete(piece: str, records: Sequence[str] = (), *,
     return [os.path.relpath(path, root) for path in targets]
 
 
-def launch(argv: Sequence[str], cwd: Optional[str] = None) -> Job:
-    """Start the command; a daemon thread pumps its lines into ``job.output`` as they come.
+@dataclass
+class Run:
+    """One run: the piece, the record name and the setting pairs it was given, where it writes,
+    and how far it got. ``saved`` is the record's path once done, ``error`` the last line it
+    wrote once failed. ``started`` and ``ended`` are read off a clock that never steps back
+    (``time.monotonic``): only the time between them is shown."""
 
-    One command per process (:func:`_in_flight`): a second one is refused in words rather than
-    run beside the first. ``errors="replace"`` and the ``finally`` are what keep a job from
-    latching ``running`` forever -- whatever the child prints, the exit code is recorded.
-    """
-    global _LAUNCHED
-    with _LAUNCHING:
-        busy = _in_flight()
-        if busy is not None:
-            raise ValueError(f"a command is already in progress: {busy}")
-        env = {**os.environ, "PYTHONUNBUFFERED": "1"}
-        process = subprocess.Popen(list(argv), cwd=cwd, env=env, stdout=subprocess.PIPE,
-                                   stderr=subprocess.STDOUT, text=True, errors="replace",
-                                   bufsize=1)
-        job = Job(list(argv), process=process)
-        _LAUNCHED = job
+    id: int
+    piece: str
+    name: str
+    pairs: list[tuple[str, str]]
+    root: str
+    out_dir: str
+    state: str = QUEUED
+    started: Optional[float] = None
+    ended: Optional[float] = None
+    saved: str = ""
+    error: str = ""
+    process: Optional[subprocess.Popen] = field(default=None, repr=False)
 
-    def pump() -> None:
+    @property
+    def finished(self) -> bool:
+        return self.state in (DONE, FAILED, STOPPED)
+
+    def elapsed(self, now: float) -> float:
+        """Seconds it has run, up to ``now`` or to its end; 0 before it starts."""
+        if self.started is None:
+            return 0.0
+        return (self.ended if self.ended is not None else now) - self.started
+
+    @property
+    def line(self) -> str:
+        """The side-door command that makes the same record."""
+        return line_of(run_argv(self.piece, [f"{k}={v}" for k, v in self.pairs], self.name,
+                                self.out_dir))
+
+
+def start_process(run: Run) -> subprocess.Popen:
+    """``run`` as its own program: the runner, under this interpreter, in the project root."""
+    argv = [sys.executable, "-m", "benchlab.runner", run.piece, run.name, run.out_dir,
+            json.dumps(run.pairs)]
+    return subprocess.Popen(argv, cwd=run.root, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                            text=True, errors="replace")
+
+
+def _last_line(text: str) -> str:
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
+    return lines[-1] if lines else ""
+
+
+def _ended_by(code: int) -> str:
+    """How a process that wrote nothing telling ended: its exit code, or the signal that ended it."""
+    if code < 0:
         try:
-            assert process.stdout is not None
-            for line in process.stdout:
-                job.output.append(line)
-        except Exception as exc:  # noqa: BLE001      # the page must still learn it ended
-            job.output.append(f"lab: reading the output failed: {exc!r}\n")
-        finally:
-            if process.stdout is not None:
-                process.stdout.close()
-            job.returncode = process.wait()
+            return f"ended by signal {signal.Signals(-code).name}"
+        except ValueError:
+            return f"ended by signal {-code}"
+    return f"ended with exit {code}"
 
-    threading.Thread(target=pump, daemon=True).start()
-    return job
+
+class Queue:
+    """The Lab's runs, in the order given. At most ``at_once`` run (the machine's cores unless
+    said); the rest wait, and each one that ends starts the next. ``version`` grows with every
+    change, so a page redraws only when something moved."""
+
+    def __init__(self, at_once: Optional[int] = None,
+                 start: Callable[[Run], subprocess.Popen] = start_process) -> None:
+        self.at_once = at_once or os.cpu_count() or 1
+        self._start = start
+        self._lock = threading.Lock()
+        self._runs: list[Run] = []
+        self._ids = itertools.count(1)
+        self.version = 0
+
+    def runs(self) -> list[Run]:
+        with self._lock:
+            return list(self._runs)
+
+    def in_progress(self, piece: str, root: str, out_dir: str) -> set[str]:
+        """The record names runs of ``piece`` queued or running now write, under that out-dir."""
+        with self._lock:
+            return self._busy(piece, root, out_dir)
+
+    def check_free(self, piece: str, names: Sequence[str], *, root: str, out_dir: str) -> None:
+        """Refuse, in words, a record name a queued or running run of ``piece`` already writes:
+        two runs saving one record at once lose one, or leave it unreadable."""
+        with self._lock:
+            self._refuse_busy(piece, names, root, out_dir)
+
+    def _busy(self, piece: str, root: str, out_dir: str) -> set[str]:
+        return {r.name for r in self._runs if not r.finished and
+                (r.piece, r.root, r.out_dir) == (piece, root, out_dir)}
+
+    def _refuse_busy(self, piece: str, names: Sequence[str], root: str, out_dir: str) -> None:
+        busy = sorted(set(names) & self._busy(piece, root, out_dir))
+        if busy:
+            raise ValueError(f"{', '.join(busy)} {'is' if len(busy) == 1 else 'are'} queued or "
+                             f"running already; give this run another name")
+
+    def submit(self, piece: str, planned: Sequence[tuple[str, Sequence[tuple[str, str]]]], *,
+               root: str, out_dir: str = DEFAULT_OUT_DIR) -> list[Run]:
+        """Queue one run per ``(record name, setting pairs)`` -- every word checked before any is
+        queued -- and start what may start. A name a queued or running run of the piece already
+        writes is refused (:meth:`check_free`)."""
+        words = checked(piece, planned)
+        with self._lock:
+            self._refuse_busy(piece, [name for name, _ in words], root, out_dir)
+            runs = [Run(next(self._ids), piece, name, pairs, root, out_dir)
+                    for name, pairs in words]
+            self._runs += runs
+            self._fill()
+            self.version += 1
+        return runs
+
+    def stop(self, run_id: int) -> bool:
+        """Stop one run: a queued one never starts, a running one's process is terminated, and a
+        record it had not saved whole is never written (it is written to ``.partial`` and renamed
+        only when whole). False when it already ended or is not known."""
+        with self._lock:
+            run = next((r for r in self._runs if r.id == run_id), None)
+            if run is None or run.finished:
+                return False
+            was = run.state
+            run.state = STOPPED
+            if was == QUEUED:
+                run.ended = time.monotonic()
+            else:
+                run.process.terminate()
+            self.version += 1
+            return True
+
+    def dismiss(self, run_id: int) -> bool:
+        """Take a finished run off the list; False for one still queued or running."""
+        with self._lock:
+            run = next((r for r in self._runs if r.id == run_id), None)
+            if run is None or not run.finished:
+                return False
+            self._runs.remove(run)
+            self.version += 1
+            return True
+
+    def stop_all(self) -> None:
+        for run in self.runs():
+            self.stop(run.id)
+
+    def _fill(self) -> None:
+        """Start queued runs, oldest first, while fewer than ``at_once`` run. Under the lock."""
+        running = sum(r.state == RUNNING for r in self._runs)
+        for run in self._runs:
+            if running >= self.at_once:
+                break
+            if run.state != QUEUED:
+                continue
+            run.started = time.monotonic()
+            try:
+                run.process = self._start(run)
+            except OSError as exc:                 # said on the run, which ends there
+                run.state, run.ended = FAILED, time.monotonic()
+                run.error = f"could not start: {exc}"
+                continue
+            run.state = RUNNING
+            running += 1
+            threading.Thread(target=self._watch, args=(run,), daemon=True).start()
+
+    def _watch(self, run: Run) -> None:
+        """Wait for one run to end, then record how and start the next. The end is recorded
+        whatever happens while reading, or the run would read as running for ever. If its end
+        cannot be read, the run fails saying so, its process is ended rather than left running
+        unseen, and the reason is raised on."""
+        out = err = ""
+        try:
+            out, err = run.process.communicate()
+        except BaseException as exc:
+            err = f"its end could not be read: {exc!r}"
+            raise
+        finally:
+            with self._lock:
+                self._end(run, out, err)
+                if run.process.returncode is None:
+                    run.process.terminate()
+                self._fill()
+                self.version += 1
+
+    @staticmethod
+    def _end(run: Run, out: str, err: str) -> None:
+        """Done when it answered with the record it saved -- it answers only once the record is
+        whole on disk, so a run stopped too late to stop it reads Done, whatever its exit, and the
+        strip never says Stopped beside a record on disk; else stopped, or failed: by a signal
+        said as such, else with the last line it wrote."""
+        run.ended = time.monotonic()
+        code = run.process.returncode
+        try:
+            answer = json.loads(out) if out.strip() else {}
+        except json.JSONDecodeError as exc:
+            answer, err = {}, f"{err}\nits answer could not be read: {exc}"
+        if answer.get("saved"):
+            run.state, run.saved = DONE, answer["saved"]
+        elif run.state != STOPPED:
+            run.state = FAILED
+            run.error = (_ended_by(code) if code is not None and code < 0
+                         else _last_line(err) or _ended_by(code))
+
+
+#: The Lab's queue: one per process, shared by every browser tab.
+QUEUE = Queue()
+atexit.register(QUEUE.stop_all)

@@ -3,8 +3,8 @@ reads them, moved here with the Lab), and its page built over the made-up projec
 browser.
 
 The Lab holds no logic of its own: it imports only what lets it read declarations and files and
-launch the project's command, reaches no third-party package but Panel, and never calls anything
-that could compute on what it reads.
+queue runs, reaches no third-party package but Panel, and never calls anything that could compute
+on what it reads.
 """
 
 from __future__ import annotations
@@ -13,6 +13,7 @@ import ast
 import dataclasses
 import os
 import re
+import shlex
 import sys
 import types
 from pathlib import Path
@@ -22,6 +23,8 @@ import pytest
 from benchlab import cli, project, record
 from benchlab.lab import jobs, state
 from benchlab.lab.app import Lab
+from benchlab.runner import planned
+from tests.stand_ins import Process, settled
 
 ROOT = Path(__file__).resolve().parent.parent
 LAB = ROOT / "benchlab" / "lab"
@@ -37,6 +40,8 @@ _ALLOWED = {# the declared project: its pieces, and its command and title -- wor
             "benchlab.record.config": {"fields_of"},
             # the one constant saying where records live
             "benchlab.cli": {"DEFAULT_OUT_DIR"},
+            # how a record name and the form's words become runs, the command line's own rule
+            "benchlab.runner": {"planned"},
             # what a card draws is the figure layer's own: the panel built from what the records
             # declare and the card's controls hold, the refusal a control is greyed with, and the
             # twin of it the page shows; the colour a run wears is the figure layer's slot, so
@@ -145,18 +150,15 @@ def _tripwire(real: types.ModuleType) -> types.SimpleNamespace:
 
 def test_driving_the_lab_never_runs_the_piece_nor_builds_its_config(monkeypatch, two_runs) -> None:
     """The page is driven through every handler a person reaches, against a piece that raises if
-    it is run: the Lab may read a piece's declarations and must never exercise it."""
+    it is run: the Lab may read a piece's declarations and must never exercise it. Its runs are
+    queued, never started here: their processes are stand-ins."""
     stand_in = _tripwire(project.get_component("wave"))
     for module in (state, jobs):
         monkeypatch.setattr(module, "get_component", lambda _n, s=stand_in: s)
     root, out_dir = two_runs
-    launched: list[list[str]] = []
-
-    def launch(argv, cwd=None):
-        launched.append(list(argv))
-        return jobs.Job(list(argv))
-
-    lab = Lab(root, out_dir, launch=launch, every=lambda cb, ms: None, toast=lambda _w: None)
+    started: list[jobs.Run] = []
+    queue = jobs.Queue(at_once=1, start=lambda run: started.append(run) or Process())
+    lab = Lab(root, out_dir, queue=queue, every=lambda cb, ms: None, toast=lambda _w: None)
     lab.page()
     lab._on_type("amplitude", "3")
     lab._on_pick("shape", "square")
@@ -173,8 +175,13 @@ def test_driving_the_lab_never_runs_the_piece_nor_builds_its_config(monkeypatch,
         card.runs = "mean" if card.kind == "chart" else "each"
     lab._draw_cards()
     lab._on_settings("all")
-    assert launched and launched[0][:5] == ["uv", "run", "toy", "run", "wave"]
+    # Use loaded the second run's settings, and with them took back the name and sweep typed
+    assert [(r.piece, r.name, r.pairs) for r in queue.runs()] == [
+        ("wave", "wave-1", [("amplitude", "2")])]
+    assert [r.name for r in started] == ["wave-1"]
     assert not lab.banner.visible, lab.banner.object
+    for run in queue.runs():
+        queue.stop(run.id)
     assert dataclasses.fields(stand_in.Record)      # the declarations WERE readable
 
 
@@ -223,16 +230,190 @@ def test_the_page_wears_the_projects_title_and_lists_its_pieces(two_runs) -> Non
     assert [r["name"] for r in state.records(root, out_dir)] == ["second", "first"]
 
 
-def test_the_labs_own_command_line_names_the_projects_command() -> None:
+def test_the_labs_own_command_line_says_what_the_lab_does() -> None:
     from benchlab.lab import cli as lab_cli
     parser = lab_cli.build_parser()
-    assert parser.prog == "lab" and "It launches `toy run` for you" in parser.description
+    assert parser.prog == "lab" and "the runs in progress along the bottom" in parser.description
     [out_dir] = [a for a in parser._actions if a.dest == "out_dir"]
-    assert out_dir.help.startswith("where `toy run` writes records")
+    assert out_dir.help.startswith("where runs write records")
 
 
-def test_the_lab_launches_the_projects_command() -> None:
-    assert jobs.run_argv("wave", ["amplitude=2"], "probe") == [
-        "uv", "run", "toy", "run", "wave", "--set", "amplitude=2", "--name", "probe"]
+def test_the_line_the_lab_prints_is_the_side_door_command() -> None:
+    """Moved from DeePC's ``tests/test_lab.py`` with the Lab (its argv tests), on the toy."""
+    argv = jobs.run_argv("wave", ["amplitude=2"], "probe")
+    assert argv == ["uv", "run", "toy", "run", "wave", "--set", "amplitude=2", "--name", "probe"]
+    assert jobs.run_argv("wave", [], "p", "elsewhere")[-2:] == ["--out-dir", "elsewhere"]
+    line = jobs.line_of(jobs.run_argv("wave", ["amplitude=2"], "a.b-c_1"))
+    assert shlex.split(line) == jobs.run_argv("wave", ["amplitude=2"], "a.b-c_1"), "it reads back"
     with pytest.raises(ValueError, match=r"unknown piece 'bogus'; registered: \['wave'\]"):
         jobs.run_argv("bogus", [], "probe")
+
+
+# --- runs in progress, on the page -------------------------------------------------------------
+
+def _lab(root: str, out_dir: str, queue: jobs.Queue, toasts: list[str] | None = None) -> Lab:
+    lab = Lab(root, out_dir, queue=queue, every=lambda cb, ms: None,
+              toast=(toasts if toasts is not None else []).append)
+    lab.page()
+    return lab
+
+
+def _strip(lab: Lab) -> list[str]:
+    """Each row of the strip as its words, newest first: name · piece, state, clock, error."""
+    return [" ".join(w for w in (r["name"], "·", r["piece"], r["words"], r["clock"], r["error"]) if w)
+            for r in lab.strip_rows.rows]
+
+
+def test_run_queues_the_form_and_the_list_shows_what_the_runs_wrote(two_runs, toy_installed) -> None:
+    """End to end on the page: a sweep's runs, each its own process, side by side; when they end
+    their records are listed and shown, and the strip says what each did."""
+    root, out_dir = two_runs
+    queue = jobs.Queue(at_once=2)
+    lab = _lab(root, out_dir, queue)
+    assert not lab.strip_list.visible and "Nothing running" in lab.strip_summary.object
+    lab.open_drawer()
+    lab._on_sweep(field="frequency", values="1,3")
+    lab._on_name("sw")
+    lab._run()
+    assert not lab.drawer.visible and lab.strip_list.visible, "Run shuts the form, opens the strip"
+    assert [r.state for r in queue.runs()] == ["running", "running"]
+    assert _strip(lab)[0].startswith("sw-frequency-3 · Wave Running")
+    settled(lambda: all(r.finished for r in queue.runs()),
+            lambda: [(r.name, r.state, r.error) for r in queue.runs()], timeout=60)
+    lab._poll()
+    assert {"sw-frequency-1", "sw-frequency-3"} <= {r["name"] for r in lab.runs()}
+    assert lab.shown[-2:] == ["sw-frequency-1", "sw-frequency-3"], "listed and shown"
+    assert "2 done" in lab.strip_summary.object
+    assert all(" Done " in row for row in _strip(lab)), _strip(lab)
+
+
+def test_a_refused_name_is_said_before_run_and_nothing_is_queued(two_runs) -> None:
+    root, out_dir = two_runs
+    queue = jobs.Queue(at_once=1, start=lambda run: Process())
+    lab = _lab(root, out_dir, queue)
+    lab._on_name("a b")
+    assert lab.banner.visible and "cannot name a record" in lab.banner.object, "said before Run"
+    lab._run()
+    assert queue.runs() == [] and "cannot name a record" in lab.banner.object
+    lab._on_name("ok")
+    assert not lab.banner.visible
+
+
+def test_run_never_waits_for_the_last_run_it_queues_beside_it(two_runs) -> None:
+    root, out_dir = two_runs
+    started: list[Process] = []
+    queue = jobs.Queue(at_once=1, start=lambda run: started.append(Process()) or started[-1])
+    lab = _lab(root, out_dir, queue)
+    for name in ("one", "two"):
+        lab._on_name(name)
+        lab._run()
+    assert [(r.name, r.state) for r in queue.runs()] == [("one", "running"), ("two", "queued")]
+    assert _strip(lab)[0].startswith("two · Wave Queued") and "1 queued" in lab.strip_summary.object
+    queue.stop_all()
+
+
+def test_the_strip_says_each_state_and_stops_or_clears_a_run(two_runs) -> None:
+    root, out_dir = two_runs
+    started: list[Process] = []
+    toasts: list[str] = []
+    queue = jobs.Queue(at_once=1, start=lambda run: started.append(Process()) or started[-1])
+    lab = _lab(root, out_dir, queue, toasts)
+    for name in ("one", "two", "three"):
+        lab._on_name(name)
+        lab._run()
+    one, two, three = queue.runs()
+    lab.strip_rows._handle_msg({"stop": two.id})      # its Stop: a queued run never starts
+    assert toasts[-1] == "Stopping…" and two.state == "stopped"
+    started[0].end(1, "", "Traceback (most recent call last):\nValueError: no good\n")
+    settled(lambda: one.finished and three.state == "running", lambda: _strip(lab))
+    lab._poll()
+    rows = _strip(lab)
+    assert rows[0].startswith("three · Wave Running") and rows[1].startswith("two · Wave Stopped")
+    assert rows[2].startswith("one · Wave Failed") and rows[2].endswith("ValueError: no good")
+    assert [r["finished"] for r in lab.strip_rows.rows] == [False, True, True], "Stop, ✕, ✕"
+    lab.strip_rows._handle_msg({"dismiss": one.id})  # its ✕
+    assert [r.name for r in queue.runs()] == ["two", "three"] and len(_strip(lab)) == 2
+    queue.stop_all()
+
+
+def test_a_run_that_ended_before_the_page_opened_is_listed_but_not_ticked(two_runs) -> None:
+    root, out_dir = two_runs
+    started: list[Process] = []
+    queue = jobs.Queue(at_once=1, start=lambda run: started.append(Process()) or started[-1])
+    [run] = queue.submit("wave", planned("first"), root=root, out_dir=out_dir)
+    started[0].end(0, '{"saved": "x"}')
+    settled(lambda: run.finished, lambda: run.state)
+    lab = _lab(root, out_dir, queue)
+    assert "first" in {r["name"] for r in lab.runs()} and "first" not in lab.shown
+    lab._poll()
+    assert "first" not in lab.shown and _strip(lab)[0].startswith("first · Wave Done")
+
+
+def test_reading_the_runs_failing_says_so_on_the_page(two_runs, monkeypatch) -> None:
+    """Panel's periodic callback has no exception hook: a poll that raises is shown, not lost."""
+    root, out_dir = two_runs
+    started: list[Process] = []
+    queue = jobs.Queue(at_once=1, start=lambda run: started.append(Process()) or started[-1])
+    lab = _lab(root, out_dir, queue)
+    lab._on_name("x")
+    lab._run()
+
+    def raises() -> None:
+        raise OSError("the folder went away")
+
+    monkeypatch.setattr(lab, "reload", raises)
+    started[0].end(0, '{"saved": "x"}')
+    settled(lambda: queue.runs()[0].finished, lambda: queue.runs()[0].state)
+    lab._poll()                                       # does not propagate
+    assert lab.banner.visible and "reading the runs failed: the folder went away" in lab.banner.object
+
+
+def test_two_runs_with_the_name_box_empty_get_two_names(two_runs) -> None:
+    """The name offered skips the names runs in progress write, not only those on disk: two
+    runs of one record at once would lose one (2a review)."""
+    root, out_dir = two_runs
+    queue = jobs.Queue(at_once=1, start=lambda run: Process())
+    lab = _lab(root, out_dir, queue)
+    lab._run()
+    assert lab.run_name.placeholder == "wave-2", "the first run's name is taken while it runs"
+    lab._run()
+    assert [r.name for r in queue.runs()] == ["wave-1", "wave-2"]
+    queue.stop_all()
+
+
+def test_a_name_a_run_in_progress_writes_is_refused_before_run(two_runs) -> None:
+    root, out_dir = two_runs
+    queue = jobs.Queue(at_once=1, start=lambda run: Process())
+    lab = _lab(root, out_dir, queue)
+    lab._on_name("same")
+    lab._run()
+    lab._on_name("same")
+    assert lab.banner.visible and "same is queued or running already" in lab.banner.object
+    lab._run()
+    assert [r.name for r in queue.runs()] == ["same"]
+    queue.stop_all()
+
+
+def test_the_strip_shows_how_long_each_run_has_run(two_runs) -> None:
+    root, out_dir = two_runs
+    queue = jobs.Queue(at_once=1, start=lambda run: Process())
+    lab = _lab(root, out_dir, queue)
+    lab._on_name("timed")
+    lab._run()
+    [run] = queue.runs()
+    run.started -= 75                                  # it started 75 s ago
+    lab._poll()
+    assert lab.strip_rows.rows[0]["clock"] == "1:15" and "1 running" in lab.strip_summary.object
+    queue.stop_all()
+
+
+def test_the_form_ends_where_the_strip_begins(two_runs) -> None:
+    """A run can be stopped while the next is set up: the drawer never covers the strip, whose
+    Stop replaced the header's (2a review)."""
+    from benchlab.lab import skin
+    root, out_dir = two_runs
+    lab = _lab(root, out_dir, jobs.Queue(at_once=1, start=lambda run: Process()))
+    assert lab.drawer.styles["height"] == f"calc(100vh - {skin.HEADER_PX + skin.STRIP_PX}px)"
+    lab._open_strip(True)
+    assert lab.drawer.styles["height"] == (
+        f"calc(100vh - {skin.HEADER_PX + skin.STRIP_PX + skin.STRIP_LIST_PX}px)")

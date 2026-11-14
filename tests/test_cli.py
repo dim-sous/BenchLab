@@ -77,3 +77,16 @@ def test_a_number_is_drawn_against_a_setting(tmp_path) -> None:
                      "--out-dir", str(out)]) == 0
     sidecar = json.loads((out / "rms_u-vs-amplitude.png.json").read_text())
     assert sidecar["x_label"] == "A" and sidecar["number"] == "rms_u"
+
+
+@pytest.mark.parametrize("words, error", [
+    (["--sweep", "frequency=1,1"], r"^toy: --sweep 'frequency=1,1' repeats a value"),
+    (["--set", "frequency=1", "--sweep", "frequency=2,3"], r"^toy: 'frequency' is given twice"),
+    (["--sweep", "frequency="], r"^toy: --sweep expects SETTING=V1,V2,..."),
+])
+def test_a_sweep_is_refused_in_the_projects_command_by_the_runner_s_rule(tmp_path, words,
+                                                                        error) -> None:
+    """The sweep's rule is the runner's (``benchlab.runner.planned``), which the Lab uses too."""
+    with pytest.raises(SystemExit, match=error):
+        _run(tmp_path, *words)
+    assert not (tmp_path / "wave").exists()

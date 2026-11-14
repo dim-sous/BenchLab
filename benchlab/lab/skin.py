@@ -23,7 +23,7 @@ ACCENT, ACCENT_INK, ACCENT_SOFT = "#0e6f8e", "#0a5a73", "#e2eef2"
 SIGNAL, LIVE = "#a3342f", "#1f8a5a"
 
 HEADER_PX = 48
-TERMINAL_PX = 34
+STRIP_PX = 34
 
 #: The document: fonts and the ground. Inherited properties (font, colour) reach into every
 #: shadow root from here; non-inherited ones do not, which is what the stylesheets are for.
@@ -197,13 +197,28 @@ SPLIT = f"""
 .handle:hover::after, .handle.dragging::after {{ background: {ACCENT}; }}
 """
 
-#: The terminal's output (a pre inside an HTML pane).
-CONSOLE = f"""
-pre {{ margin: 0; font: 12.5px/1.5 {MONO}; color: {INK2}; white-space: pre-wrap;
-       word-break: break-word; }}
-.cmd {{ color: {INK}; font-weight: 500; }}
-.wrote {{ color: {ACCENT_INK}; }}
-.refused {{ color: {SIGNAL}; }}
+#: A run's state in the strip, its ink and its ground: the mockup's (2026-11-13), which the
+#: developer drove.
+STATE_COLOURS = {"queued": (INK2, PAPER), "running": (ACCENT_INK, ACCENT_SOFT),
+                 "done": (LIVE, "#e0f1e8"), "failed": (SIGNAL, "#f6e4e2"),
+                 "stopped": (INK2, GROUND)}
+#: A row of the runs in progress (:mod:`lab.strip`): the mockup's ``.job`` and ``.pill``.
+STRIP_ROWS = f"""
+.strip {{ display: flex; flex-direction: column; gap: 6px; font-family: {SANS}; }}
+.job {{ display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 4px 10px;
+        align-items: center; background: {PAPER}; border: 1px solid {LINE}; border-radius: 5px;
+        padding: 5px 8px; }}
+.jn {{ min-width: 0; overflow-wrap: anywhere; }}
+.nm {{ font-family: {MONO}; font-size: 12px; color: {INK}; }}
+.pc {{ font-size: 12px; color: {INK3}; }}
+.pill {{ font-size: 11px; border-radius: 10px; padding: 1px 8px; white-space: nowrap;
+         border: 1px solid; font-variant-numeric: tabular-nums; }}
+""" + "".join(f".pill.{state} {{ color: {ink}; background: {ground}; border-color: {ink}; }}\n"
+              for state, (ink, ground) in STATE_COLOURS.items()) + f"""
+.act {{ font: 12px {SANS}; color: {INK2}; background: {PAPER}; border: 1px solid {LINE2};
+        border-radius: 4px; padding: 2px 9px; cursor: pointer; }}
+.act:hover {{ color: {INK}; border-color: {INK3}; }}
+.err {{ grid-column: 1 / -1; color: {SIGNAL}; font-size: 12.5px; overflow-wrap: anywhere; }}
 """
 
 # -- what the layout boxes wear
@@ -234,7 +249,7 @@ BODY = {"height": f"calc(100vh - {HEADER_PX}px)"}
 #: for a Column it knows scrolls. RCWS, scrolled by a style, measured at a 1258x775 window: a
 #: 64-run list 3,436 px tall in an 894 px box, drawn over the compare table.
 PANE = {"height": "100%", "box-sizing": "border-box",
-        "padding": f"0 16px {TERMINAL_PX + 24}px"}
+        "padding": f"0 16px {STRIP_PX + 24}px"}
 LEFT = {**PANE, "border-right": f"1px solid {LINE}"}
 #: The runs list: at most this much of the window, scrolling inside, so the compare table stays
 #: just under it however many runs there are (RCWS).
@@ -252,7 +267,10 @@ DRAWER_HEAD = {"padding": "8px 20px", "border-bottom": f"1px solid {LINE}"}
 DRAWER_BODY = {"padding": "4px 20px 16px", "overflow": "auto", "flex": "1 1 auto",
                "min-height": "0"}
 DRAWER_FOOT = {"padding": "10px 20px 12px", "border-top": f"1px solid {LINE}", "background": PAPER}
-TERMINAL = {"position": "fixed", "left": "0", "right": "0", "bottom": "0", "background": PAPER,
+#: Runs in progress, along the bottom: its bar, and the list it opens on.
+STRIP = {"position": "fixed", "left": "0", "right": "0", "bottom": "0", "background": PAPER,
             "border-top": f"1px solid {LINE}", "z-index": "5"}
-TERMINAL_BAR = {"height": f"{TERMINAL_PX}px", "padding": "0 20px", "box-sizing": "border-box"}
-CONSOLE_BOX = {"border-top": f"1px solid {LINE}", "padding": "6px 20px 12px"}
+STRIP_BAR = {"height": f"{STRIP_PX}px", "padding": "0 20px", "box-sizing": "border-box"}
+STRIP_LIST = {"border-top": f"1px solid {LINE}", "padding": "6px 20px 12px", "background": GROUND,
+              "box-sizing": "border-box"}
+STRIP_LIST_PX = 220

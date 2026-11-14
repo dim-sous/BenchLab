@@ -4,9 +4,9 @@ The piece's runs on the left (a list to tick, filter and delete from, and the ti
 compared column by column), their cards on the right -- each the
 figure layer's own drawing of what the records declare: a panel over the shown runs, or a summary
 number against the setting that varies -- a draggable split between the two, the form over the
-Config's groups in a drawer that opens from "New run" or a run's "use", and the terminal's own
-output in a drawer along the bottom. Rows come from :mod:`lab.view`, a card's controls from
-:mod:`lab.shaping`, what a control offers from :mod:`lab.form`, the commands from
+Config's groups in a drawer that opens from "New run" or a run's "use", and the runs in progress
+along the bottom. Rows come from :mod:`lab.view`, a card's controls from
+:mod:`lab.shaping`, what a control offers from :mod:`lab.form`, the runs from
 :mod:`lab.jobs`, everything listed from :mod:`lab.state`, every chart from :mod:`figure.chart`
 and :func:`figure.twin.figure_of`, the look from :mod:`lab.skin`. Served on 127.0.0.1 by
 :func:`serve`.
@@ -14,8 +14,9 @@ and :func:`figure.twin.figure_of`, the look from :mod:`lab.skin`. Served on 127.
 Everything on the page is derived from what is on disk, what is ticked and what each card's
 controls hold, on every event, in :meth:`Lab.render`; the one memo is the loaded records, keyed
 by their file's mtime. The page computes nothing and restates no rule: a greyed control is its
-field's own gate or the figure layer's refusal, a refusal is the terminal's words, a chart is the
-figure layer's. A click that raises, or a page that cannot be built, shows its error on the page.
+field's own gate or the figure layer's refusal, a refusal is the words of what refused it, a chart
+is the figure layer's. A click that raises, or a page that cannot be built, shows its error on the
+page.
 """
 
 from __future__ import annotations
@@ -25,8 +26,8 @@ import functools
 import html
 import json
 import sys
+import time
 import traceback
-from pathlib import Path
 from typing import Any, Callable, Optional
 
 import panel as pn
@@ -36,15 +37,20 @@ from benchlab.figure.style import series_color
 from benchlab.figure.twin import figure_of
 from benchlab.project import title
 from benchlab.record import capital
+from benchlab.runner import planned
 
 from . import jobs, shaping, skin, state, view
 from .compare import CompareTable
 from .form import Form, as_text
 from .runlist import RunList
+from .strip import RunsInProgress
 from .split import DEFAULT_PX, Split
 
 _POLL_MS = 700
-_CONSOLE_START = "Nothing has been run in this session."
+#: A run's state, as the strip says it (written here until branch 2b makes the page's words slots).
+#: In the order the head counts them: the mockup's (running, waiting, then what ended).
+_STATES = {jobs.RUNNING: "Running", jobs.QUEUED: "Queued", jobs.DONE: "Done",
+           jobs.FAILED: "Failed", jobs.STOPPED: "Stopped"}
 _PLOT_CONFIG = {"displaylogo": False, "responsive": True, "displayModeBar": "hover",
                 "modeBarButtonsToRemove": ["lasso2d", "select2d", "autoScale2d", "toImage"]}
 _SANS = skin.SANS.replace('"', "'")
@@ -67,7 +73,7 @@ _SETTINGS = {"None": "none", "Differing": "differ", "All": "all"}
 
 
 def _shown_in_page(exc: BaseException) -> None:
-    """A callback that raises says so on the page and in the terminal. Not a fallback."""
+    """A callback that raises says so on the page and in the Lab's console. Not a fallback."""
     traceback.print_exc()
     if pn.state.notifications is not None:
         pn.state.notifications.error(f"{type(exc).__name__}: {exc}", duration=0)
@@ -153,7 +159,7 @@ class _Rows:
     def _text(self) -> str:
         """The rows as JSON. A list of numbers (θ) writes each row that reads as a number as
         one, so its default reads as unset, and any other row as the text typed, which the
-        terminal refuses in its own words: never a row split or dropped on the way."""
+        run refuses in its own words: never a row split or dropped on the way."""
         if self.f.get("texts"):
             return json.dumps(self._items, ensure_ascii=False)
         def number(text: str) -> Any:
@@ -226,21 +232,27 @@ def _colour(i: int) -> str:
 
 
 class Lab:
-    """The page's state for one browser session. ``launch``, ``every`` and ``toast`` are
-    injectable so the page can be driven in Python (the tests do)."""
+    """The page's state for one browser session. ``queue``, ``every`` and ``toast`` are
+    injectable so the page can be driven in Python (the tests do); the queue is the Lab's own,
+    shared by every session, unless one is given."""
 
     def __init__(self, root: str, out_dir: str, *,
-                 launch: Callable[..., jobs.Job] = jobs.launch,
+                 queue: Optional[jobs.Queue] = None,
                  every: Callable[[Callable[[], None], int], Any] = _every,
                  toast: Callable[[str], None] = _toast) -> None:
         self.root, self.out_dir = root, out_dir
-        self.launch, self.every, self.toast = launch, every, toast
+        self.queue = queue if queue is not None else jobs.QUEUE
+        self.every, self.toast = every, toast
         self.pieces = state.pieces()
         self.piece = self.pieces[0]
         self.form = Form(self.piece)
         self.records: list[dict[str, Any]] = []
-        self.job: Optional[jobs.Job] = None
-        self._ticker: Any = None
+        #: what the strip last drew (the queue's version); the runs this page has seen Done, so
+        #: each is listed and ticked once (one Done before the page opened, never); and the runs
+        #: it knew, so one cleared before this page saw it Done still gets its record listed
+        self._seen = -1
+        self._done: set[int] = {r.id for r in self.queue.runs() if r.state == jobs.DONE}
+        self._known: set[int] = {r.id for r in self.queue.runs()}
         self._controls: dict[str, Any] = {}
         self._labels: dict[str, pn.pane.HTML] = {}
         self._tips: dict[str, pn.widgets.TooltipIcon] = {}
@@ -261,8 +273,6 @@ class Lab:
         #: card id -> the runs its chart draws, in the order shown
         self.drawn: dict[int, list[str]] = {}
         self._answer: Optional[Callable[[], None]] = None   # what the dialog's yes does
-        self._history: list[str] = []               # the terminal's finished lines, as HTML
-        self._folded: Optional[jobs.Job] = None     # the job whose output is in the history
         self._read_url()
 
         # -- header
@@ -270,9 +280,6 @@ class Lab:
                                     options={p["label"]: p["name"] for p in self.pieces},
                                     value=self.piece["name"])
         self.piece_select.param.watch(lambda e: self._on_piece(e.new), "value")
-        self.job_tag = _html("Idle", style=_DIM)
-        self.stop_btn = _widget(pn.widgets.Button, label="Stop", width=58, disabled=True)
-        self.stop_btn.on_click(lambda _e: self._stop())
         self.where = _html("")
         self.new_run_btn = _widget(pn.widgets.Button, label="New run", color="primary", width=92)
         self.new_run_btn.on_click(lambda _e: self.open_drawer())
@@ -356,7 +363,6 @@ class Lab:
         self.clear_btn.on_click(lambda _e: self._clear())
         self.close_btn = _widget(pn.widgets.Button, label="Close", width=64)
         self.close_btn.on_click(lambda _e: self.close_drawer())
-        self.command_line = pn.pane.HTML("", sizing_mode="stretch_width")
         self.banner = pn.pane.HTML("", visible=False, styles={"color": skin.SIGNAL})
         self.drawer = pn.Column(
             pn.Row(_html("<b style='font-size:15px'>New run</b>"), self.from_words,
@@ -369,27 +375,32 @@ class Lab:
                              _html("Sweep", style=_DIM), self.sweep_field, self.sweep_values,
                              pn.layout.HSpacer(), self.run_btn, stylesheets=[skin.BAR],
                              sizing_mode="stretch_width"),
-                      self.name_note, self.command_line, self.banner, self.form_note,
+                      self.name_note, self.banner, self.form_note,
                       styles=skin.DRAWER_FOOT, sizing_mode="stretch_width"),
             visible=False, styles=skin.DRAWER, width=skin.DRAWER_PX)
 
-        # -- the terminal
-        self.terminal_btn = _widget(pn.widgets.Button, label="▸ Terminal", width=96,
-                                    css_classes=["quiet"])
-        self.terminal_btn.on_click(lambda _e: self._terminal(not self.console.visible))
-        self.last_line = _html("Idle", style=f"{_MONO};font-size:12px;{_DIM}")
-        self.console_text = pn.pane.HTML(f"<pre>{_CONSOLE_START}</pre>",
-                                         stylesheets=[skin.CONSOLE], sizing_mode="stretch_width")
-        self.console = pn.Column(self.console_text, scroll=True, height=260, visible=False,
-                                 styles=skin.CONSOLE_BOX, sizing_mode="stretch_width")
-        self.terminal = pn.Column(
-            pn.Row(self.terminal_btn, self.last_line, styles=skin.TERMINAL_BAR,
-                   stylesheets=[skin.BAR],
-                   sizing_mode="stretch_width"),
-            self.console, styles=skin.TERMINAL, sizing_mode="stretch_width")
+        # -- runs in progress, along the bottom where the terminal was (decision 3)
+        self.strip_btn = _widget(pn.widgets.Button, label="▸ Runs in progress", width=150,
+                                 css_classes=["quiet"])
+        self.strip_btn.on_click(lambda _e: self._open_strip(not self.strip_list.visible))
+        self.strip_summary = _html("Nothing running", style=_DIM, stylesheets=[skin.BAR_FILL])
+        self.strip_cap = _html(f"up to {self.queue.at_once} side by side", style=_DIM)
+        self.strip_rows = RunsInProgress(rows=[], sizing_mode="stretch_width")
+        self.strip_rows.on_stop = self._stop
+        self.strip_rows.on_dismiss = self._dismiss
+        self.strip_list = pn.Column(self.strip_rows, scroll=True, height=skin.STRIP_LIST_PX,
+                                    visible=False, styles=skin.STRIP_LIST,
+                                    sizing_mode="stretch_width")
+        self.strip = pn.Column(
+            pn.Row(self.strip_btn, self.strip_summary, self.strip_cap, styles=skin.STRIP_BAR,
+                   stylesheets=[skin.BAR], sizing_mode="stretch_width"),
+            self.strip_list, styles=skin.STRIP, sizing_mode="stretch_width")
 
+        self._fit_drawer()
         self._draw_form()
         self.reload()
+        self._poll()
+        self.every(self._poll, _POLL_MS)
 
     # ------------------------------------------------------------------ reading
     def reload(self) -> None:
@@ -544,11 +555,9 @@ class Lab:
         try:
             gone = jobs.delete(self.piece["name"], records, root=self.root, out_dir=self.out_dir)
         except ValueError as exc:
-            self._print([f"refused: {exc}"], kind="refused")
             self.toast(f"Not deleted: {exc}")
             return
         print("lab: deleted " + " ".join(gone))
-        self._print([f"lab: deleted {path}" for path in gone], kind="cmd")
         self.shown = [n for n in self.shown if n not in records]
         self.toast(f"Deleted {' '.join(gone)}")
         self.reload()
@@ -1143,26 +1152,37 @@ class Lab:
         if hasattr(control, "param") and "value_input" in control.param:
             control.value_input = text
 
+    def _taken(self) -> list[dict[str, Any]]:
+        """The names a new run of this piece cannot take quietly: its records on disk, and the
+        runs of it queued or running."""
+        busy = self.queue.in_progress(self.piece["name"], self.root, self.out_dir)
+        return self.runs() + [{"piece": self.piece["name"], "name": n} for n in sorted(busy)]
+
     def _draw_names(self) -> None:
-        self.run_name.placeholder = self.form.free_name(self.runs())
+        self.run_name.placeholder = self.form.free_name(self._taken())
         note = self.form.name_note(self.runs())
         self.name_note.object = f"<span style='{_RED if note else _DIM}'>{html.escape(note)}</span>"
         self._draw_typed()
 
     def _draw_typed(self) -> None:
-        """The line Run would type, live, or why it would be refused -- the terminal's words."""
-        overrides, sweeps = self.form.launch_words()
-        name = self.form.name.strip() or self.form.free_name(self.runs())
+        """Why Run would be refused, live, in the words of what refuses it; nothing when it
+        would not. What the settings themselves refuse, the run says when it starts."""
         try:
-            line = jobs.line_of(jobs.run_argv(self.piece["name"], overrides, name, self.out_dir,
-                                              sweeps))
+            self._planned()
         except ValueError as exc:
-            self.command_line.object = (f"<span style='{_MONO};font-size:12px;{_RED}'>"
-                                        f"{html.escape(str(exc))}</span>")
+            self._say(f"refused: {exc}")
             return
-        self.command_line.object = (f"<span style='{_MONO};font-size:12px;color:{skin.INK2}'>"
-                                    f"lab: <b style='color:{skin.INK}'>{html.escape(line)}</b>"
-                                    f"</span>")
+        self._say("")
+
+    def _planned(self) -> list[tuple[str, list[tuple[str, str]]]]:
+        """The runs Run would queue -- the record name and the setting pairs of each, a sweep's
+        named as the command line names them -- every word checked; refused in words."""
+        overrides, sweeps = self.form.launch_words()
+        name = self.form.name.strip() or self.form.free_name(self._taken())
+        runs = jobs.checked(self.piece["name"], planned(name, overrides, sweeps))
+        self.queue.check_free(self.piece["name"], [n for n, _ in runs], root=self.root,
+                              out_dir=self.out_dir)
+        return runs
 
     # ------------------------------------------------------------------ typing
     def _on_type(self, name: str, text: str) -> None:
@@ -1242,44 +1262,23 @@ class Lab:
         self.banner.visible = bool(words)
 
     def _run(self) -> None:
-        if self.job is not None and self.job.running:
-            self.toast("A run is in progress — stop it first")
-            return
-        overrides, sweeps = self.form.launch_words()
-        name = self.form.name.strip() or self.form.free_name(self.runs())
+        """Queue the form's runs, a sweep's side by side; Run never waits for the last one."""
         try:
-            argv = jobs.run_argv(self.piece["name"], overrides, name, self.out_dir, sweeps)
+            runs = self.queue.submit(self.piece["name"], self._planned(), root=self.root,
+                                     out_dir=self.out_dir)
         except ValueError as exc:
             self._say(f"refused: {exc}")
             return
-        line = jobs.line_of(argv)
-        try:
-            job = self.launch(argv, cwd=self.root)
-        except ValueError as exc:                  # one `<command> run` per process
-            self._say(f"refused: {exc}")
-            return
         self._say("")
-        print(f"lab: {line}")
-        self._fold()
-        self._print([f"lab: {line}"], kind="cmd")
-        self.job = job
+        for run in runs:                            # the side-door command that makes the same
+            print(f"lab: {run.line}")
+        self._draw_names()                          # the names offered skip the runs just queued
         self.close_drawer()
-        self._terminal(True)
-        self._draw_job()
-        if self._ticker is None:
-            self._ticker = self.every(self._poll, _POLL_MS)
-
-    def _stop(self) -> None:
-        if self.stop_job():
-            self.toast("Stopping…")
-
-    def stop_job(self) -> bool:
-        """Terminate this session's run, if one is going. The stop button calls it, and so does
-        the end of the browser session: a closed tab otherwise leaves a full run burning CPU."""
-        return self.job is not None and self.job.stop()
+        self._open_strip(True)
+        self._poll()
 
     def _poll(self) -> None:
-        """Every 700 ms while a job runs: redraw its output; when it ends, list what it wrote.
+        """Every 700 ms: redraw the strip when a run moved; when runs ended, list what they wrote.
 
         Its own failures are shown here: Panel's periodic callback has no exception hook, so an
         error raised inside it would otherwise reach only the server's log.
@@ -1288,93 +1287,76 @@ class Lab:
             self._tick()
         except Exception as exc:  # noqa: BLE001 -- shown on the page, the docstring says why
             _shown_in_page(exc)
-            self._say(f"reading what the run wrote failed: {exc}")
+            self._say(f"reading the runs failed: {exc}")
 
     def _tick(self) -> None:
-        job = self.job
-        self._draw_job()
-        if job is None or job.running:
+        runs = self.queue.runs()
+        running = any(r.state == jobs.RUNNING for r in runs)
+        if self.queue.version == self._seen and not running:
             return
-        if self._ticker is not None:
-            stop = getattr(self._ticker, "stop", None)
-            if callable(stop):
-                stop()
-            self._ticker = None
-        wrote = state.wrote(job.output, self.root, self.out_dir)
-        for path in wrote:                          # show what just ran
-            name = Path(path).stem
-            if name not in self.shown:
-                self.shown.append(name)
-        self.last_line.object = (f"<span style='{_MONO};font-size:12px;{_DIM}'>"
-                                 f"{html.escape(job.line)} · {html.escape(self._outcome(job, len(wrote)))}"
-                                 f"</span>")
-        self.reload()
-        self.toast(f"{self.piece['label']}: {self._outcome(job, len(wrote))}")
+        self._seen = self.queue.version
+        self._draw_strip(runs)                      # first: a reload that fails cannot freeze it
+        ids = {r.id for r in runs}
+        done = [r for r in runs if r.state == jobs.DONE and r.id not in self._done]
+        cleared = self._known - ids                 # perhaps in another tab, before this one saw
+        self._done.update(r.id for r in done)       # it Done
+        self._known = ids
+        for run in done:                            # show what just ran, if it is this piece's
+            if run.piece == self.piece["name"] and run.name not in self.shown:
+                self.shown.append(run.name)
+        if done or cleared:
+            self.reload()
+
+    # ------------------------------------------------------------------ runs in progress
+    def _open_strip(self, open_it: bool) -> None:
+        self.strip_list.visible = open_it
+        self.strip_btn.label = ("▾" if open_it else "▸") + " Runs in progress"
+        self._fit_drawer()
+
+    def _fit_drawer(self) -> None:
+        """The form's drawer ends where the strip begins, so a run can be stopped, and its state
+        read, while the next one is set up (the header's Stop it replaced was never covered)."""
+        strip = skin.STRIP_PX + (skin.STRIP_LIST_PX if self.strip_list.visible else 0)
+        self.drawer.styles = {**skin.DRAWER,
+                              "height": f"calc(100vh - {skin.HEADER_PX + strip}px)"}
+
+    def _draw_strip(self, runs: list[jobs.Run]) -> None:
+        """The head's count of each state, and the rows, newest first, as the strip draws them."""
+        now = time.monotonic()
+        counts = [f"{n} {words.lower()}" for state, words in _STATES.items()
+                  if (n := sum(r.state == state for r in runs))]
+        self.strip_summary.object = (f"<span style='{_DIM}'>"
+                                     f"{' · '.join(counts) or 'Nothing running'}</span>")
+        labels = {p["name"]: p["label"] for p in self.pieces}
+        self.strip_rows.rows = [
+            {"id": r.id, "name": r.name, "piece": labels.get(r.piece, r.piece), "state": r.state,
+             "words": _STATES[r.state], "clock": self._clock(r, now), "error": r.error,
+             "finished": r.finished}
+            for r in reversed(runs)]
 
     @staticmethod
-    def _outcome(job: jobs.Job, wrote: int) -> str:
-        """What the finished job did, counting what it WROTE as well as how it ended: a sweep
-        can write some of its records and then be refused, and a job the page stopped refused
-        nothing."""
-        made = f"wrote {wrote} record{'s' if wrote != 1 else ''}"
-        if job.stopped:
-            return f"stopped after it {made}"
-        if job.returncode == 0:
-            return made
-        if wrote:
-            return f"{made}, then ended with exit {job.returncode}"
-        return "the run was refused"
+    def _clock(run: jobs.Run, now: float) -> str:
+        """The time a run has run, ``m:ss``, once it started."""
+        if run.started is None:
+            return ""
+        seconds = int(run.elapsed(now))
+        return f"{seconds // 60}:{seconds % 60:02d}"
 
-    def _draw_job(self) -> None:
-        job = self.job
-        if job is None:
-            return
-        self._draw_console()
-        if job.running:
-            self.job_tag.object = (f"<span style='color:{skin.LIVE}'>●</span> <span style='{_DIM}'>"
-                                   f"Running…</span> <span style='{_MONO};font-size:12px'>"
-                                   f"{html.escape(job.line)}</span>")
-        else:
-            tag = "Done" if job.returncode == 0 else f"Ended with exit {job.returncode}"
-            self.job_tag.object = (f"<span style='{_DIM if job.returncode == 0 else _RED}'>"
-                                   f"{tag}</span>")
-        self.run_btn.disabled = job.running
-        self.stop_btn.disabled = not job.running
+    def _stop(self, run_id: int) -> None:
+        if self.queue.stop(run_id):
+            self.toast("Stopping…")
+        self._poll()
 
-    # ------------------------------------------------------------------ the terminal
-    def _terminal(self, open_it: bool) -> None:
-        self.console.visible = open_it
-        self.terminal_btn.label = ("▾" if open_it else "▸") + " Terminal"
-
-    def _print(self, lines: list[str], *, kind: str = "") -> None:
-        """Lines into the terminal, as they are; ``kind`` is how they are coloured."""
-        for line in lines:
-            words = html.escape(line.rstrip("\n"))
-            self._history.append(f"<span class='{kind}'>{words}</span>" if kind else words)
-        self._draw_console()
-
-    def _fold(self) -> None:
-        """The finished job's output joins the history, once, before the next command."""
-        job = self.job
-        if job is not None and job is not self._folded and not job.running:
-            self._history.extend(html.escape(line.rstrip("\n")) for line in job.output)
-            self._folded = job
-
-    def _draw_console(self) -> None:
-        live = []
-        job = self.job
-        if job is not None and job is not self._folded:
-            live = [html.escape(line.rstrip("\n")) for line in job.output]
-        text = "\n".join(self._history + live)
-        self.console_text.object = f"<pre>{text or _CONSOLE_START}</pre>"
-        self.console.scroll_position = 10 ** 7 + len(text)
+    def _dismiss(self, run_id: int) -> None:
+        self.queue.dismiss(run_id)
+        self._poll()
 
     # ------------------------------------------------------------------ the page
     def page(self) -> pn.Column:
         header = pn.Row(
             _html(f"<b style='font-size:15px;letter-spacing:.01em'>"
                   f"{html.escape(title())}</b>"),
-            self.piece_select, self.job_tag, self.stop_btn,
+            self.piece_select,
             pn.layout.HSpacer(), self.where, self.refresh, self.new_run_btn,
             styles=skin.TOP, stylesheets=[skin.BAR], sizing_mode="stretch_width")
         left = pn.Column(
@@ -1400,20 +1382,15 @@ class Lab:
                            sizing_mode="stretch_width")
         # both ways: the drawer's body stretches both ways, and Panel widened the page to match
         # with a warning on every load (RCWS); declared, it is what the page already was
-        return pn.Column(header, self.split, self.drawer, self.terminal, self.asking,
+        return pn.Column(header, self.split, self.drawer, self.strip, self.asking,
                          sizing_mode="stretch_both", margin=0)
 
 
 def page(root: str, out_dir: str) -> pn.viewable.Viewable:
     """The page for one session, or -- when it cannot be built -- the traceback, on the page."""
     try:
-        lab = Lab(root, out_dir)
-        shown = lab.page()
-        try:                                         # a closed tab must not leave a run going
-            pn.state.on_session_destroyed(lambda _ctx: lab.stop_job())
-        except Exception:  # noqa: BLE001           # no session: driven in Python, or a test
-            pass
-        return shown
+        return Lab(root, out_dir).page()            # its runs are the Lab's: a closed tab
+                                                     # leaves them going
     except Exception:  # noqa: BLE001 -- the traceback, on the page (the docstring)
         text = traceback.format_exc()
         print(text, file=sys.stderr)

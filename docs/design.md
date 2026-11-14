@@ -183,6 +183,9 @@ onto Benchlab is planned against where that rewrite stands, never on top of a ha
 2. **The page and the runner.** The tree, runs, compare, cards, form and runs in progress, from
    BESS's Lab, with the runner (each run its own process) in place of the terminal, on Benchlab's
    own test project. The runner comes here with its first user, the page. Driven in DeePC.
+   Built as four branches, each driven before the next (the developer, 2026-11-14): **2a** runs
+   in progress (`docs/plan-branch-2a.md`), **2b** words as slots and no hovers, **2c** the tree,
+   **2d** the cards' full controls.
 3. **Hydrofoil moves**, with its naming pass.
 4. **Shared calculations**: the RMS family, run cost and solver outcomes. DeePC's and Hydrofoil's
    numbers are declared instead of hand-written.

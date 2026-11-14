@@ -89,7 +89,8 @@ def _type_text(p: param.Parameter) -> str:
 
 
 def fields_of(cls: type) -> list[dict[str, Any]]:
-    """One dict per setting -- the one reader every surface (terminal, tests, a form) uses."""
+    """One dict per setting -- the one reader every surface (the command line, tests, a form)
+    uses."""
     out = []
     for name, p in _parameters(cls).items():
         meta = p.metadata or {}

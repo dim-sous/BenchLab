@@ -1,6 +1,7 @@
 """Benchlab's shape. It reaches a project only through ``benchlab/project.py``, and its layers
-import one way, ``project <- record <- figure <- cli <- lab`` (DeePC's
-``tests/test_devkit_layers.py``, its half about these layers, moved here with them).
+import one way: ``project``, ``record``, then ``figure`` and ``runner``, then ``cli``, then
+``lab`` (DeePC's ``tests/test_devkit_layers.py``, its half about these layers, moved here with
+them).
 
 The layers only ever touch a Config or a Record and never know what is inside: if a line of their
 code names a piece, it is in the wrong place. Stdlib and ``ast`` only, reading the files: what is
@@ -24,8 +25,9 @@ SOURCES = sorted(p for p in PACKAGE.rglob("*.py") if "__pycache__" not in p.part
 #: (``figure.chart``, ``figure.twin``); that every chart on the page IS the figure layer's is held
 #: by ``tests/test_lab.py``, not by this table.
 _MAY_IMPORT = {"project": set(), "record": {"project"}, "figure": {"record"},
-               "cli": {"project", "record", "figure"},
-               "lab": {"project", "record", "figure", "cli"}}
+               "runner": {"project", "record"},
+               "cli": {"project", "record", "figure", "runner"},
+               "lab": {"project", "record", "figure", "runner", "cli"}}
 #: Benchlab's dependencies (``pyproject.toml``), by the name they are imported by.
 _DEPENDENCIES = {"matplotlib", "numpy", "panel", "param", "plotly"}
 #: What finds or imports a module by a name read at run time: the project's door, and only its.

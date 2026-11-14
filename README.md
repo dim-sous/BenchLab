@@ -7,12 +7,14 @@ The bench every project shares. A project brings its pieces: for each one its se
 |---|---|
 | `benchlab/record/` | the settings layer (`Settings` on `param`: every setting with a group, refused in words when wrong, `needs` for a setting that applies only while another holds a named value, `None` for the code's own default, `record_of` for a setting naming another piece's saved run) and the run file (`Record`, saved as one JSON and loaded back bit for bit; `Series` and `Number`, the charts and numbers a record declares; `Provenance`, what produced it) |
 | `benchlab/figure/` | one panel spec built from what the records declare, drawn two ways: a PNG still with a JSON sidecar, and the Lab's live chart. Runs overlaid, a row each, or pooled by their mean or RMS; a summary number against a setting |
-| `benchlab/cli/` | the project's command: `<command> run <piece>` (settings from a file, `--set`, `--sweep`; one record per run) and `<command> draw <record>…` (the panels as stills, or `--number N --vs SETTING`) |
-| `benchlab/lab/` | the Lab: one local page on Panel over the records -- the runs to tick, filter and compare, their charts as cards, the form that launches a run. It launches the project's command and computes nothing itself |
+| `benchlab/runner.py` | one run of a piece: its Config (the one given, else the defaults) with the settings given, run, named and saved; what a sweep makes. The side door and the Lab both run it, so the same settings make the same file |
+| `benchlab/cli/` | the project's command, the side door: `<command> run <piece>` (settings from a file, `--set`, `--sweep`; one record per run) and `<command> draw <record>…` (the panels as stills, or `--number N --vs SETTING`) |
+| `benchlab/lab/` | the Lab: one local page on Panel over the records -- the runs to tick, filter and compare, their charts as cards, the form that starts runs. Each run is its own process (`python -m benchlab.runner`), never more at once than the machine has cores, shown in the runs in progress along the bottom with a Stop each; the Lab never goes through the command line and computes nothing itself |
 | `benchlab/project.py` | the one door to the project: the declaration below, found once and checked |
 
-Today this is DeePC's bench, moved here unchanged but for what tied it to DeePC
-(`docs/plan-branch-1.md`). What it is to become: `docs/design.md`.
+It began as DeePC's bench, moved here unchanged but for what tied it to DeePC
+(`docs/plan-branch-1.md`, v0.1.0); the page its developer designed is being built on it, a branch at a time
+(`docs/design.md` §8: runs in progress first, `docs/plan-branch-2a.md`, v0.2.0).
 
 ## How a project declares itself
 
@@ -42,7 +44,7 @@ lab = "benchlab.lab:main"
 project = "harness"
 
 [tool.uv.sources]
-benchlab = { git = "https://github.com/dim-sous/BenchLab", tag = "v0.1.0" }
+benchlab = { git = "https://github.com/dim-sous/BenchLab", tag = "v0.2.0" }
 ```
 
 then `uv sync`. Benchlab refuses, in words, an environment where no project declares itself, where
@@ -58,13 +60,15 @@ git pin, run `uv lock` before committing, and `git diff uv.lock` holds no `../Be
 
 ```
 uv sync
-uv run pytest            # the suite, on a made-up project of one piece (tests/toy/)
+uv run playwright install chromium     # once per computer, for the browser test
+uv run pytest                          # the suite, on a made-up project of one piece (tests/toy/)
 uv run ruff check .
 ```
 
-The suite builds the Lab's page without a browser; the page in a browser is tested by the
-projects that use it (DeePC's `tests/test_lab_browser.py`) until Benchlab's own test project is
-large enough to carry it.
+The suite builds the Lab's page without a browser, and drives its runs in progress in one
+(`tests/test_lab_browser.py`); the rest of the page in a browser is tested by the projects that
+use it (DeePC's `tests/test_lab_browser.py`) until Benchlab's own test project is large enough to
+carry it.
 
 ## Licence
 

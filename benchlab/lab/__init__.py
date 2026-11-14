@@ -5,7 +5,7 @@ that varies, each shaped by its runs control (:mod:`lab.shaping`). A draggable s
 the two, the form over the Config's groups in a drawer, and the runs in progress along the
 bottom.
 
-**It holds no logic of its own.** A UI that computes becomes a second implementation of the
+**It holds no logic of its own** but one rule, below. A UI that computes becomes a second implementation of the
 thing it is supposed to show, and then the two disagree. So it does mechanical things only:
 
 * **serves a page** on Panel (:mod:`lab.app`), on 127.0.0.1;
@@ -24,7 +24,10 @@ It never names a piece, never builds a Config, never runs one, never builds a tr
 (``tests/test_lab.py`` holds that by its import allowlist, by driving the page against a piece
 that raises if it is run, and by checking every chart on the page is the figure layer's).
 Every number on the page is the record's; every greyed control is its field's own gate or the
-figure layer's refusal; every refusal is the words of whatever refused it.
+figure layer's refusal; every refusal is the words of whatever refused it, but one: a typed
+value its setting cannot read, or one outside the bounds it declares, is refused when Run is
+pressed, in the Lab's own words (:func:`lab.jobs.refusals`, ``docs/design.md`` decision 5),
+held to param's verdict by ``tests/test_runner.py``.
 
 Comparing runs is by name and by number: the shown runs share a card's chart -- on one pair of
 axes, a row each, or pooled -- and each is a column in the table.

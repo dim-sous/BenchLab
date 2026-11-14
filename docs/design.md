@@ -65,8 +65,9 @@ efficiency").
    **Refined 2026-11-14** (the developer, planning branch 2b): a value outside its range, or one
    its setting cannot read, is refused when Run is pressed, in words under the setting, with
    nothing queued; a greyed setting says why in a line under it, as the mockup did. The
-   descriptions are deleted knowing they have two other readers, the code's documentation of each
-   setting, chart and number, and each saved picture's JSON note. In DeePC the naming pass covers
+   descriptions are deleted knowing they have other readers: the code's documentation of each
+   setting, chart and number, each saved picture's JSON note, and each record's number
+   declarations. In DeePC the naming pass covers
    System and Open loop; the old Dataset and Closed loop keep their labels and descriptions until
    DeePC's own rewrite deletes them.
 6. **The tree.** A sidebar lists the pieces. Under the open piece sit its charts and numbers by

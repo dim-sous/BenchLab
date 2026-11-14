@@ -115,11 +115,19 @@ def _refusal(p: param.Parameter, f: dict[str, Any], text: str) -> str:
     try:
         value = coerce_value(p, text)
     except ValueError as exc:
-        kind = ("a whole number" if isinstance(p, param.Integer) else
-                "a number" if isinstance(p, param.Number) else
-                "a list of numbers" if isinstance(p, param.List) and p.item_type is not str
-                else "")
-        return f"{f['label']} takes {kind}, got {text}" if kind else str(exc)
+        if isinstance(p, param.Integer):
+            kind = "a whole number"
+        elif isinstance(p, param.Number):
+            kind = "a number"
+        elif isinstance(p, param.Boolean):
+            kind = "true or false"
+        elif isinstance(p, param.Selector):
+            kind = "one of " + ", ".join(as_text(o) for o in p.objects)
+        elif isinstance(p, param.List):
+            kind = "a list of texts" if p.item_type is str else "a list of numbers"
+        else:
+            return str(exc)
+        return f"{f['label']} takes {kind}, got {text}"
     if not isinstance(p, param.Number) or value is None:
         return ""
     low, high = f["low"], f["high"]

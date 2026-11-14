@@ -2,8 +2,8 @@
 reads them, moved here with the Lab), and its page built over the made-up project's runs without a
 browser.
 
-The Lab holds no logic of its own: it imports only what lets it read declarations and files and
-queue runs, reaches no third-party package but Panel, and never calls anything that could compute
+The Lab holds no logic of its own but one rule it restates, held to param by ``tests/test_runner.py``:
+it imports only what lets it read declarations and files and queue runs, reaches no third-party package but Panel, and never calls anything that could compute
 on what it reads.
 """
 
@@ -167,6 +167,9 @@ def test_driving_the_lab_never_runs_the_piece_nor_builds_its_config(monkeypatch,
     lab._on_pick("shape", "square")
     lab._on_sweep(field="frequency", values="1,3")
     lab._on_name("probe")
+    lab._on_sweep(values="1,-3")                # refused at Run: read against the declaration
+    lab._run()
+    assert queue.runs() == [] and lab.sweep_note.visible
     lab._use("second")
     lab._run()
     lab._poll()
@@ -483,6 +486,7 @@ def test_a_greyed_setting_says_why_under_it(two_runs) -> None:
     ({}, "frequency", "fast", "f takes a number, got fast"),
     ({"shape": "square"}, "duty", "1", "Duty must be below 1, got 1"),
     ({"shape": "square"}, "duty", "0", "Duty must be above 0, got 0"),
+    ({}, "noise", "11", "σ must be at most 10, got 11"),
 ])
 def test_a_value_its_setting_refuses_is_said_under_it_and_nothing_is_queued(
         two_runs, picks, name, text, words) -> None:
@@ -537,3 +541,40 @@ def test_another_piece_leaves_no_box_holding_the_last_forms_words(two_runs) -> N
         ("", "", "")
     assert (lab.form.name, lab.form.sweep_values, lab.form.set) == ("", "", {})
     assert "From defaults" in lab.from_words.object
+
+
+def test_a_refusal_goes_with_clear_with_use_and_with_a_gate_that_shuts(two_runs) -> None:
+    """What Run refused is said until what it was said of is gone (2b review): Clear empties the
+    form, Use loads another run's values, a gate that shuts takes the value back -- and then the
+    setting says why it is greyed, not what was refused."""
+    root, out_dir = two_runs
+    lab = _lab(root, out_dir, jobs.Queue(at_once=1, start=lambda run: Process()))
+    lab.open_drawer()
+    for leave in (lab._clear, lambda: lab.open_drawer(from_run="first")):
+        lab._on_type("amplitude", "-1")
+        lab._run()
+        assert _note(lab, "amplitude") == "A must be at least 0, got -1"
+        leave()
+        assert _note(lab, "amplitude") == "", leave
+    lab._on_pick("shape", "square")
+    lab._on_type("duty", "1")
+    lab._run()
+    assert _note(lab, "duty") == "Duty must be below 1, got 1"
+    lab._on_pick("shape", "sine")
+    assert _note(lab, "duty") == "Duty applies only when Shape is square; it is sine"
+
+
+def test_a_refusal_in_a_folded_group_opens_it(two_runs) -> None:
+    """Said under a setting whose group is folded, a refusal was on no line the page showed, and
+    Run changed nothing on screen (2b review): Run opens that group."""
+    root, out_dir = two_runs
+    queue = jobs.Queue(at_once=1, start=lambda run: Process())
+    lab = _lab(root, out_dir, queue)
+    lab.open_drawer()
+    fold = lab._folds["Run"]
+    assert not fold.value, "the toy's Run group starts folded"
+    lab._on_type("delay", "-1")
+    lab._run()
+    assert queue.runs() == [] and fold.value, "opened"
+    body = lab.form_box.objects[-1].objects[1]
+    assert body.visible and _note(lab, "delay") == "Delay must be at least 0, got -1"

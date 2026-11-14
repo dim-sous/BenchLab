@@ -34,10 +34,12 @@ body {{ margin: 0; background: {GROUND}; color: {INK}; font: 14px/1.45 {SANS};
 """
 
 #: Inputs, selects, buttons, toggles and check boxes.
+#: The form's boxes' height: a setting's label and unit sit in a band this tall beside their box.
+BOX_PX = 26
 WIDGET = f"""
 :host {{ font-family: {SANS}; }}
 .bk-input {{ font-family: {MONO}; font-size: 12.5px; color: {INK}; background: {GROUND};
-             border: 1px solid {LINE2}; border-radius: 4px; min-height: 26px; }}
+             border: 1px solid {LINE2}; border-radius: 4px; min-height: {BOX_PX}px; }}
 .bk-input:focus {{ border-color: {ACCENT}; box-shadow: none; }}
 .bk-input::placeholder {{ color: {INK3}; }}
 .bk-input:disabled {{ opacity: .5; }}
@@ -65,13 +67,15 @@ CHANGED = f".bk-input {{ border-left: 2px solid {ACCENT}; background: {PAPER}; }
 #: fixed widths, so a box in RUN sits under a box in ESTIMATOR -- tracks that size to content
 #: line up only within one grid.
 LABEL_PX, CONTROL_PX, UNIT_PX = 170, 150, 48
-#: The form's grid. The cells carry no margin of their own (the gaps are the grid's), and
-#: `align-items: center` is what puts a label that wrapped to two lines on the same centre as its
-#: box. `!important` because the GridBox sets `grid-template-columns` itself from its `ncols`.
+#: The form's grid. The cells carry no margin of their own (the gaps are the grid's), and sit at
+#: the top of their row: a box has a line under it when it is refused or greyed, and centred,
+#: its label sat beside that line and the other box of its row dropped (2b review, 2026-11-14).
+#: A label and a unit centre themselves in a band :data:`BOX_PX` tall instead. `!important`
+#: because the GridBox sets `grid-template-columns` itself from its `ncols`.
 FORM_GRID = f"""
 :host {{ grid-template-columns: repeat(2, {LABEL_PX}px {CONTROL_PX}px {UNIT_PX}px) !important;
-         align-items: center; column-gap: 8px; row-gap: 4px; }}
-:host > * {{ align-self: center !important; }}
+         align-items: start; column-gap: 8px; row-gap: 4px; }}
+:host > * {{ align-self: start !important; }}
 """
 
 #: The words column's width, in per cent of the box the table scrolls in (``cqw`` -- of the box,

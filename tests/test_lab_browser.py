@@ -113,13 +113,16 @@ def test_the_runs_in_progress_move_on_the_page_as_the_runs_do(tmp_path, toy_inst
         assert run.state == "stopped" and not errors, errors
 
 
-#: Every element under the page's shadow roots that carries a ``title`` -- a hover -- as
-#: ``[its tag, its title, its style]``.
+#: Every element under the page's shadow roots that carries a hover: a ``title``, or plotly's own
+#: ``data-title`` (a toolbar button's name, which its stylesheet shows on hover) -- as ``[which
+#: attribute, its words, the element's style, its class]``.
 _TITLED = """() => {
   const out = [];
   const walk = root => root.querySelectorAll('*').forEach(el => {
-    if (el.hasAttribute && el.hasAttribute('title'))
-      out.push([el.tagName, el.getAttribute('title'), el.getAttribute('style') || '']);
+    for (const attr of ['title', 'data-title'])
+      if (el.hasAttribute && el.hasAttribute(attr))
+        out.push([attr, el.getAttribute(attr), el.getAttribute('style') || '',
+                  typeof el.className === 'string' ? el.className : '']);
     if (el.shadowRoot) walk(el.shadowRoot);
   });
   walk(document);
@@ -130,22 +133,33 @@ _TITLED = """() => {
 def test_nothing_wears_a_hover_but_a_greyed_control_and_run_refuses_under_a_setting(
         tmp_path, toy_installed) -> None:
     """``docs/design.md`` decision 5, in the browser: with both runs shown, a chart card, a
-    number card and the form open, the only hovers left are greyed controls' reasons (their
-    style is :data:`benchlab.lab.skin.GREYED`). Then A = -1 and Run: refused under A, in red,
-    the form still open, nothing queued."""
+    number card, the form open and a run in the strip, the only hovers left are greyed controls'
+    reasons (their style is :data:`benchlab.lab.skin.GREYED`) and the chart toolbar's own button
+    names, which the mockup kept. Then A = -1 and Run: refused under A, the form still open,
+    nothing more queued."""
+    from benchlab.lab import skin
     with _served(tmp_path, "?shown=first,second&open=u") as (page, errors, root, out_dir):
         _shows(page, "2 on disk")
+        jobs.QUEUE.submit("wave", planned("long", ["delay=60"]), root=root, out_dir=out_dir)
+        _shows(page, "1 running")                                 # its Stop in the strip
         page.locator("td", has_text="RMS of y").first.click()      # a number card
         _shows(page, "All | Mean | RMS")                         # its greyed controls
         page.locator("button", has_text="New run").click()
         page.wait_for_timeout(1200)
-        titled = page.evaluate(_TITLED)
-        assert titled, "no greyed control found: the walk sees nothing"
-        assert all("opacity:.45" in style for _, _, style in titled), \
-            [t for t in titled if "opacity:.45" not in t[2]]
+        hovers = page.evaluate(_TITLED)
+        titles = [h for h in hovers if h[0] == "title"]
+        assert titles, "no greyed control found: the walk sees nothing"
+        assert all(style == skin.GREYED for _, _, style, _ in titles), \
+            [h for h in titles if h[2] != skin.GREYED]
+        assert all("modebar-btn" in cls for attr, _, _, cls in hovers if attr == "data-title"), \
+            [h for h in hovers if h[0] == "data-title" and "modebar-btn" not in h[3]]
+        page.locator(".run", has_text="first").first.hover()     # its actions show on hover
+        assert page.get_by_role("button", name="Delete first", exact=True).is_visible(), \
+            "the run list's ✕, named for a screen reader"
         page.locator('input[placeholder="1"]').fill("-1")         # A, whose default is 1
         page.wait_for_timeout(500)
         page.get_by_role("button", name="Run", exact=True).click()
         _shows(page, "A must be at least 0, got -1")
-        assert jobs.QUEUE.runs() == [] and page.get_by_role("button", name="Run", exact=True).is_visible()
+        assert [r.name for r in jobs.QUEUE.runs()] == ["long"], "nothing more queued"
+        assert page.get_by_role("button", name="Run", exact=True).is_visible(), "the form open"
         assert not errors, errors

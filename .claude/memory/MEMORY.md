@@ -66,9 +66,10 @@ open (VS Code on the developer's computer, WSL2, 12 CPUs).
    but System's and Open loop's notes and number docs, now empty. Driven by the developer in
    DeePC's Lab (2026-11-14), on a walkthrough Claude drove first. On their word, steps 1 and 2:
    this branch, `no-hovers`, pushed with its PR; then DeePC's branch of the same name, pinned
-   to it, its whole suite and side door rerun, with its PR. Waiting: step 3 on their word
-   (merge, tag `v0.3.0`, re-pin DeePC to the tag, its checks again, merge, branches deleted).
-2. 2c words as slots (proposed first), 2d the tree, 2e the cards' full controls.
+   to it, its whole suite and side door rerun, with its PR. Then, on their standing word
+   (below), parallel review and step 3: merge, tag `v0.3.0`, DeePC re-pinned to the tag, its
+   checks again, merge, branches deleted.
+2. 2c words as slots, 2d the tree, 2e the cards' full controls, built straight through (below).
    Then Hydrofoil moves (with its naming pass), the shared calculations, BESS, old runs and Re-fly
    (`docs/design.md` §8). Waiting for a later branch: progress percentages, when a piece reports
    one; DeePC still pins panel itself and lists matplotlib, which only Benchlab uses now.
@@ -86,6 +87,16 @@ open (VS Code on the developer's computer, WSL2, 12 CPUs).
 - The siblings' rules hold here too: propose, then plan mode, then build. Ask before any
   multi-agent fan-out, every time. Hand off in the Lab, or say plainly there is nothing to drive.
   No git write without their word.
+- **But 2b to 2e, straight through** (the developer, 2026-11-14: "I would rather have you
+  complete all the steps, drive it through all repos, then I will drive through all repos and
+  then i will tell if there is smth i dont like ... make one long list once at the end"). Their
+  standing word, for these four branches only, in BenchLab and DeePC only: every git step
+  (commit, push, PR, merge, tag, DeePC re-pinned, branches deleted) without asking, and parallel
+  reviewers on each branch before it merges. Each branch planned in `docs/plan-branch-2X.md`,
+  built, tested, reviewed, driven by Claude; every choice the design and mockup leave open made
+  and written with its reason in `docs/for-review.md`. Stop only for a change to the run file,
+  anything outside these two repositories, or a failure not fixable inside the branch. At the
+  end: one walkthrough of everything, and that list.
 - **A hand-off is a walkthrough**: what to click, what to type, what the page should then show,
   each step driven by Claude first, never squeezed into a question's dialog (2026-11-14: a list
   of steps without them was "not clear as to what to run/drive and what to observe").

@@ -45,9 +45,10 @@ the only place W, k_max and c are explained, in pieces about to go).
    `doc` hover and without the foot's `title` (it repeated its visible words). `lab/view.py` and
    `lab/compare.py`: compare rows carry no `hover`, the term cell no `title`. `lab/runlist.py`: Use and ✕
    without `title`. Untouched: greyed card controls (`_toolbar`, `title=capital(why)`), the strip's
-   `aria-label`s (names for the buttons, not hovers), plotly's data hover. `Series.doc`, `Number.doc` and
-   `fields_of`'s `doc` stay: saved pictures' notes and every record's header still carry them (a
-   project that keeps its help lines keeps them there), so the run file does not change.
+   `aria-label`s (names for the buttons, not hovers), plotly's data hover. `Series.doc` and
+   `Number.doc` stay: a saved picture's note carries its chart's or number's, and every record's
+   header its numbers' (a project that keeps its help lines keeps them there), so the run file
+   does not change. `fields_of`'s `doc` and `lines` stay too, now read by nothing.
 2. **Reasons and refusals under the setting.** Each field's box cell becomes the box and a note under
    it: the refusal in red, else the greyed reason, else hidden. The sweep row gets the same note.
 3. **Refused at Run.** New `jobs.refusals(piece, typed, swept, rungs)`: each typed value, and each sweep
@@ -142,3 +143,20 @@ about 20 labels. Compute: one parse and comparison per typed value at Run, nothi
   (2026-11-14): picking another piece left the form's name and sweep boxes, and its "From <run>"
   head, holding the last form's words, which the next Run no longer used. A piece now starts its
   form as Clear leaves one (`Lab._on_piece` calls `_clear`); a test holds it.
+- **From the review** (four reviewers in parallel, each one's findings put to a second agent
+  told to refute them, on the developer's standing word for 2b to 2e): 34 findings, 31 confirmed,
+  3 refuted; every confirmed one fixed or written here. A refusal in a folded group opened
+  nothing, so Run changed nothing on screen: Run now opens that group. The note under a box put
+  the form's rows out of line, its grid centring every cell: the cells sit at the top, the label
+  and the unit in a band as tall as the box (`skin.BOX_PX`). A refused sweep value of a pick, a
+  yes/no or a list of texts said `coerce_value`'s words, the setting's code name first: it says
+  `<label> takes one of … | true or false | a list of texts, got <text>` too. Plotly's toolbar
+  names its buttons on hover (Zoom, Pan, …): kept, as the mockup did, and the browser test now
+  walks `data-title` too, allowing only those. The tests the review found missing: an included
+  upper bound (the toy's σ is now in [0, 10]), a refusal going with Clear, with Use and with a
+  gate that shuts, a refusal in a folded group (the toy's Run group is folded), the tripwire
+  running Run's sweep check, a run in the strip during the browser walk, the run list's ✕ found by
+  its name, and a description on a toy chart and number so a hover put back would show. The
+  Lab's docstrings now say it restates one rule. DeePC: an unused remnant of System's deleted
+  descriptions, three docstrings and a README line still calling help lines words a Lab user
+  reads, and the figure skill's words rule.

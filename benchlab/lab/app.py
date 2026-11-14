@@ -13,9 +13,11 @@ and :func:`figure.twin.figure_of`, the look from :mod:`lab.skin`. Served on 127.
 
 Everything on the page is derived from what is on disk, what is ticked and what each card's
 controls hold, on every event, in :meth:`Lab.render`; the one memo is the loaded records, keyed
-by their file's mtime. The page computes nothing and restates no rule: a greyed control is its
-field's own gate or the figure layer's refusal, a refusal is the words of what refused it, a chart
-is the figure layer's. A click that raises, or a page that cannot be built, shows its error on the
+by their file's mtime. The page computes nothing and restates one rule: a typed value its setting
+cannot read, or one outside the bounds it declares, is refused when Run is pressed, in the Lab's
+own words (:func:`lab.jobs.refusals`, ``docs/design.md`` decision 5; ``tests/test_runner.py``
+holds it to param's verdict). Otherwise a greyed control is its field's own gate or the figure
+layer's refusal, a refusal is the words of what refused it, a chart is the figure layer's. A click that raises, or a page that cannot be built, shows its error on the
 page.
 """
 
@@ -47,7 +49,7 @@ from .strip import RunsInProgress
 from .split import DEFAULT_PX, Split
 
 _POLL_MS = 700
-#: A run's state, as the strip says it (written here until branch 2b makes the page's words slots).
+#: A run's state, as the strip says it (written here until branch 2c makes the page's words slots).
 #: In the order the head counts them: the mockup's (running, waiting, then what ended).
 _STATES = {jobs.RUNNING: "Running", jobs.QUEUED: "Queued", jobs.DONE: "Done",
            jobs.FAILED: "Failed", jobs.STOPPED: "Stopped"}
@@ -158,8 +160,9 @@ class _Rows:
 
     def _text(self) -> str:
         """The rows as JSON. A list of numbers (θ) writes each row that reads as a number as
-        one, so its default reads as unset, and any other row as the text typed, which the
-        run refuses in its own words: never a row split or dropped on the way."""
+        one, so its default reads as unset, and any other row as the text typed, which Run
+        refuses under the setting (:func:`lab.jobs.refusals`): never a row split or dropped on
+        the way."""
         if self.f.get("texts"):
             return json.dumps(self._items, ensure_ascii=False)
         def number(text: str) -> Any:
@@ -264,6 +267,8 @@ class Lab:
         self._group_notes: dict[str, pn.pane.HTML] = {}
         #: the folded groups opened, by name; kept across redraws of one piece's form
         self._unfolded: set[str] = set()
+        #: each folded group's head, by group, so Run can open the group a refusal is said in
+        self._folds: dict[str, pn.widgets.Toggle] = {}
         self._filling = False
         self._from: Optional[str] = None            # the run the form was last loaded from
         self.shown: list[str] = []                  # the runs the cards and the table show
@@ -992,7 +997,7 @@ class Lab:
         self.drawer.visible = False
 
     def _draw_form(self) -> None:
-        self._controls.clear(); self._labels.clear(); self._notes.clear()
+        self._controls.clear(); self._labels.clear(); self._notes.clear(); self._folds.clear()
         self._group_notes.clear()
         self._refused, self._sweep_refused = {}, ""
         groups: dict[str, list[Any]] = {}
@@ -1018,6 +1023,7 @@ class Lab:
                                          stylesheets=[skin.WIDGET, skin.INDEX])
                 head.param.watch(lambda e, g=g, body=body, head=head:
                                  self._on_fold(g, body, head, e.new), "value")
+                self._folds[g] = head
             sections.append(pn.Column(pn.Row(head, note, stylesheets=[skin.BAR],
                                              sizing_mode="stretch_width"),
                                       body, sizing_mode="stretch_width", margin=(6, 0)))
@@ -1075,7 +1081,7 @@ class Lab:
         after: Any = pn.Spacer(height=0)             # the third track is never left unfilled
         if f.get("unit"):
             after = _html(html.escape(f["unit"]), margin=0,
-                          style=f"{_MONO};font-size:11px;{_DIM}")
+                          style=f"{_MONO};font-size:11px;{_DIM};line-height:{skin.BOX_PX}px")
         if options is None:
             control = _widget(pn.widgets.TextInput, margin=0, sizing_mode="stretch_width",
                               placeholder=self.form.shown_default(f),
@@ -1106,7 +1112,8 @@ class Lab:
             control.disabled = off
             control.stylesheets = [skin.WIDGET, skin.CHANGED] if name in self.form.set \
                 else [skin.WIDGET]
-            style = (f"display:block;text-align:left;font-size:12.5px;"
+            style = (f"display:flex;align-items:center;min-height:{skin.BOX_PX}px;"
+                     f"text-align:left;font-size:12.5px;"
                      f"color:{skin.INK if name in self.form.set else skin.INK2};"
                      + ("opacity:.45" if off else ""))
             label.object = (f"<span style=\"{style}\">"
@@ -1283,6 +1290,11 @@ class Lab:
         self._refused, self._sweep_refused = jobs.refusals(
             self.piece["name"], self.form.set, self.form.swept(), self.form.rungs())
         if self._refused or self._sweep_refused:
+            # a refusal in a folded group was said on no line the page showed: Run changed
+            # nothing on screen (2b review, 2026-11-14)
+            for group in {self.form.by_name[n]["group"] for n in self._refused}:
+                if group in self._folds:
+                    self._folds[group].value = True
             self._apply_gates()
             return
         try:

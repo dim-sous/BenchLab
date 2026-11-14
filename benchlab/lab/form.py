@@ -100,8 +100,10 @@ class Form:
         return [v.strip() for v in self.sweep_values.split(",") if v.strip()]
 
     def swept(self) -> str:
-        """The swept field: named AND given something. Whether what was given is an acceptable
-        list of values is the runner's answer, in its own words, not this module's."""
+        """The swept field: named AND given something. Whether each value given reads as the
+        setting reads it, and lies in its bounds, Run says under the sweep row
+        (:func:`lab.jobs.refusals`); a repeated value or a path separator is the runner's answer,
+        in its own words."""
         return self.sweep_field if self.sweep_field and self.sweep_values.strip() else ""
 
     def axes(self) -> list[tuple[str, str]]:
@@ -249,8 +251,8 @@ class Form:
     # -- the command
     def launch_words(self) -> tuple[list[str], list[str]]:
         """``(overrides, sweeps)`` as ``--set`` and ``--sweep`` take them; the swept field only
-        in ``sweeps``, carrying the values as they were typed -- what is an acceptable list is
-        the runner's rule, and the runner says so itself."""
+        in ``sweeps``, carrying the values as they were typed: each is checked at Run first
+        (:func:`lab.jobs.refusals`), and a repeat or a path separator the runner refuses itself."""
         swept = self.swept()
         overrides = [f"{k}={v}" for k, v in self.set.items() if k != swept]
         sweeps = [f"{swept}={self.sweep_values.strip()}"] if swept else []

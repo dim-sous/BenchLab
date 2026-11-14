@@ -14,7 +14,8 @@ The bench every project shares. A project brings its pieces: for each one its se
 
 It began as DeePC's bench, moved here unchanged but for what tied it to DeePC
 (`docs/plan-branch-1.md`, v0.1.0); the page its developer designed is being built on it, a branch at a time
-(`docs/design.md` §8: runs in progress first, `docs/plan-branch-2a.md`, v0.2.0).
+(`docs/design.md` §8: runs in progress first, `docs/plan-branch-2a.md`, v0.2.0; no hovers,
+`docs/plan-branch-2b.md`, v0.3.0).
 
 ## How a project declares itself
 
@@ -44,7 +45,7 @@ lab = "benchlab.lab:main"
 project = "harness"
 
 [tool.uv.sources]
-benchlab = { git = "https://github.com/dim-sous/BenchLab", tag = "v0.2.0" }
+benchlab = { git = "https://github.com/dim-sous/BenchLab", tag = "v0.3.0" }
 ```
 
 then `uv sync`. Benchlab refuses, in words, an environment where no project declares itself, where

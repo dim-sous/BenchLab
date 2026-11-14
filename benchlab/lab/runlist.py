@@ -16,8 +16,8 @@ from .skin import LIST
 _ROW = """
     const el = (tag, cls, text) => { const e = document.createElement(tag); e.className = cls;
       if (text !== undefined) e.textContent = text; return e; };
-    const action = (cls, words, hover, msg) => { const b = el('button', 'act ' + cls, words);
-      b.title = hover; b.addEventListener('click', e => { e.stopPropagation(); model.send_msg(msg); });
+    const action = (cls, words, msg) => { const b = el('button', 'act ' + cls, words);
+      b.addEventListener('click', e => { e.stopPropagation(); model.send_msg(msg); });
       return b; };
 """
 
@@ -53,7 +53,7 @@ class RunList(JSComponent):
           if (r.stale) main.append(el('div', 'why', r.stale));
           row.append(dot, main);
           if (!r.stale) {
-            row.append(action('use', 'Use', "Load this run's settings into the form", { use: r.name }));
+            row.append(action('use', 'Use', { use: r.name }));
             row.addEventListener('click', () => {
               const s = model.shown.slice(); const i = s.indexOf(r.name);
               if (i >= 0) s.splice(i, 1); else s.push(r.name);
@@ -61,7 +61,9 @@ class RunList(JSComponent):
           } else {
             row.append(el('span', ''));
           }
-          row.append(action('del', '✕', "Delete this run's record, after asking", { delete: r.name }));
+          const del = action('del', '✕', { delete: r.name });
+          del.setAttribute('aria-label', 'Delete ' + r.name);
+          row.append(del);
           root.append(row);
         }
       };

@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from .form import as_text, hover, term
+from .form import as_text, term
 
 
 def text(value: Any) -> str:
@@ -149,19 +149,19 @@ def compare_rows(runs: list[dict[str, Any]], fields: list[dict[str, Any]], *,
 
     rows: list[dict[str, Any]] = []
 
-    def add(kind: str, group: str, key: str, words: str, hover_words: str, held: list[Any]) -> None:
+    def add(kind: str, group: str, key: str, words: str, held: list[Any]) -> None:
         rows.append({"kind": kind, "group": group, "key": key, "term": words,
-                     "hover": hover_words, "values": [text(v) for v in held],
+                     "values": [text(v) for v in held],
                      "differs": len({as_text(v) for v in held}) > 1})
 
     for group in groups:
         in_group = [n for n in order if (specs[n].get("group") or "Numbers") == group]
-        add("head", group, "", group, "", [])
+        add("head", group, "", group, [])
         for name in in_group:
             spec = specs[name]
             unit = spec.get("unit") or ""
             add("number", group, name, f"{spec['label']} [{unit}]" if unit else spec["label"],
-                spec.get("doc") or "", [r["numbers"].get(name) for r in runs])
+                [r["numbers"].get(name) for r in runs])
     if settings == "none":
         return rows
 
@@ -171,10 +171,9 @@ def compare_rows(runs: list[dict[str, Any]], fields: list[dict[str, Any]], *,
                     and (settings == "all" or f["name"] in differ)]
         if not in_group:
             continue
-        add("head", group, "", group, "", [])
+        add("head", group, "", group, [])
         for f in in_group:
-            add("setting", group, f["name"], term(f), hover(f),
-                [r["config"].get(f["name"]) for r in runs])
+            add("setting", group, f["name"], term(f), [r["config"].get(f["name"]) for r in runs])
 
     flat = [_flat(c) for c in (constants or [])]
     if any(flat):
@@ -184,10 +183,9 @@ def compare_rows(runs: list[dict[str, Any]], fields: list[dict[str, Any]], *,
         kept = [k for k in keys
                 if settings == "all" or len({as_text(h.get(k)) for h in flat}) > 1]
         if kept:
-            add("head", "Constants", "", "Constants", "", [])
+            add("head", "Constants", "", "Constants", [])
             for key in kept:
-                add("constant", "Constants", key, key, "A value the run used beyond its "
-                    "settings, read off the record", [h.get(key) for h in flat])
+                add("constant", "Constants", key, key, [h.get(key) for h in flat])
     return rows
 
 

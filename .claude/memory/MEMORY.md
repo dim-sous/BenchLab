@@ -1,7 +1,7 @@
 # Benchlab: where the work stands
 
-Start here in a new session. Updated 2026-11-14, with branch 2a built and reviewed, not yet
-committed (VS Code on the developer's computer, WSL2, 12 CPUs).
+Start here in a new session. Updated 2026-11-14, with branch 2a merged (`v0.2.0`) and 2b's PRs
+open (VS Code on the developer's computer, WSL2, 12 CPUs).
 
 ## Where it stands
 
@@ -33,34 +33,43 @@ committed (VS Code on the developer's computer, WSL2, 12 CPUs).
   Benchlab's branch, its suite rerun on it), then #1 merged and tagged `v0.1.0`, DeePC re-pinned to
   the tag with its whole suite again (268 passed, records as before), #17 merged, both branches
   deleted, both local copies back on `main` and `master`.
-- **Branch 2 is four branches** (the developer, 2026-11-14), each driven in DeePC's Lab before the
-  next: 2a runs in progress, 2b words as slots and no hovers, 2c the tree, 2d the cards' full
-  controls (`docs/design.md` §8).
-- **Branch 2a built and reviewed, not committed** (2026-11-14, `docs/plan-branch-2a.md` with its
-  "As built" part): each run its own process (`python -m benchlab.runner`), up to the cores side
-  by side, the rest queued, the strip along the bottom in place of the terminal; the side door and
-  the Lab share `benchlab.runner`; version 0.2.0. In the working trees: here on `main`, in DeePC on
-  `master`, which points at this copy through its path source (never committed). Checked: Benchlab
-  165 passed; DeePC's whole suite 244 passed in 187 s; its records through the side door as
-  `master`'s but provenance and wall-clock fields; a closed loop from the Lab's queue and from the
-  side door differ only in name, solve times and provenance. Reviewed by four parallel reviewers
-  (the developer's choice): 37 findings, 35 confirmed, all fixed or written in the plan's "As
-  built". DeePC's whole suite then found two more, fixed (the plan's "As built"): a run whose end
-  could not be read crashed its watcher, and DeePC's chart test read the charts at a fixed time.
-  Handed off in DeePC's Lab with a step-by-step walkthrough Claude drove first (the developer,
-  2026-11-14: "Looks good, proceed"). On their word, steps 1 and 2: this branch,
-  `runs-in-progress`, pushed with its PR; then DeePC's branch of the same name, pinned to it, its
-  whole suite rerun, with its PR. Waiting: step 3 on their word (merge, tag `v0.2.0`, re-pin
-  DeePC to the tag, its suite again, merge, branches deleted, both copies back on `main` and
-  `master`).
+- **Branch 2 is five branches** (the developer, 2026-11-14), each driven in DeePC's Lab before the
+  next: 2a runs in progress, 2b no hovers, 2c words as slots, 2d the tree, 2e the cards' full
+  controls (`docs/design.md` §8; the old 2b split in two the same day).
+- **Branch 2a merged** (2026-11-14, `docs/plan-branch-2a.md` with its "As built" part): BenchLab
+  #2 (merge `4bcd510`, tagged `v0.2.0`) and DeePC-Sandbox #18 (merge `6049a60`), which pins
+  `v0.2.0`. Each run its own process (`python -m benchlab.runner`), up to the cores side by side,
+  the rest queued, the strip along the bottom in place of the terminal; the side door and the Lab
+  share `benchlab.runner`. Checked: Benchlab 165 passed; DeePC's whole suite 244 passed on the
+  local copy, on Benchlab's pushed branch and on the tag (268 before: 26 tests of the old terminal
+  left, 2 checks added); its records through the side door as before the move but provenance and
+  wall-clock fields, each time; a closed loop from the Lab's queue and from the side door differ
+  only in name, solve times and provenance. Reviewed by four parallel reviewers (the developer's
+  choice): 37 findings, 35 confirmed, all fixed or written in the plan's "As built"; DeePC's whole
+  suite then found two more, fixed. Handed off in DeePC's Lab as a walkthrough Claude drove first;
+  the developer approved it ("Looks good, proceed"). Git, each step on their word: both PRs, then
+  #2 merged and tagged, DeePC re-pinned to the tag with its checks again, #18 merged, both
+  branches deleted, both copies back on `main` and `master`.
 
 ## Next
 
-1. 2a's step 3, on the developer's word (above). A hand-off is a walkthrough: what to click, what
-   to type, what the page should then show, each step driven by Claude first (2026-11-14: the
-   developer found a list of steps without them "not clear as to what to run/drive and what to
-   observe").
-2. 2b words as slots and no hovers (proposed first), 2c the tree, 2d the cards' full controls.
+1. **2b no hovers** (`docs/plan-branch-2b.md`, approved 2026-11-14): hovers off settings, compare rows, card titles and feet, the list's and index's
+   buttons, a card's ✕ and the panes' divider (the browser test found that one); a greyed
+   setting's reason under it; a value outside its range, or unreadable, refused at Run under its
+   setting (`jobs.refusals`, held to param's verdict by a test); the toy's `duty` (a gate and an
+   open interval); version 0.3.0; six deliberate breaks of the new code each caught. In DeePC:
+   System's and Open loop's help lines deleted, `x0` now `x_0` (the developer:
+   "standard math stuff ... symbols and acronyms", every other label kept), its tests and
+   `lab-words.md` without hovers. A bug from before Benchlab, found driving the hand-off and
+   fixed on the developer's word: another piece left the old form's name and sweep in their
+   boxes. Checked: Benchlab 182 passed, ruff clean; DeePC 244 passed; its side door as before
+   but System's and Open loop's notes and number docs, now empty. Driven by the developer in
+   DeePC's Lab (2026-11-14), on a walkthrough Claude drove first. On their word, steps 1 and 2:
+   this branch, `no-hovers`, pushed with its PR; then DeePC's branch of the same name, pinned
+   to it, its whole suite and side door rerun, with its PR. Then, on their standing word
+   (below), parallel review and step 3: merge, tag `v0.3.0`, DeePC re-pinned to the tag, its
+   checks again, merge, branches deleted.
+2. 2c words as slots, 2d the tree, 2e the cards' full controls, built straight through (below).
    Then Hydrofoil moves (with its naming pass), the shared calculations, BESS, old runs and Re-fly
    (`docs/design.md` §8). Waiting for a later branch: progress percentages, when a piece reports
    one; DeePC still pins panel itself and lists matplotlib, which only Benchlab uses now.
@@ -78,6 +87,19 @@ committed (VS Code on the developer's computer, WSL2, 12 CPUs).
 - The siblings' rules hold here too: propose, then plan mode, then build. Ask before any
   multi-agent fan-out, every time. Hand off in the Lab, or say plainly there is nothing to drive.
   No git write without their word.
+- **But 2b to 2e, straight through** (the developer, 2026-11-14: "I would rather have you
+  complete all the steps, drive it through all repos, then I will drive through all repos and
+  then i will tell if there is smth i dont like ... make one long list once at the end"). Their
+  standing word, for these four branches only, in BenchLab and DeePC only: every git step
+  (commit, push, PR, merge, tag, DeePC re-pinned, branches deleted) without asking, and parallel
+  reviewers on each branch before it merges. Each branch planned in `docs/plan-branch-2X.md`,
+  built, tested, reviewed, driven by Claude; every choice the design and mockup leave open made
+  and written with its reason in `docs/for-review.md`. Stop only for a change to the run file,
+  anything outside these two repositories, or a failure not fixable inside the branch. At the
+  end: one walkthrough of everything, and that list.
+- **A hand-off is a walkthrough**: what to click, what to type, what the page should then show,
+  each step driven by Claude first, never squeezed into a question's dialog (2026-11-14: a list
+  of steps without them was "not clear as to what to run/drive and what to observe").
 
 ## Measured
 

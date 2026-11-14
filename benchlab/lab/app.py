@@ -13,9 +13,11 @@ and :func:`figure.twin.figure_of`, the look from :mod:`lab.skin`. Served on 127.
 
 Everything on the page is derived from what is on disk, what is ticked and what each card's
 controls hold, on every event, in :meth:`Lab.render`; the one memo is the loaded records, keyed
-by their file's mtime. The page computes nothing and restates no rule: a greyed control is its
-field's own gate or the figure layer's refusal, a refusal is the words of what refused it, a chart
-is the figure layer's. A click that raises, or a page that cannot be built, shows its error on the
+by their file's mtime. The page computes nothing and restates one rule: a typed value its setting
+cannot read, or one outside the bounds it declares, is refused when Run is pressed, in the Lab's
+own words (:func:`lab.jobs.refusals`, ``docs/design.md`` decision 5; ``tests/test_runner.py``
+holds it to param's verdict). Otherwise a greyed control is its field's own gate or the figure
+layer's refusal, a refusal is the words of what refused it, a chart is the figure layer's. A click that raises, or a page that cannot be built, shows its error on the
 page.
 """
 
@@ -47,7 +49,7 @@ from .strip import RunsInProgress
 from .split import DEFAULT_PX, Split
 
 _POLL_MS = 700
-#: A run's state, as the strip says it (written here until branch 2b makes the page's words slots).
+#: A run's state, as the strip says it (written here until branch 2c makes the page's words slots).
 #: In the order the head counts them: the mockup's (running, waiting, then what ended).
 _STATES = {jobs.RUNNING: "Running", jobs.QUEUED: "Queued", jobs.DONE: "Done",
            jobs.FAILED: "Failed", jobs.STOPPED: "Stopped"}
@@ -158,8 +160,9 @@ class _Rows:
 
     def _text(self) -> str:
         """The rows as JSON. A list of numbers (θ) writes each row that reads as a number as
-        one, so its default reads as unset, and any other row as the text typed, which the
-        run refuses in its own words: never a row split or dropped on the way."""
+        one, so its default reads as unset, and any other row as the text typed, which Run
+        refuses under the setting (:func:`lab.jobs.refusals`): never a row split or dropped on
+        the way."""
         if self.f.get("texts"):
             return json.dumps(self._items, ensure_ascii=False)
         def number(text: str) -> Any:
@@ -255,10 +258,17 @@ class Lab:
         self._known: set[int] = {r.id for r in self.queue.runs()}
         self._controls: dict[str, Any] = {}
         self._labels: dict[str, pn.pane.HTML] = {}
-        self._tips: dict[str, pn.widgets.TooltipIcon] = {}
+        #: the line under each setting: what Run refused in it, else why it is greyed
+        self._notes: dict[str, pn.pane.HTML] = {}
+        #: what the last Run refused, by setting, and in the sweep row: each said under its
+        #: place until that place is edited, the form cleared or loaded, or a Run queues
+        self._refused: dict[str, str] = {}
+        self._sweep_refused = ""
         self._group_notes: dict[str, pn.pane.HTML] = {}
         #: the folded groups opened, by name; kept across redraws of one piece's form
         self._unfolded: set[str] = set()
+        #: each folded group's head, by group, so Run can open the group a refusal is said in
+        self._folds: dict[str, pn.widgets.Toggle] = {}
         self._filling = False
         self._from: Optional[str] = None            # the run the form was last loaded from
         self.shown: list[str] = []                  # the runs the cards and the table show
@@ -291,11 +301,9 @@ class Lab:
         self.run_filter = _tool(pn.widgets.TextInput, placeholder="Filter runs",
                                 sizing_mode="stretch_width")
         self.run_filter.param.watch(lambda _e: self._draw_list(), "value_input")
-        self.all_btn = _tool(pn.widgets.Button, label="All", width=_width("All"),
-                             description="Tick every run the filter lists")
+        self.all_btn = _tool(pn.widgets.Button, label="All", width=_width("All"))
         self.all_btn.on_click(lambda _e: self.tick_listed())
-        self.none_btn = _tool(pn.widgets.Button, label="None", width=_width("None"),
-                              description="Untick every run the filter lists")
+        self.none_btn = _tool(pn.widgets.Button, label="None", width=_width("None"))
         self.none_btn.on_click(lambda _e: self.untick_listed())
         self.run_list = RunList(rows=[], shown=[], sizing_mode="stretch_width", styles=skin.RUNS)
         self.run_list.on_use = self.open_drawer
@@ -323,12 +331,9 @@ class Lab:
         self._tabs_hold: Optional[tuple] = None
         self._groups_shown: set[str] = set()
         self._groups_met: set[int] = set()
-        self.show_all = _tool(pn.widgets.Button, label="Show all", width=_width("Show all"),
-                              description="Show every group's charts")
+        self.show_all = _tool(pn.widgets.Button, label="Show all", width=_width("Show all"))
         self.show_all.on_click(lambda _e: self._show_groups(True))
-        self.hide_all = _tool(pn.widgets.Button, label="Hide all", width=_width("Hide all"),
-                              description="Hide every group's charts; their names stay in the "
-                                          "index")
+        self.hide_all = _tool(pn.widgets.Button, label="Hide all", width=_width("Hide all"))
         self.hide_all.on_click(lambda _e: self._show_groups(False))
         self.cards_box = pn.Column(sizing_mode="stretch_width")
 
@@ -357,6 +362,8 @@ class Lab:
         #: On a line of its own under the bar, not in it: in the bar a long overwrite list pushed
         #: Run off the drawer, and made to give way there it was cut to two letters (2026-10-06).
         self.name_note = _html("", style=_DIM)
+        #: what Run refused in the sweep row, under it
+        self.sweep_note = _html("", visible=False)
         self.run_btn = _widget(pn.widgets.Button, label="Run", color="primary", width=70)
         self.run_btn.on_click(lambda _e: self._run())
         self.clear_btn = _widget(pn.widgets.Button, label="Clear", width=62)
@@ -375,7 +382,7 @@ class Lab:
                              _html("Sweep", style=_DIM), self.sweep_field, self.sweep_values,
                              pn.layout.HSpacer(), self.run_btn, stylesheets=[skin.BAR],
                              sizing_mode="stretch_width"),
-                      self.name_note, self.banner, self.form_note,
+                      self.sweep_note, self.name_note, self.banner, self.form_note,
                       styles=skin.DRAWER_FOOT, sizing_mode="stretch_width"),
             visible=False, styles=skin.DRAWER, width=skin.DRAWER_PX)
 
@@ -784,20 +791,19 @@ class Lab:
             return self._numbers_view(card, pairs, refused)
         return self._chart_view(card, pairs, refused)
 
-    def _frame(self, card: shaping.Card, title: str, doc: str, tools: list[Any], body: Any,
+    def _frame(self, card: shaping.Card, title: str, tools: list[Any], body: Any,
                foot: str, warn: bool) -> pn.Column:
-        """A card: its title (its description on the title's hover) and close at the line's
-        end; then its controls, one row of groups, a whole group wrapping onto the next line when
-        the card is too narrow for it; then what it draws; then a foot -- why it could not draw.
-        The description is not repeated under the title (RCWS ``_frame``, the developer's: it
-        said what the hover said)."""
-        close = _widget(pn.widgets.Button, label="✕", width=34, description="Close this card")
+        """A card: its title and close at the line's end; then its controls, one row of
+        groups, a whole group wrapping onto the next line when the card is too narrow for it;
+        then what it draws; then a foot -- why it could not draw. No hover: the title is the
+        chart's or the number's own words (``docs/design.md`` decision 5)."""
+        close = _widget(pn.widgets.Button, label="✕", width=34)
         close.on_click(lambda _e: self._close(card))
         # the panel's name rides on the title as data-panel: the tests found a card by its
         # title's text, which found none once a title showed words, not the name (2026-10-27)
         top = pn.FlexBox(_html(f"<b data-panel='{html.escape(card.chart or card.number)}' "
                                f"style='{_MONO};font-size:15px'>{html.escape(title)}</b>",
-                               title=doc, stylesheets=[skin.BAR_FILL]),
+                               stylesheets=[skin.BAR_FILL]),
                          close,
                          flex_wrap="nowrap", align_items="center", margin=0,
                          stylesheets=[skin.BAR], sizing_mode="stretch_width")
@@ -808,7 +814,7 @@ class Lab:
                                     sizing_mode="stretch_width"))
         items.append(body)
         if foot:
-            items.append(_html(html.escape(foot), title=foot,
+            items.append(_html(html.escape(foot),
                                style=f"font-size:12.5px;{_RED if warn else _DIM}"))
         return pn.Column(*items, styles=skin.CARD, sizing_mode="stretch_width")
 
@@ -899,8 +905,7 @@ class Lab:
                 body = self._body(card, panel)
                 self.drawn[card.id] = [n for n, _ in pairs]
         return self._frame(card, declared.title if declared else card.chart,
-                           declared.doc if declared else "", self._toolbar(card, ctx), body,
-                           foot, warn)
+                           self._toolbar(card, ctx), body, foot, warn)
 
     def _numbers_context(self, card: shaping.Card,
                          pairs: list[tuple[str, Any]]) -> shaping.Context:
@@ -942,8 +947,7 @@ class Lab:
             else:
                 body = self._body(card, panel)
                 self.drawn[card.id] = [n for n, _ in pairs]
-        return self._frame(card, title, spec.doc if spec else "", self._toolbar(card, ctx), body,
-                           foot, warn)
+        return self._frame(card, title, self._toolbar(card, ctx), body, foot, warn)
 
     def _body(self, card: shaping.Card, panel: Any) -> Any:
         """What a card shows: the figure layer's chart, as its live twin."""
@@ -993,8 +997,9 @@ class Lab:
         self.drawer.visible = False
 
     def _draw_form(self) -> None:
-        self._controls.clear(); self._labels.clear(); self._tips.clear()
+        self._controls.clear(); self._labels.clear(); self._notes.clear(); self._folds.clear()
         self._group_notes.clear()
+        self._refused, self._sweep_refused = {}, ""
         groups: dict[str, list[Any]] = {}
         blocks: dict[str, list[Any]] = {}       # the row fields, full width under the grid
         for f in self.form.fields:
@@ -1018,6 +1023,7 @@ class Lab:
                                          stylesheets=[skin.WIDGET, skin.INDEX])
                 head.param.watch(lambda e, g=g, body=body, head=head:
                                  self._on_fold(g, body, head, e.new), "value")
+                self._folds[g] = head
             sections.append(pn.Column(pn.Row(head, note, stylesheets=[skin.BAR],
                                              sizing_mode="stretch_width"),
                                       body, sizing_mode="stretch_width", margin=(6, 0)))
@@ -1050,22 +1056,21 @@ class Lab:
                 control.value = self.form.set.get(f["name"], "")
             finally:
                 self._filling = False
-            if f["name"] in self._tips:
-                self._tips[f["name"]].value = self._line_of(f, control.value)
 
     def _rows_block(self, f: dict[str, Any]) -> Any:
-        """A row field: its label (the help on its hover), then its rows (:class:`_Rows`)."""
+        """A row field: its label, then its rows (:class:`_Rows`), then its note."""
         name = f["name"]
         label = _html("", margin=0)
         self._labels[name] = label
         editor = _Rows(f, on_edit=lambda text, n=name: self._on_type(n, text))
         editor.value = self.form.set.get(name, "")
         self._controls[name] = editor
-        return pn.Column(label, editor.view, sizing_mode="stretch_width", margin=(0, 0, 8, 0))
+        return pn.Column(label, editor.view, self._note(name), sizing_mode="stretch_width",
+                         margin=(0, 0, 8, 0))
 
     def _field_cells(self, f: dict[str, Any]) -> list[Any]:
-        """A field as the THREE cells of a six-track grid: label, box, unit (or the pick's
-        tooltip, or nothing). The cells go into the grid themselves rather than into a row of
+        """A field as the THREE cells of a six-track grid: label, box with its note under it,
+        unit (or nothing). The cells go into the grid themselves rather than into a row of
         their own, because a row is its own flex box and two rows share no geometry -- which is
         what left the boxes 196px apart across the sections, measured 2026-10-05. Every cell is
         margin-free: the spacing is the grid's gaps, so the tracks are what they say they are."""
@@ -1076,7 +1081,7 @@ class Lab:
         after: Any = pn.Spacer(height=0)             # the third track is never left unfilled
         if f.get("unit"):
             after = _html(html.escape(f["unit"]), margin=0,
-                          style=f"{_MONO};font-size:11px;{_DIM}")
+                          style=f"{_MONO};font-size:11px;{_DIM};line-height:{skin.BOX_PX}px")
         if options is None:
             control = _widget(pn.widgets.TextInput, margin=0, sizing_mode="stretch_width",
                               placeholder=self.form.shown_default(f),
@@ -1087,34 +1092,37 @@ class Lab:
                               options={o["words"]: o["value"] for o in options},
                               value=self.form.set.get(name, ""))
             control.param.watch(lambda e, n=name: self._on_pick(n, e.new), "value")
-            after = pn.widgets.TooltipIcon(value=self._line_of(f, control.value), margin=0)
-            self._tips[name] = after
         self._controls[name] = control
-        return [label, control, after]
+        return [label, pn.Column(control, self._note(name), margin=0,
+                                 sizing_mode="stretch_width"), after]
 
-    def _line_of(self, f: dict[str, Any], value: str) -> str:
-        for o in self.form.options(f) or []:
-            if o["value"] == value:
-                return o["line"] or o["words"]
-        return ""
+    def _note(self, name: str) -> pn.pane.HTML:
+        """The line under a setting, hidden while it has nothing to say."""
+        note = _html("", margin=0, visible=False)
+        self._notes[name] = note
+        return note
 
     def _apply_gates(self) -> None:
         """Every control's state is its field's own gate or the sweep row's axis, nothing else."""
         changed: dict[str, int] = {}
         for f in self.form.fields:
             name = f["name"]
-            off, words = self.form.state_of(f)
+            off, reason = self.form.state_of(f)
             control, label = self._controls[name], self._labels[name]
             control.disabled = off
             control.stylesheets = [skin.WIDGET, skin.CHANGED] if name in self.form.set \
                 else [skin.WIDGET]
-            style = (f"display:block;text-align:left;font-size:12.5px;"
+            style = (f"display:flex;align-items:center;min-height:{skin.BOX_PX}px;"
+                     f"text-align:left;font-size:12.5px;"
                      f"color:{skin.INK if name in self.form.set else skin.INK2};"
                      + ("opacity:.45" if off else ""))
-            label.object = (f"<span title=\"{html.escape(words, quote=True)}\" style=\"{style}\">"
+            label.object = (f"<span style=\"{style}\">"
                             f"{html.escape(f['label'])}</span>")      # the unit sits by the box
-            if name in self._tips:
-                self._tips[name].value = self._line_of(f, control.value)
+            refused = self._refused.get(name, "")
+            note = self._notes[name]
+            note.object = (f"<span style='{_RED if refused else _DIM};font-size:12px'>"
+                           f"{html.escape(refused or reason)}</span>")
+            note.visible = bool(refused or reason)
             changed[f["group"]] = changed.get(f["group"], 0) + (name in self.form.set)
         for g, note in self._group_notes.items():
             total = sum(1 for f in self.form.fields if f["group"] == g)
@@ -1126,11 +1134,15 @@ class Lab:
         note_words, warns = self.form.note()
         self.form_note.object = (f"<span style='{_RED if warns else _DIM}'>"
                                  f"{html.escape(note_words)}</span>")
+        self.sweep_note.object = f"<span style='{_RED}'>{html.escape(self._sweep_refused)}</span>"
+        self.sweep_note.visible = bool(self._sweep_refused)
         self._draw_typed()
 
     def _fill_controls(self) -> None:
         """Push the form's values into the widgets without the watchers reading it as typing; a
-        saved run's pick is offered again first, so the path it now holds is one it offers."""
+        saved run's pick is offered again first, so the path it now holds is one it offers.
+        What a Run refused in the values these replace is said no more."""
+        self._refused, self._sweep_refused = {}, ""
         self._offer_saved()
         self._filling = True
         try:
@@ -1166,7 +1178,7 @@ class Lab:
 
     def _draw_typed(self) -> None:
         """Why Run would be refused, live, in the words of what refuses it; nothing when it
-        would not. What the settings themselves refuse, the run says when it starts."""
+        would not. What the settings themselves refuse, Run says under each (:meth:`_run`)."""
         try:
             self._planned()
         except ValueError as exc:
@@ -1188,6 +1200,7 @@ class Lab:
     def _on_type(self, name: str, text: str) -> None:
         if self._filling:
             return
+        self._refused.pop(name, None)
         taken = self.form.type_or_pick(name, text)
         self._taken_back(taken)
         self._apply_gates()
@@ -1195,6 +1208,7 @@ class Lab:
     def _on_pick(self, name: str, value: str) -> None:
         if self._filling:
             return
+        self._refused.pop(name, None)
         taken = self.form.type_or_pick(name, value)
         self._taken_back(taken)
         self._apply_gates()
@@ -1202,6 +1216,7 @@ class Lab:
     def _on_sweep(self, *, field: Optional[str] = None, values: Optional[str] = None) -> None:
         if self._filling:
             return
+        self._sweep_refused = ""
         taken = self.form.sweep(self.form.sweep_field if field is None else field,
                                 self.form.sweep_values if values is None else values)
         self._taken_back(taken)
@@ -1209,9 +1224,12 @@ class Lab:
         self._draw_names()                      # a sweep renames what the run would write
 
     def _taken_back(self, names: list[str]) -> None:
-        """A box behind a gate that just shut is shown empty, not holding a value Run would refuse."""
+        """A box behind a gate that just shut is shown empty, not holding a value Run would refuse,
+        nor what Run refused in it."""
         if not names:
             return
+        for n in names:
+            self._refused.pop(n, None)
         self._filling = True
         try:
             for n in names:
@@ -1254,6 +1272,9 @@ class Lab:
         self._groups_shown, self._groups_met, self._tabs_hold = set(), set(), None
         self._unfolded = set()
         self._draw_form()
+        # the name and sweep boxes outlive a form: unwritten, they kept the last piece's words,
+        # which the next Run no longer used (2026-11-14, found driving 2b's hand-off)
+        self._clear()
         self.reload()
 
     # ------------------------------------------------------------------ running
@@ -1262,7 +1283,20 @@ class Lab:
         self.banner.visible = bool(words)
 
     def _run(self) -> None:
-        """Queue the form's runs, a sweep's side by side; Run never waits for the last one."""
+        """Queue the form's runs, a sweep's side by side; Run never waits for the last one. A
+        value its setting refuses -- out of its range, or not what it reads -- is said under
+        the setting, or under the sweep row, and nothing is queued (``docs/design.md``
+        decision 5)."""
+        self._refused, self._sweep_refused = jobs.refusals(
+            self.piece["name"], self.form.set, self.form.swept(), self.form.rungs())
+        if self._refused or self._sweep_refused:
+            # a refusal in a folded group was said on no line the page showed: Run changed
+            # nothing on screen (2b review, 2026-11-14)
+            for group in {self.form.by_name[n]["group"] for n in self._refused}:
+                if group in self._folds:
+                    self._folds[group].value = True
+            self._apply_gates()
+            return
         try:
             runs = self.queue.submit(self.piece["name"], self._planned(), root=self.root,
                                      out_dir=self.out_dir)

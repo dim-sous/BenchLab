@@ -1,5 +1,8 @@
-"""The made-up project's one piece: a wave u of amplitude A and frequency f over N samples, and
-y = u plus Gaussian noise of standard deviation σ, drawn from a seed; the RMS of each. Its Run
+"""The made-up project's one piece: a wave u of amplitude A and frequency f over N samples -- a
+sine, or a square wave high for its duty share of each cycle -- and y = u plus Gaussian noise of
+standard deviation σ, drawn from a seed; the RMS of each. The duty opens only with the square
+wave and excludes both its bounds, so the form has a gate and an open interval to refuse at; σ
+includes both of its, [0, 10]: ends a value may equal. The Run group is folded. Its Run
 group is test machinery for the runs in progress: a wait before it computes; a print to stdout,
 left in Python's buffer and holding a byte that is not UTF-8; a crash, or a refusal written over
 several lines as Benchlab's own ``Record.load`` writes one."""
@@ -23,23 +26,27 @@ __all__ = ["Config", "run", "Record"]
 class Config(Settings):
     shape = param.Selector(default="sine", objects=["sine", "square"], label="Shape",
                            doc="The wave's shape.", metadata={"group": "Wave"})
+    duty = param.Number(0.5, bounds=(0.0, 1.0), inclusive_bounds=(False, False), label="Duty",
+                        doc="The square wave's share of each cycle spent high.",
+                        metadata={"group": "Wave", "needs": {"shape": {"in": ["square"]}}})
     amplitude = param.Number(1.0, bounds=(0.0, None), label="A", doc="The wave's amplitude.",
                              metadata={"group": "Wave"})
     frequency = param.Number(2.0, bounds=(0.0, None), label="f",
                              doc="Cycles over the run.", metadata={"group": "Wave"})
     samples = param.Integer(40, bounds=(2, None), label="N", doc="Samples over the run.",
                             metadata={"group": "Wave"})
-    noise = param.Number(0.0, bounds=(0.0, None), label="σ",
+    noise = param.Number(0.0, bounds=(0.0, 10.0), label="σ",
                          doc="The noise's standard deviation.", metadata={"group": "Noise"})
     seed = param.Integer(0, label="Seed", doc="The noise's draw.",
                          metadata={"group": "Noise", "replicate": True})
     delay = param.Number(0.0, bounds=(0.0, None), label="Delay",
-                         doc="Seconds the run waits before it computes.", metadata={"group": "Run"})
+                         doc="Seconds the run waits before it computes.",
+                         metadata={"group": "Run", "folded": True})
     noisy = param.Boolean(False, label="Noisy", doc="The run prints to stdout first.",
-                          metadata={"group": "Run"})
+                          metadata={"group": "Run", "folded": True})
     fail = param.Selector(default="no", objects=["no", "crash", "refuse"], label="Fail",
                           doc="The run crashes, or refuses, instead of computing.",
-                          metadata={"group": "Run"})
+                          metadata={"group": "Run", "folded": True})
 
 
 @dataclasses.dataclass(frozen=True)
@@ -58,13 +65,14 @@ class Record(_Record):
 
     def series(self) -> tuple[Series, ...]:
         return (Series(name="u", x=self.t, x_label="t", y_label="u", traces=(("u", self.u),),
-                       group="Wave"),
+                       group="Wave", doc="The wave, before its noise."),
                 Series(name="y", x=self.t, x_label="t", y_label="y", traces=(("y", self.y),),
                        group="Wave", pooled=("mean", "rms")))
 
     def number_specs(self) -> tuple[Number, ...]:
         return (Number("rms_u", "RMS of u", group="Wave"),
-                Number("rms_y", "RMS of y", headline=True, group="Wave"))
+                Number("rms_y", "RMS of y", headline=True, group="Wave",
+                       doc="The RMS of the wave with its noise."))
 
 
 def run(cfg: Config) -> Record:
@@ -80,8 +88,8 @@ def run(cfg: Config) -> Record:
         raise FileNotFoundError("no Record record at results/wave/gone.json. Run it first:\n"
                                 "    uv run toy run wave\nwhich writes that file.")
     t = np.linspace(0.0, 1.0, cfg.samples)
-    wave = np.sin(2 * np.pi * cfg.frequency * t)
-    u = cfg.amplitude * (wave if cfg.shape == "sine" else np.sign(wave))
+    u = cfg.amplitude * (np.sin(2 * np.pi * cfg.frequency * t) if cfg.shape == "sine" else
+                         np.where((cfg.frequency * t) % 1.0 < cfg.duty, 1.0, -1.0))
     y = u + cfg.noise * np.random.default_rng(cfg.seed).standard_normal(cfg.samples)
     return Record(name="default", config=cfg, provenance=stamp(time.perf_counter() - started),
                   t=t, u=u, y=y, numbers={"rms_u": float(np.sqrt(np.mean(u ** 2))),

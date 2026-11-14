@@ -13,8 +13,6 @@ import json
 from pathlib import PurePath
 from typing import Any, Optional
 
-INF = "∞"
-ELLIPSIS = "…"
 #: What an empty box, or a pick's first option, says for a setting whose default is the code's
 #: own (``code_default``: ``None`` in the Config, resolved by the run and saved in its record's
 #: constants): an empty placeholder said nothing about what the run would use.
@@ -34,17 +32,6 @@ def as_text(value: Any) -> str:
     if isinstance(value, float) and value.is_integer() and abs(value) < 1e15:
         return str(int(value))
     return str(value)
-
-
-def hover(f: dict[str, Any]) -> str:
-    """The field's doc, then the bounds it declares as an interval: ``[`` for an included end,
-    ``(`` for an excluded one, ``∞`` for none. Declared, not described."""
-    doc = f.get("doc") or ""
-    if f.get("low") is None and f.get("high") is None:
-        return doc
-    lo = f"(-{INF}" if f["low"] is None else ("(" if f["low_exclusive"] else "[") + as_text(f["low"])
-    hi = f"{INF})" if f["high"] is None else as_text(f["high"]) + (")" if f["high_exclusive"] else "]")
-    return f"{doc} {lo} {ELLIPSIS} {hi}".strip()
 
 
 def term(f: dict[str, Any]) -> str:
@@ -84,19 +71,17 @@ class Form:
         return CODE_DEFAULT if f.get("code_default") else as_text(f["default"])
 
     def options(self, f: dict[str, Any]) -> Optional[list[dict[str, str]]]:
-        """What a pick list offers: ``{value, words, line}`` per option, the empty value first
+        """What a pick list offers: ``{value, words}`` per option, the empty value first
         worded as the default; ``None`` for a typed box. A setting naming a saved run offers
-        that piece's runs, each worded by its name, the path its line -- and the path it holds,
-        when no saved run is that path, so a run's own is never swapped for another."""
-        lines = f.get("lines") or {}
+        that piece's runs, each worded by its name -- and the path it holds, when no saved run
+        is that path, so a run's own is never swapped for another."""
         default = as_text(f["default"])
         if f.get("record_of"):
             paths = [p for p in self.saved.get(f["record_of"], []) if p != default]
             held = self.set.get(f["name"], "")
             paths += [held] if held and held not in paths else []
-            return ([{"value": "", "words": f"{PurePath(default).stem} (default)",
-                      "line": default}]
-                    + [{"value": p, "words": PurePath(p).stem, "line": p} for p in paths])
+            return ([{"value": "", "words": f"{PurePath(default).stem} (default)"}]
+                    + [{"value": p, "words": PurePath(p).stem} for p in paths])
         if f.get("choices"):
             values = [as_text(c) for c in f["choices"]]
         elif f["type"] == "bool":
@@ -104,8 +89,8 @@ class Form:
         else:
             return None
         first = CODE_DEFAULT if f.get("code_default") else f"{default} (default)"
-        out = [{"value": "", "words": first, "line": lines.get(default, "")}]
-        out += [{"value": v, "words": v, "line": lines.get(v, "")} for v in values if v != default]
+        out = [{"value": "", "words": first}]
+        out += [{"value": v, "words": v} for v in values if v != default]
         return out
 
     # -- the sweep row
@@ -115,8 +100,10 @@ class Form:
         return [v.strip() for v in self.sweep_values.split(",") if v.strip()]
 
     def swept(self) -> str:
-        """The swept field: named AND given something. Whether what was given is an acceptable
-        list of values is the runner's answer, in its own words, not this module's."""
+        """The swept field: named AND given something. Whether each value given reads as the
+        setting reads it, and lies in its bounds, Run says under the sweep row
+        (:func:`lab.jobs.refusals`); a repeated value or a path separator is the runner's answer,
+        in its own words."""
         return self.sweep_field if self.sweep_field and self.sweep_values.strip() else ""
 
     def axes(self) -> list[tuple[str, str]]:
@@ -140,21 +127,17 @@ class Form:
         return "all" if self.holds(gate, self.effective(other)) else "none"
 
     def state_of(self, f: dict[str, Any]) -> tuple[bool, str]:
-        """``(off, hover)``: greyed behind a closed gate or as the sweep axis, with the reason;
-        a gate only some rungs open is not greyed, it warns."""
+        """``(off, reason)``: greyed behind a closed gate or as the sweep axis, with the reason
+        the page writes under it; ``(False, "")`` otherwise. A gate only some rungs open greys
+        nothing: :meth:`note` warns when such a setting is set."""
         if f["name"] == self.swept():
             return True, f"{f['label']} is the sweep axis; its values come from the sweep row"
-        words = hover(f)
         for other, gate in (f.get("needs") or {}).items():
-            status = self.gate_status(other, gate)
-            wanted = " or ".join(as_text(v) for v in gate.get("in", []))
-            if status == "none":
+            if self.gate_status(other, gate) == "none":
+                wanted = " or ".join(as_text(v) for v in gate.get("in", []))
                 return True, (f"{f['label']} applies only when {self.label(other)} is {wanted}; "
                               f"it is {self.effective(other)}")
-            if status == "some":
-                words += (f" — only some sweep values of {self.label(other)} open it "
-                          f"({wanted}); the run stops at the first that does not")
-        return False, words
+        return False, ""
 
     # -- typing
     def type_or_pick(self, name: str, text: str) -> list[str]:
@@ -268,8 +251,8 @@ class Form:
     # -- the command
     def launch_words(self) -> tuple[list[str], list[str]]:
         """``(overrides, sweeps)`` as ``--set`` and ``--sweep`` take them; the swept field only
-        in ``sweeps``, carrying the values as they were typed -- what is an acceptable list is
-        the runner's rule, and the runner says so itself."""
+        in ``sweeps``, carrying the values as they were typed: each is checked at Run first
+        (:func:`lab.jobs.refusals`), and a repeat or a path separator the runner refuses itself."""
         swept = self.swept()
         overrides = [f"{k}={v}" for k, v in self.set.items() if k != swept]
         sweeps = [f"{swept}={self.sweep_values.strip()}"] if swept else []

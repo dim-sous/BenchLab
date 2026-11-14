@@ -1,0 +1,45 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "benchlab"
+version = "0.1.0"
+description = "The bench every project shares: settings and run files, charts, a command line and the Lab's page over a project's pieces"
+readme = "README.md"
+requires-python = ">=3.13"
+# DeePC's own pins, taken with its four layers (2026-11-13)
+dependencies = [
+    "matplotlib>=3.7",
+    "numpy>=2.4.2",
+    "panel>=1.9.4,<1.10",   # the Lab's page; BESS's Lab runs on 1.9.4
+    "param>=2.4.2",
+    "plotly>=6.6.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.17.5",
+]
+
+[tool.ruff]
+target-version = "py313"
+
+[tool.ruff.lint]
+# RCWS's rule set (its pyproject.toml, #185), named here so "ruff clean" means the same under every
+# ruff version: pyflakes, syntax and statement errors, invalid escapes, bugbear, blind except, and
+# suppressions that suppress nothing. E731: a lambda kept in a name. E741: single-letter names.
+# E702: semicolons, as the moved code writes them. B905: zip(strict=) changes what unequal lengths
+# do, a behaviour decision per call site.
+select = ["F", "E4", "E7", "E9", "W6", "B", "BLE", "RUF100"]
+ignore = ["E731", "E741", "E702", "B905"]
+
+[tool.setuptools.packages.find]
+# benchlab/ only: tests/ (and the made-up project inside it) is never installed
+include = ["benchlab*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# the repository root is on the path for `tests` (the made-up project lives in tests/toy/)
+pythonpath = ["."]

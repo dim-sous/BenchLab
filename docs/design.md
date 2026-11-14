@@ -35,7 +35,7 @@ never ported to the others.
 | The run-file format: one JSON per run, saved atomically, loaded loudly, old runs still shown | Its **words**: one file filling every slot Benchlab names |
 | The chart engine: overlay, split, mean, RMS, sweep; a still as PNG, CSV and JSON note | Its **standard labels** for settings, charts and numbers, with units. There are no descriptions |
 | The shared calculations (§6) | Its own calculations, where no shared one fits |
-| The side door: a command line for Claude and the tests | Two lines in its `pyproject.toml`: Benchlab at a pinned version, and its `lab` command |
+| The side door: a command line for Claude and the tests | Its **declaration**: in its registry, its command, the Lab's title, its repository and the libraries its runs stamp; in its `pyproject.toml`, Benchlab at a pinned version, its two commands and the entry point that names the registry (`README.md`) |
 
 Decided: the developer (the split; "maybe by decomposing stuff even further we can achieve bigger
 efficiency").
@@ -90,6 +90,11 @@ efficiency").
 - **The "Lab computes nothing" guarantee** is held by a test, not by the terminal. The same
   settings run from the Lab and from the side door give identical files, provenance aside (its
   date and duration differ by nature).
+- **A project declares itself through an entry point** (decided in plan mode, 2026-11-13,
+  `docs/plan-branch-1.md`): its `pyproject.toml` names its registry module in the `benchlab`
+  group, the standard Python plugin mechanism, and Benchlab finds the one declared project there
+  (`benchlab/project.py`), refusing none, two, or a module missing a name. Benchlab then never
+  imports a project by its name.
 - **Pinned versions.** A project names a Benchlab git tag (`uv add
   git+https://github.com/dim-sous/benchlab --tag vX.Y.Z`) and moves only when the tag is raised by
   hand, then runs its own suite. While Benchlab and a project are worked on together on one
@@ -168,11 +173,16 @@ onto Benchlab is planned against where that rewrite stands, never on top of a ha
 
 ## 8. Building Benchlab: the first branches (refined in plan mode)
 
-1. **The core, without the page.** Settings, records, the chart engine, the side door, the runner
-   and their tests, taken from BESS's and DeePC's copies. DeePC is moved onto it with its safety
-   net unchanged. This proves the split before the page exists.
-2. **The page.** The tree, runs, compare, cards, form and runs in progress, from BESS's Lab, with
-   the runner in place of the terminal. Driven in DeePC.
+1. **The core: DeePC's four layers, moved unchanged** (`docs/plan-branch-1.md`). Settings and
+   records, the charts, the side door and DeePC's own page, moved from DeePC with only their ties
+   to DeePC cut (its command, its title, its registry, its provenance). DeePC is moved onto it with
+   every record and still identical, but for provenance (Benchlab's version added) and the
+   wall-clock fields two runs of the same code already differ in. Changed in plan mode from "the core, without the page": a pure
+   move is checkable bit for bit, a move plus a redesign is not, and without its page DeePC would
+   lose its Lab between branches 1 and 2.
+2. **The page and the runner.** The tree, runs, compare, cards, form and runs in progress, from
+   BESS's Lab, with the runner (each run its own process) in place of the terminal, on Benchlab's
+   own test project. The runner comes here with its first user, the page. Driven in DeePC.
 3. **Hydrofoil moves**, with its naming pass.
 4. **Shared calculations**: the RMS family, run cost and solver outcomes. DeePC's and Hydrofoil's
    numbers are declared instead of hand-written.

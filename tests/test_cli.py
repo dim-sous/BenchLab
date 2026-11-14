@@ -1,0 +1,79 @@
+"""The command line, driven on the made-up project as a person types it: a run saves one record per
+sweep value and prints where, a draw writes each panel as a still with its sidecar, and a refusal
+is said in the project's own command."""
+
+from __future__ import annotations
+
+import json
+import os
+
+import pytest
+
+from benchlab import cli
+
+
+def _run(out, *words: str) -> None:
+    assert cli.main(["run", "wave", *words, "--out-dir", str(out)]) == 0
+
+
+def test_the_command_is_the_projects_and_its_pieces_are_the_choices() -> None:
+    parser = cli.build_parser()
+    assert parser.prog == "toy"
+    assert parser.description.startswith("``toy``: run a piece, draw its records.")
+    with pytest.raises(SystemExit):
+        parser.parse_args(["run", "bogus"])
+
+
+def test_a_run_saves_its_record_and_prints_its_path_and_numbers(tmp_path, capsys) -> None:
+    _run(tmp_path, "--set", "amplitude=2", "--name", "probe")
+    path = tmp_path / "wave" / "probe.json"
+    lines = capsys.readouterr().out.splitlines()
+    assert lines[0] == str(path)
+    assert [line.split(" = ")[0] for line in lines[1:]] == ["  rms_u", "  rms_y"]
+    raw = json.loads(path.read_text())
+    assert raw["component"] == "wave" and raw["name"] == "probe"
+    assert raw["config"]["amplitude"] == 2.0 and raw["numbers"]["rms_u"] == pytest.approx(2 ** 0.5,
+                                                                                          rel=0.05)
+
+
+def test_a_sweep_saves_one_record_per_value(tmp_path) -> None:
+    _run(tmp_path, "--sweep", "frequency=1,3", "--sweep", "shape=sine,square")
+    assert sorted(os.listdir(tmp_path / "wave")) == [
+        f"default-frequency-{f}-shape-{s}.json" for f in (1, 3) for s in ("sine", "square")]
+
+
+def test_a_refusal_is_said_in_the_projects_command(tmp_path) -> None:
+    with pytest.raises(SystemExit, match=r"^toy: unknown setting 'nope'"):
+        _run(tmp_path, "--set", "nope=1")
+    with pytest.raises(SystemExit, match=r"^toy: Number parameter 'Config\.amplitude' must be at "
+                                         r"least 0\.0, not -1\.0"):
+        _run(tmp_path, "--set", "amplitude=-1")
+
+
+def test_a_draw_writes_each_panel_beside_the_record_with_its_sidecar(tmp_path) -> None:
+    _run(tmp_path, "--name", "a")
+    record = tmp_path / "wave" / "a.json"
+    assert cli.main(["draw", str(record)]) == 0
+    folder = tmp_path / "wave" / "a"
+    assert sorted(os.listdir(folder)) == ["u.png", "u.png.json", "y.png", "y.png.json"]
+    sidecar = json.loads((folder / "y.png.json").read_text())
+    assert sidecar["figure"] == "y.png" and sidecar["runs"] == ["a"] and sidecar["git_sha"]
+
+
+def test_runs_that_differ_in_their_seed_alone_are_drawn_pooled(tmp_path) -> None:
+    _run(tmp_path, "--set", "noise=0.5", "--sweep", "seed=1,2,3", "--name", "n")
+    records = sorted(str(p) for p in (tmp_path / "wave").glob("*.json"))
+    out = tmp_path / "drawn"
+    assert cli.main(["draw", *records, "--panel", "y", "--runs", "mean", "--out-dir", str(out)]) == 0
+    sidecar = json.loads((out / "y.png.json").read_text())
+    assert sidecar["traces"] == ["Mean of 3 runs · y"] and sidecar["shaping"] == {"runs": "mean"}
+
+
+def test_a_number_is_drawn_against_a_setting(tmp_path) -> None:
+    _run(tmp_path, "--sweep", "amplitude=1,2,4")
+    records = sorted(str(p) for p in (tmp_path / "wave").glob("*.json"))
+    out = tmp_path / "drawn"
+    assert cli.main(["draw", *records, "--number", "rms_u", "--vs", "amplitude",
+                     "--out-dir", str(out)]) == 0
+    sidecar = json.loads((out / "rms_u-vs-amplitude.png.json").read_text())
+    assert sidecar["x_label"] == "A" and sidecar["number"] == "rms_u"

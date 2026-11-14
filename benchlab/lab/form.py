@@ -1,5 +1,5 @@
 """The run view's form as plain data -- what each control offers and says, which settings a gate
-shuts, the sweep row, and the ``<command> run`` the form launches. No Panel here.
+shuts, the sweep row, and the runs the form queues. No Panel here.
 
 Everything is read off :func:`record.config.fields_of`; the form restates no rule the Config
 holds. A field back at its declared default is **unset** (an empty box runs as the default);
@@ -110,18 +110,18 @@ class Form:
 
     # -- the sweep row
     def rungs(self) -> list[str]:
-        """The sweep values as the terminal splits them (on commas); ``[]`` while empty. Read to
-        decide what a gate sees; the run itself is launched with the typed text."""
+        """The sweep values as the runner splits them (on commas); ``[]`` while empty. Read to
+        decide what a gate sees; the run itself is given the typed text."""
         return [v.strip() for v in self.sweep_values.split(",") if v.strip()]
 
     def swept(self) -> str:
         """The swept field: named AND given something. Whether what was given is an acceptable
-        list of values is the terminal's answer, in its own words, not this module's."""
+        list of values is the runner's answer, in its own words, not this module's."""
         return self.sweep_field if self.sweep_field and self.sweep_values.strip() else ""
 
     def axes(self) -> list[tuple[str, str]]:
         """What the sweep row can vary: every setting but a list of numbers, whose own commas
-        the terminal would split as the sweep's, and but a saved run's path, which the name of
+        the runner would split as the sweep's, and but a saved run's path, which the name of
         the record each rung writes cannot hold."""
         return [(f["name"], term(f)) for f in self.fields
                 if f["type"] != "list" and not f.get("record_of")]
@@ -187,7 +187,7 @@ class Form:
 
     def note(self) -> tuple[str, bool]:
         """``(words, warns)``: how many settings are set, what the last edit took back, and the
-        warnings the terminal itself would act on."""
+        warnings the runner itself would act on."""
         words = f"{len(self.set)} set"
         warnings = []
         if self.taken:
@@ -196,7 +196,7 @@ class Form:
                             + f" taken back: the run would ignore {them}")
         rungs = self.rungs()
         if len(set(rungs)) != len(rungs):
-            warnings.append("the sweep repeats a value — the terminal refuses the run")
+            warnings.append("the sweep repeats a value — Run refuses it")
         for f in self.fields:
             for other, gate in (f.get("needs") or {}).items():
                 if other == self.swept() and self.gate_status(other, gate) == "some" \
@@ -209,7 +209,7 @@ class Form:
     # -- names
     def would_write(self, name: str) -> list[str]:
         """The record names this form would write under ``name``: one per sweep rung, named as
-        the terminal names them (``<name>-<setting>-<value>``), else ``name`` alone."""
+        the runner names them (``<name>-<setting>-<value>``), else ``name`` alone."""
         swept = self.swept()
         if not swept:
             return [name]
@@ -269,7 +269,7 @@ class Form:
     def launch_words(self) -> tuple[list[str], list[str]]:
         """``(overrides, sweeps)`` as ``--set`` and ``--sweep`` take them; the swept field only
         in ``sweeps``, carrying the values as they were typed -- what is an acceptable list is
-        the terminal's rule, and the terminal says so itself."""
+        the runner's rule, and the runner says so itself."""
         swept = self.swept()
         overrides = [f"{k}={v}" for k, v in self.set.items() if k != swept]
         sweeps = [f"{swept}={self.sweep_values.strip()}"] if swept else []

@@ -21,18 +21,16 @@ says; with ``--number`` it draws that summary number against the setting ``--vs`
 from __future__ import annotations
 
 import argparse
-import dataclasses
 import hashlib
-import itertools
 import json
-import os
 import sys
 from pathlib import Path
 from typing import Optional, Sequence
 
 from benchlab.project import command, get_component, piece_names
 from benchlab.record import read_header
-from benchlab.record.config import from_dict, parse_override, with_overrides
+from benchlab.record.config import from_dict
+from benchlab.runner import planned, run_once
 
 DEFAULT_OUT_DIR = "results"
 
@@ -87,34 +85,9 @@ def run_command(args: argparse.Namespace) -> int:
             cfg = from_dict(component.Config, json.load(fh), where=args.config)
     else:
         cfg = component.Config()
-    pairs = [parse_override(item) for item in args.overrides]
     name = args.name or (Path(args.config).stem if args.config else "default")
-
-    axes, swept = [], []
-    for item in args.sweeps:
-        field, values = parse_override(item)
-        if not values:
-            raise SystemExit(f"--sweep expects SETTING=V1,V2,..., got {item!r}")
-        if field in swept or any(f == field for f, _ in pairs):
-            raise SystemExit(f"{field!r} is given twice (--sweep/--set); a setting is swept "
-                             f"once, and not also set")
-        texts = [v.strip() for v in values.split(",")]
-        if len(set(texts)) != len(texts):
-            raise SystemExit(f"--sweep {item!r} repeats a value; each run would overwrite the last")
-        parted = [v for v in texts if "/" in v or os.sep in v]
-        if parted:
-            raise SystemExit(f"--sweep {field}: {parted[0]!r} holds a path separator, and each "
-                             f"run is named <name>-{field}-<value>; run each with --set")
-        swept.append(field)
-        axes.append([(field, v) for v in texts])
-
-    for combo in (itertools.product(*axes) if axes else [()]):
-        # --set pairs are applied WITH the sweep value, so a gate a sweep opens is open when
-        # the setting behind it is checked.
-        run_cfg = with_overrides(cfg, pairs + list(combo))
-        run_name = "-".join([name] + [f"{f}-{v}" for f, v in combo])
-        rec = dataclasses.replace(component.run(run_cfg), name=run_name)
-        path = rec.save(os.path.join(args.out_dir, args.piece, f"{run_name}.json"))
+    for run_name, pairs in planned(name, args.overrides, args.sweeps):
+        path, rec = run_once(args.piece, pairs, run_name, args.out_dir, config=cfg)
         print(path)
         for key, value in rec.numbers.items():
             print(f"  {key} = {value:.6g}")

@@ -5,9 +5,9 @@
 
 That module holds the project's registry -- ``NAMES``, its pieces in the order every surface shows
 them, and ``get_component(name)``, a piece's module -- and its declaration: ``COMMAND``, the
-command its ``pyproject.toml`` installs (the Lab launches ``uv run <COMMAND> run``), ``TITLE``,
-the Lab's title, ``ROOT``, the repository whose commit stamps a record, and ``LIBRARIES``, the
-libraries whose versions a record keeps.
+command its ``pyproject.toml`` installs (the side door; the Lab prints its line beside each run),
+``TITLE``, the Lab's title, ``ROOT``, the repository whose commit stamps a record, and
+``LIBRARIES``, the libraries whose versions a record keeps.
 
 Nothing is looked up when Benchlab is imported: the project is found on first use and kept. Every
 other module of Benchlab reaches the project through this one (``tests/test_layers.py``).
@@ -69,7 +69,8 @@ def get_component(name: str) -> ModuleType:
 
 
 def command() -> str:
-    """The command the declared project installs, which the Lab launches as ``uv run <it> run``."""
+    """The command the declared project installs: the side door, whose line the Lab prints
+    beside each run it starts."""
     return declared().COMMAND
 
 

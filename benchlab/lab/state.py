@@ -1,7 +1,7 @@
 """What the page lists, as plain data; every value is read, none computed.
 
 Two sources only: the declarations (the registry and :func:`record.config.fields_of`) and the
-files under the terminal's out-dir. A record is LISTED as the JSON it is -- its header, config,
+files under the out-dir. A record is LISTED as the JSON it is -- its header, config,
 provenance and numbers, never the traces -- and a record that is SHOWN is loaded through its
 own class (:func:`load`), every rule of that loading the class's own, so the figure layer's
 twin can draw what it declares.
@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import dataclasses
 import json
-import os
 from pathlib import Path
 from typing import Any
 
@@ -156,21 +155,3 @@ def load(run: dict[str, Any]) -> Any:
     admits, are refused in its words). What the page hands to the figure layer's twin, and
     where it reads a record's constants."""
     return get_component(run["piece"]).Record.load(run["path"])
-
-
-def under(path: str, root: str) -> bool:
-    """Whether ``path`` really resolves inside ``root`` (symlinks and ``..`` included)."""
-    real_root = os.path.realpath(root)
-    return os.path.realpath(path).startswith(real_root.rstrip(os.sep) + os.sep)
-
-
-def wrote(lines: list[str], root: str, out_dir: str) -> list[str]:
-    """The printed lines that are existing files under the out-dir. The terminal prints one path
-    per artefact it writes, relative to the root, so those lines are its output."""
-    base = os.path.join(root, out_dir)
-    out = []
-    for line in lines:
-        candidate = os.path.join(root, line.strip())
-        if line.strip() and os.path.isfile(candidate) and under(candidate, base):
-            out.append(candidate)
-    return out

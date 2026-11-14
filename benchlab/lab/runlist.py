@@ -32,6 +32,9 @@ class RunList(JSComponent):
     rows = param.List(default=[], item_type=dict)
     shown = param.List(default=[], item_type=str)
     empty = param.String(default="", doc="what the list says when it lists no run")
+    #: the list's own words (``lab.words``): ``use``, ``delete``, and ``delete_label``, which
+    #: names a run's delete for a screen reader by its ``{name}``
+    words = param.Dict(default={})
 
     on_use: Optional[Callable[[str], None]] = None
     on_delete: Optional[Callable[[str], None]] = None
@@ -53,7 +56,7 @@ class RunList(JSComponent):
           if (r.stale) main.append(el('div', 'why', r.stale));
           row.append(dot, main);
           if (!r.stale) {
-            row.append(action('use', 'Use', { use: r.name }));
+            row.append(action('use', model.words.use, { use: r.name }));
             row.addEventListener('click', () => {
               const s = model.shown.slice(); const i = s.indexOf(r.name);
               if (i >= 0) s.splice(i, 1); else s.push(r.name);
@@ -61,8 +64,8 @@ class RunList(JSComponent):
           } else {
             row.append(el('span', ''));
           }
-          const del = action('del', '✕', { delete: r.name });
-          del.setAttribute('aria-label', 'Delete ' + r.name);
+          const del = action('del', model.words.delete, { delete: r.name });
+          del.setAttribute('aria-label', model.words.delete_label.split('{name}').join(r.name));
           row.append(del);
           root.append(row);
         }

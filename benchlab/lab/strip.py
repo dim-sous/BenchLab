@@ -26,6 +26,9 @@ class RunsInProgress(JSComponent):
     :attr:`on_dismiss` with the run's id."""
 
     rows = param.List(default=[], item_type=dict)
+    #: the strip's own words (``lab.words``): ``stop``, ``dismiss``, and ``stop_label`` and
+    #: ``dismiss_label``, which name a run's button for a screen reader by its ``{name}``
+    words = param.Dict(default={})
 
     on_stop: Optional[Callable[[int], None]] = None
     on_dismiss: Optional[Callable[[int], None]] = None
@@ -54,8 +57,9 @@ class RunsInProgress(JSComponent):
           d.r = r;
           d.pill.className = 'pill ' + r.state;
           d.pill.textContent = r.clock ? r.words + ' ' + r.clock : r.words;
-          d.act.textContent = r.finished ? '✕' : 'Stop';
-          d.act.setAttribute('aria-label', r.finished ? 'Take ' + r.name + ' off the list' : 'Stop ' + r.name);
+          const w = model.words;
+          d.act.textContent = r.finished ? w.dismiss : w.stop;
+          d.act.setAttribute('aria-label', (r.finished ? w.dismiss_label : w.stop_label).split('{name}').join(r.name));
           d.err.textContent = r.error || '';
           d.err.hidden = !r.error;
           want.push(d.row);

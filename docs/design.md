@@ -193,7 +193,7 @@ onto Benchlab is planned against where that rewrite stands, never on top of a ha
    own test project. The runner comes here with its first user, the page. Driven in DeePC.
    Built as branches, each driven before the next (the developer, 2026-11-14): **2a** runs in
    progress (`docs/plan-branch-2a.md`), **2b** no hovers (`docs/plan-branch-2b.md`), **2c** words
-   as slots, **2d** the tree, **2e** the cards' full controls. The old 2b, words as slots and no
+   as slots (`docs/plan-branch-2c.md`), **2d** the tree, **2e** the cards' full controls. The old 2b, words as slots and no
    hovers, was split in two on 2026-11-14: one changes what the page shows and is driven, the
    other changes none of it and proves itself by the page's text staying word for word the same.
 3. **Hydrofoil moves**, with its naming pass.

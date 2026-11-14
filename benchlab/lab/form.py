@@ -13,11 +13,7 @@ import json
 from pathlib import PurePath
 from typing import Any, Optional
 
-#: What an empty box, or a pick's first option, says for a setting whose default is the code's
-#: own (``code_default``: ``None`` in the Config, resolved by the run and saved in its record's
-#: constants): an empty placeholder said nothing about what the run would use.
-CODE_DEFAULT = "Code default"
-
+from .words import say, say_n
 
 def as_text(value: Any) -> str:
     """A value as the text ``--set`` reads back: ``true``/``false``, an integral float without
@@ -66,9 +62,11 @@ class Form:
         return self.set.get(name, as_text(self.by_name[name]["default"]))
 
     def shown_default(self, f: dict[str, Any]) -> str:
-        """What an empty box runs as -- the placeholder: the declared default, or
-        :data:`CODE_DEFAULT` for one the run resolves."""
-        return CODE_DEFAULT if f.get("code_default") else as_text(f["default"])
+        """What an empty box runs as -- the placeholder: the declared default, or the words
+        for one the run resolves (``code_default``: ``None`` in the Config, resolved by the run
+        and saved in its record's constants; an empty placeholder said nothing of what the run
+        would use)."""
+        return say("form.code_default") if f.get("code_default") else as_text(f["default"])
 
     def options(self, f: dict[str, Any]) -> Optional[list[dict[str, str]]]:
         """What a pick list offers: ``{value, words}`` per option, the empty value first
@@ -80,7 +78,7 @@ class Form:
             paths = [p for p in self.saved.get(f["record_of"], []) if p != default]
             held = self.set.get(f["name"], "")
             paths += [held] if held and held not in paths else []
-            return ([{"value": "", "words": f"{PurePath(default).stem} (default)"}]
+            return ([{"value": "", "words": say("form.default", value=PurePath(default).stem)}]
                     + [{"value": p, "words": PurePath(p).stem} for p in paths])
         if f.get("choices"):
             values = [as_text(c) for c in f["choices"]]
@@ -88,7 +86,7 @@ class Form:
             values = ["true", "false"]
         else:
             return None
-        first = CODE_DEFAULT if f.get("code_default") else f"{default} (default)"
+        first = say("form.code_default") if f.get("code_default") else say("form.default", value=default)
         out = [{"value": "", "words": first}]
         out += [{"value": v, "words": v} for v in values if v != default]
         return out
@@ -131,12 +129,12 @@ class Form:
         the page writes under it; ``(False, "")`` otherwise. A gate only some rungs open greys
         nothing: :meth:`note` warns when such a setting is set."""
         if f["name"] == self.swept():
-            return True, f"{f['label']} is the sweep axis; its values come from the sweep row"
+            return True, say("form.sweep_axis", setting=f["label"])
         for other, gate in (f.get("needs") or {}).items():
             if self.gate_status(other, gate) == "none":
                 wanted = " or ".join(as_text(v) for v in gate.get("in", []))
-                return True, (f"{f['label']} applies only when {self.label(other)} is {wanted}; "
-                              f"it is {self.effective(other)}")
+                return True, say("form.gated", setting=f["label"], other=self.label(other),
+                                 wanted=wanted, value=self.effective(other))
         return False, ""
 
     # -- typing
@@ -171,20 +169,19 @@ class Form:
     def note(self) -> tuple[str, bool]:
         """``(words, warns)``: how many settings are set, what the last edit took back, and the
         warnings the runner itself would act on."""
-        words = f"{len(self.set)} set"
+        words = say("form.set", n=len(self.set))
         warnings = []
         if self.taken:
-            them = "them" if len(self.taken) > 1 else "it"
-            warnings.append(", ".join(self.label(n) for n in self.taken)
-                            + f" taken back: the run would ignore {them}")
+            warnings.append(say_n("form.taken", len(self.taken),
+                                  settings=", ".join(self.label(n) for n in self.taken)))
         rungs = self.rungs()
         if len(set(rungs)) != len(rungs):
-            warnings.append("the sweep repeats a value — Run refuses it")
+            warnings.append(say("form.sweep_repeats"))
         for f in self.fields:
             for other, gate in (f.get("needs") or {}).items():
                 if other == self.swept() and self.gate_status(other, gate) == "some" \
                         and f["name"] in self.set:
-                    warnings.append(f"{f['label']} is set, and only some sweep values open it")
+                    warnings.append(say("form.some_rungs", setting=f["label"]))
         if warnings:
             return f"{words} — " + "; ".join(warnings), True
         return words, False
@@ -219,9 +216,7 @@ class Form:
         over = [n for n in self.would_write(name) if n in held]
         if not over:
             return ""
-        many = len(over) > 1
-        return (f"{', '.join(over)} exist{'' if many else 's'} — "
-                f"Run overwrites {'them' if many else 'it'}")
+        return say_n("form.overwrites", len(over), names=", ".join(over))
 
     # -- from a run, and back to nothing
     def use(self, config: dict[str, Any]) -> tuple[int, list[str]]:

@@ -41,6 +41,7 @@ from benchlab.project import command, get_component, piece_names
 from benchlab.record.config import coerce_value, fields_of
 
 from .form import as_text
+from .words import say, say_n
 
 QUEUED, RUNNING, DONE, FAILED, STOPPED = "queued", "running", "done", "failed", "stopped"
 
@@ -71,8 +72,7 @@ def _setting(item: str, piece: str, names: set[str]) -> str:
 
 def _name(name: str) -> str:
     if not _NAME.match(name or ""):
-        raise ValueError(f"{name!r} cannot name a record: letters, digits, '.', '_' or '-', "
-                         f"starting with a letter or digit")
+        raise ValueError(say("form.bad_name", name=repr(name)))
     return name
 
 
@@ -115,28 +115,29 @@ def _refusal(p: param.Parameter, f: dict[str, Any], text: str) -> str:
     try:
         value = coerce_value(p, text)
     except ValueError as exc:
+        label = f["label"]
         if isinstance(p, param.Integer):
-            kind = "a whole number"
-        elif isinstance(p, param.Number):
-            kind = "a number"
-        elif isinstance(p, param.Boolean):
-            kind = "true or false"
-        elif isinstance(p, param.Selector):
-            kind = "one of " + ", ".join(as_text(o) for o in p.objects)
-        elif isinstance(p, param.List):
-            kind = "a list of texts" if p.item_type is str else "a list of numbers"
-        else:
-            return str(exc)
-        return f"{f['label']} takes {kind}, got {text}"
+            return say("refuse.whole", setting=label, text=text)
+        if isinstance(p, param.Number):
+            return say("refuse.number", setting=label, text=text)
+        if isinstance(p, param.Boolean):
+            return say("refuse.yes_no", setting=label, text=text)
+        if isinstance(p, param.Selector):
+            return say("refuse.choice", setting=label, text=text,
+                       choices=", ".join(as_text(o) for o in p.objects))
+        if isinstance(p, param.List):
+            return say("refuse.texts" if p.item_type is str else "refuse.numbers",
+                       setting=label, text=text)
+        return str(exc)
     if not isinstance(p, param.Number) or value is None:
         return ""
     low, high = f["low"], f["high"]
     if high is not None and not (value < high if f["high_exclusive"] else value <= high):
-        return (f"{f['label']} must be {'below' if f['high_exclusive'] else 'at most'} "
-                f"{as_text(high)}, got {text}")
+        return say("refuse.below" if f["high_exclusive"] else "refuse.at_most",
+                   setting=f["label"], bound=as_text(high), text=text)
     if low is not None and not (value > low if f["low_exclusive"] else value >= low):
-        return (f"{f['label']} must be {'above' if f['low_exclusive'] else 'at least'} "
-                f"{as_text(low)}, got {text}")
+        return say("refuse.above" if f["low_exclusive"] else "refuse.at_least",
+                   setting=f["label"], bound=as_text(low), text=text)
     return ""
 
 
@@ -167,9 +168,10 @@ def delete(piece: str, records: Sequence[str] = (), *,
     for name in records:
         path = os.path.join(base, f"{_name(name)}.json")
         if not os.path.isfile(path):
-            raise ValueError(f"no record {name!r} under {out_dir}/{piece}/")
+            raise ValueError(say("messages.delete_no_record", name=repr(name),
+                                 folder=f"{out_dir}/{piece}/"))
         if not os.path.realpath(path).startswith(base + os.sep):
-            raise ValueError(f"{path} is not under {out_dir}/{piece}/")
+            raise ValueError(say("messages.delete_outside", path=path, folder=f"{out_dir}/{piece}/"))
         targets.append(path)
     for path in targets:
         os.remove(path)
@@ -230,10 +232,10 @@ def _ended_by(code: int) -> str:
     """How a process that wrote nothing telling ended: its exit code, or the signal that ended it."""
     if code < 0:
         try:
-            return f"ended by signal {signal.Signals(-code).name}"
+            return say("strip.signal", signal=signal.Signals(-code).name)
         except ValueError:
-            return f"ended by signal {-code}"
-    return f"ended with exit {code}"
+            return say("strip.signal", signal=-code)
+    return say("strip.exit", code=code)
 
 
 class Queue:
@@ -272,8 +274,7 @@ class Queue:
     def _refuse_busy(self, piece: str, names: Sequence[str], root: str, out_dir: str) -> None:
         busy = sorted(set(names) & self._busy(piece, root, out_dir))
         if busy:
-            raise ValueError(f"{', '.join(busy)} {'is' if len(busy) == 1 else 'are'} queued or "
-                             f"running already; give this run another name")
+            raise ValueError(say_n("form.busy", len(busy), names=", ".join(busy)))
 
     def submit(self, piece: str, planned: Sequence[tuple[str, Sequence[tuple[str, str]]]], *,
                root: str, out_dir: str = DEFAULT_OUT_DIR) -> list[Run]:
@@ -334,7 +335,7 @@ class Queue:
                 run.process = self._start(run)
             except OSError as exc:                 # said on the run, which ends there
                 run.state, run.ended = FAILED, time.monotonic()
-                run.error = f"could not start: {exc}"
+                run.error = say("strip.not_started", words=exc)
                 continue
             run.state = RUNNING
             running += 1
@@ -349,7 +350,7 @@ class Queue:
         try:
             out, err = run.process.communicate()
         except BaseException as exc:
-            err = f"its end could not be read: {exc!r}"
+            err = say("strip.end_unread", words=repr(exc))
             raise
         finally:
             with self._lock:
@@ -370,7 +371,7 @@ class Queue:
         try:
             answer = json.loads(out) if out.strip() else {}
         except json.JSONDecodeError as exc:
-            answer, err = {}, f"{err}\nits answer could not be read: {exc}"
+            answer, err = {}, f"{err}\n" + say("strip.answer_unread", words=exc)
         if answer.get("saved"):
             run.state, run.saved = DONE, answer["saved"]
         elif run.state != STOPPED:

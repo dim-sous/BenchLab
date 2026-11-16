@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pytest
 
-from benchlab import project
+from benchlab import cli, project
 
 TOY = EntryPoint(name="project", value="tests.toy", group=project.GROUP)
 ROOT = Path(__file__).resolve().parent.parent
@@ -41,3 +41,16 @@ def toy_installed(tmp_path_factory, monkeypatch) -> Path:
     (meta / "entry_points.txt").write_text(f"[{project.GROUP}]\nproject = tests.toy\n")
     monkeypatch.setenv("PYTHONPATH", os.pathsep.join([str(site), str(ROOT)]))
     return site
+
+
+@pytest.fixture
+def two_runs(tmp_path) -> tuple[str, str]:
+    """Two saved runs of the wave, ``first`` (the defaults) and ``second`` (A = 2), the first
+    older by the clock; the root and the out-dir the Lab takes."""
+    out = tmp_path / "results"
+    for words in (["--name", "first"], ["--set", "amplitude=2", "--name", "second"]):
+        cli.main(["run", "wave", *words, "--out-dir", str(out)])
+    first, second = out / "wave" / "first.json", out / "wave" / "second.json"
+    now = second.stat().st_mtime
+    os.utime(first, (now - 60, now - 60))            # the clock can step; pin the order
+    return str(tmp_path), "results"

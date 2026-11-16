@@ -42,7 +42,7 @@ def test_benchlab_itself_declares_no_project() -> None:
 def test_the_declared_module_is_found_once_and_kept(monkeypatch) -> None:
     asked = _declare(monkeypatch, "tests.toy")
     assert project.declared() is toy
-    assert project.piece_names() == ("wave",)
+    assert project.piece_names() == ("wave", "lag")
     assert project.get_component("wave") is sys.modules["tests.toy.wave"]
     assert asked == [project.GROUP], "looked up once, in its own group"
 

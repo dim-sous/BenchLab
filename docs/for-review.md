@@ -5,6 +5,10 @@ reviewed and driven by Claude, then one walkthrough of everything and one list f
 is the list's other half: every choice your design (`docs/design.md`) and your mockup left open,
 made by Claude, with its reason. Each is easy to change; say which.
 
+**2026-11-15: the list closes at 2c.** 2d and 2e are on hold for a new direction
+(`docs/design.md` §10), which may make some of what is below moot; 2c's strict check of the
+words file (its item 5) goes with decision 4.
+
 ## 2b: no hovers (BenchLab #3, DeePC-Sandbox #19)
 
 1. **The refusal words**, taken from the mockup: `<setting> must be at least | above | at most |
@@ -56,3 +60,30 @@ made by Claude, with its reason. Each is easy to change; say which.
 6. **Not slots**: words the page shows but does not write: the figure layer's (legends, a card's
    refusal), a record's, param's and the runner's refusals. They stay those layers' own; moving
    them would be a later branch.
+
+## R1: what a project may use (2026-11-16, not yet merged)
+
+Built from `docs/plan-branch-R1.md`, which you approved. Nothing on the page changed. What the
+plan left open, or what changed on the way, each easy to change; say which.
+
+1. **One planned check was left out.** `check_project` does not check that Benchlab's code spells
+   none of a project's piece names. Shipped to every project, it would let a piece named `label`
+   or `figure` fail the project's own suite: the opposite of the rule. Benchlab's own suite keeps
+   the check, on the made-up project.
+2. **The range is a written promise, not an enforced one.** uv 0.10.10 does not hold a GitHub
+   source to a version range: a commit at 0.4.0 resolved under `>=0.5,<1`. DeePC's `uv.lock` does
+   the pinning. The range becomes enforced the day RunLab is on PyPI.
+3. **The promise covers nine setting keys**, two of which no project uses yet (`lines`, `draws`).
+   They were already documented for projects, so they are promised with the rest.
+4. **`with_overrides` is on the list for one user**, a test of DeePC's System piece.
+5. **The made-up project has a second piece, `lag`** (a first-order lag driven by a saved wave
+   run), added for what the moved tests need: a setting naming another piece's run, defaults the
+   code resolves, lists with a row each, a unit, constants, bounds, log axes.
+6. **DeePC keeps playwright** in its development group: its hand-off skill drives the Lab in
+   Chromium. It dropped panel and matplotlib, which only Benchlab imports.
+7. **DeePC's `devkit/README.md` still describes Benchlab's insides** in a table (which inner
+   module draws what). It will go stale when Benchlab is rebuilt inside. Claude's advice: cut it to
+   a pointer at Benchlab's README, in DeePC's next branch of its own.
+8. **One `except Exception` in `benchlab/testing.py` carries no `# noqa: BLE001`**: it raises
+   again, naming the run and the chart, so ruff does not count it blind and refuses the marker as
+   unused. `CLAUDE.md`'s "Fail loud" words say every one carries it.

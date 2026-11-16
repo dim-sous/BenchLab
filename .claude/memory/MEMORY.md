@@ -1,12 +1,30 @@
 # Benchlab: where the work stands
 
-Start here in a new session. Updated 2026-11-17: **branch R3 is built and checked on
-`r3-figures` in BenchLab and in DeePC, not yet committed, waiting for the developer to drive it**;
-`docs/plan-branch-R3.md`, "As built", holds the whole state. R1 and R2 are merged (`v0.5.0`,
-`v0.6.0`). The direction since 2026-11-15 (`docs/design.md` §10): Benchlab, to be renamed RunLab,
+Start here in a new session. Updated 2026-11-17: **R1, R2 and R3 are merged** (`v0.5.0`,
+`v0.6.0`, `v0.7.0`); each `docs/plan-branch-R*.md`, "As built", holds what was built and
+measured. **Next: R4, files a run writes**, on the developer's go. The direction since 2026-11-15 (`docs/design.md` §10): Benchlab, to be renamed RunLab,
 is used like numpy. 2d and 2e are on hold. VS Code on the developer's computer, WSL2, 12 CPUs.
 
-## R3, built 2026-11-17, awaiting the developer's drive and the git steps
+## For a session that starts from GitHub alone (2026-11-17)
+
+The developer said they would continue in a new cloud session, from a phone. Such a session has
+this repository and nothing of the laptop the work was done on:
+
+- **DeePC is another repository**, `dim-sous/DeePC-Sandbox` (default branch `master`). A change
+  here that a project is to use is checked against it: clone it beside this one and point it at
+  this working copy (`README.md`, "How a project declares itself"; that line is never committed).
+  Its whole suite takes about two minutes; R2 showed a change may need none of it.
+- **The scripts used to check that DeePC's numbers do not move are not kept.** The method is
+  written out: `docs/plan-branch-R1.md`, "As built", "Not done, or to do again" in its history,
+  and `docs/plan-branch-R3.md`, "Measured": every piece run and drawn into a folder before and
+  after, records compared field by field and stills byte for byte.
+- **The developer's toy projects** (P1 to P9, `docs/design.md` §10) are a private file on their
+  computer, all not started on 2026-11-17. Ask them; none of it belongs in this repository.
+- **How the developer works** is below, and holds in any session: every question through the
+  question tool with its context inside, plain words, no git write without their word in that
+  turn, lean usage.
+
+## R3, merged 2026-11-17
 
 - **A piece may hand the page a plotly figure it draws itself**: `benchlab.Figure`,
   `Record.figures()`, drawn when shown from the record's own fields (the run file keeps the
@@ -14,8 +32,7 @@ is used like numpy. 2d and 2e are on hold. VS Code on the developer's computer, 
 - **The developer's four choices (2026-11-17):** first user DeePC's pole map on System; several
   runs, one figure per run, stacked; a short read of MLflow's and TensorBoard's docs; no saved
   picture yet (`draw` names what it left out).
-- **DeePC** (`r3-figures`): the pole map, one test, `benchlab>=0.7,<1`. **Its `pyproject.toml`
-  and `uv.lock` point at the local Benchlab copy: never committed that way.**
+- **DeePC**: the pole map, one test, `benchlab>=0.7,<1`, its lock at Benchlab `5023526`.
 - **Checked:** Benchlab 328 passed in 80 s (315 before), ruff clean. DeePC 132 passed in 114 s.
   DeePC's runs as before but provenance, wall-clock fields and the System file's two lists
   gaining `pole-map`. A System run saved on 0.5.0 draws its pole map. DeePC's Lab driven in
@@ -24,8 +41,18 @@ is used like numpy. 2d and 2e are on hold. VS Code on the developer's computer, 
   the card's paper; the card's look is now laid under a piece's figure as a plotly template.
 - **For the developer after driving:** `docs/for-review.md`, "R3", six points; the first is the
   colour of a stacked figure (the piece's own, not the run's).
-- **Left, each on the developer's word:** the git steps listed at the end of the plan's "As
-  built". **After it:** R4, files a run writes.
+- **The developer drove it and said "Looks right: all the way"** (2026-11-17). Git, on that
+  word: BenchLab #7 merged (`5023526`), tagged `v0.7.0`; DeePC's whole suite on Benchlab's
+  pushed branch as an installed package (132 passed in 111 s), then its source line to `main`,
+  its lock at `5023526` (same tree as the branch head; the bench, System and document checks
+  re-run, 51 passed), DeePC-Sandbox #22 merged (`c7f4569`); each merge's state read before its
+  branch went; both branches deleted, both copies on `main` and `master`, clean but for this
+  edit of the notes and the plan's. BenchLab #7's merge subject lacks its number (written
+  before the PR had one).
+- **Open after R3** (`docs/for-review.md`, "R3"): the colour of a stacked figure (the piece's
+  own, not the run's); figures built on opening, when a piece has heavy ones; saved pictures.
+- **After it:** R4, files a run writes (trained networks, checkpoints). It needs a first
+  user, as R3 did; the developer's toy projects were all not started on 2026-11-17.
 
 ## R2, merged 2026-11-16
 

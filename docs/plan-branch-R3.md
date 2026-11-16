@@ -143,10 +143,11 @@ built only when opened; files a run writes (R4); new setting kinds (R5); the ren
 
 ---
 
-## As built (2026-11-17; built and checked, not yet committed)
+## As built (2026-11-17; merged)
 
-On the branch `r3-figures` in BenchLab and in DeePC, uncommitted. DeePC points at the local
-Benchlab copy (`pyproject.toml`, `uv.lock`): never committed that way.
+Merged on the developer's word, after they drove it ("Looks right: all the way"): BenchLab #7
+(merge `5023526`, tagged `v0.7.0`) and DeePC-Sandbox #22 (merge `c7f4569`), which takes
+Benchlab from `main` at `5023526`.
 
 ### What was built
 
@@ -189,6 +190,9 @@ Benchlab copy (`pyproject.toml`, `uv.lock`): never committed that way.
   −5 in four files.
 - **Benchlab's suite:** 315 passed in 73.0 s before; 328 passed in 79.6 s after. Ruff clean.
 - **DeePC's suite**, on the local copy: 131 passed in about 115 s before; 132 passed in 114.3 s.
+  On Benchlab's pushed branch, installed as a package: 132 passed in 111.4 s. After the merge,
+  locked to `5023526`, whose tree equals the branch head's: the bench, System and document
+  checks, 51 passed; the whole suite was not run a third time.
 - **The numbers did not move.** Every DeePC piece run and drawn (70 files) on a clone of its
   `master` (`3cf9542`, Benchlab 0.5.0 from its lock) and on this branch. Beyond provenance and
   the wall-clock fields two runs of one code already differ in, exactly what the plan named: the
@@ -204,7 +208,6 @@ Benchlab copy (`pyproject.toml`, `uv.lock`): never committed that way.
 
 ### Still to do
 
-- The developer drives it (the walkthrough is in the hand-off message), then the git steps, each
-  on their word: commits; Benchlab pushed, its PR, merged, tagged `v0.7.0`; DeePC's source line
-  back to Benchlab's `main`, `uv lock`, its suite, its PR, merged; branches deleted.
+- The git steps are done: both merged, `v0.7.0` tagged, both branches deleted, both copies on
+  `main` and `master`.
 - Then R4, files a run writes (`docs/design.md` §10).

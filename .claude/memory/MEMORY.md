@@ -1,12 +1,12 @@
 # Benchlab: where the work stands
 
-Start here in a new session. Updated 2026-11-16: **branch R1 is built and checked, and not yet
-committed**, in BenchLab and in DeePC; `docs/plan-branch-R1.md`, "As built", holds the whole
-state. The direction changed on 2026-11-15 (`docs/design.md` §10): Benchlab, to be renamed RunLab,
+Start here in a new session. Updated 2026-11-16: **branch R1 is built, checked and up for
+review: BenchLab #5 and DeePC-Sandbox #21 are open, not merged**; `docs/plan-branch-R1.md`,
+"As built", holds the whole state. The direction changed on 2026-11-15 (`docs/design.md` §10): Benchlab, to be renamed RunLab,
 is to be used like numpy. 2d and 2e are on hold; 2c is the last branch merged (`v0.4.0`). VS Code
 on the developer's computer, WSL2, 12 CPUs.
 
-## R1, built 2026-11-16, awaiting the git steps
+## R1, built 2026-11-16, both PRs open, awaiting the merge
 
 - **The developer chose R1 first** and approved its plan (`docs/plan-branch-R1.md`). Built: the
   names a project may use (`from benchlab import ...`), the promise they stay until 1.0
@@ -18,10 +18,14 @@ on the developer's computer, WSL2, 12 CPUs.
   114 s (246 in about 200 s before); one failed, `CLAUDE.md` a line over its budget, fixed and
   its file re-run, the whole suite not run again after that. DeePC's runs and stills as before
   but provenance and wall-clock fields. DeePC's Lab driven once in headless Chromium.
-- **Nothing is committed.** Both repositories are on `main` and `master`; the session's permission
-  tool refused `git switch -c r1-shore`. **DeePC's `pyproject.toml` and `uv.lock` point at the
-  local Benchlab copy: never committed that way.** The git steps, in order, are at the end of the
-  plan's "As built"; each needs the developer's word in that turn.
+- **Committed and pushed on `r1-shore` in both, on the developer's word** (2026-11-16: "Commit and
+  open both PRs"): BenchLab `25d7dde`, PR #5; DeePC `89c4594`, PR #21, its source line on
+  Benchlab's branch while both are open. DeePC's whole suite on the pushed branch: 131 passed in
+  111 s. **Left, each on the developer's word:** merge #5 and tag `v0.5.0`; DeePC's source line
+  to `main`, `uv lock`, its suite, merge #21; branches deleted, both copies back on `main` and
+  `master`. This edit of the notes, the plan's and DeePC's are uncommitted: they ride with the
+  next commit. DeePC's remote address still carries the repository's old name; GitHub sends
+  it on to `dim-sous/DeePC-Sandbox`.
 - **uv does not hold a git source to a version range** (measured, uv 0.10.10): the range is the
   written promise, `uv.lock` does the pinning.
 - **For the developer's review:** `docs/for-review.md`, "R1", eight choices.

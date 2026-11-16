@@ -140,11 +140,11 @@ rename (R6), 2d and 2e, any project other than DeePC.
 
 ---
 
-## As built (2026-11-16; built and checked, not yet committed)
+## As built (2026-11-16; built, checked, both PRs open)
 
-Everything below is on disk in both repositories, **uncommitted, on `main` and `master`**: the
-session's permission tool refused `git switch -c r1-shore`, so the branch does not exist yet.
-The developer's approval of this plan covered creating it; every other git step needs their word.
+Committed on `r1-shore` in both repositories and pushed, on the developer's word: BenchLab #5
+(`25d7dde`) and DeePC-Sandbox #21 (`89c4594`), neither merged. Every further git step needs
+their word.
 The session was cut once, by the developer's laptop going down mid-run (cause theirs to find; a
 restart cleared the scratch folder and the first before-and-after runs with it); all checks below
 were run after it.
@@ -173,9 +173,9 @@ were run after it.
   what a project may use. Every Benchlab import left in DeePC: names of `benchlab` (18 lines),
   `main` of `benchlab.cli` (3), `check_project` (1).
 - `pyproject.toml`: `benchlab>=0.5,<1`; panel and matplotlib dropped (no DeePC file imports
-  them); playwright kept (its hand-off skill drives the Lab in Chromium). **The source line
-  still points at the local copy, and `uv.lock` with it: not to be committed that way.** It
-  becomes `{ git = ..., branch = "main" }` in the git steps, once Benchlab's branch is pushed.
+  them); playwright kept (its hand-off skill drives the Lab in Chromium). The source line
+  points at Benchlab's branch `r1-shore` while both PRs are open, and at `main` after
+  Benchlab's merge.
 - Docs: `README.md`, `CLAUDE.md` (140 lines, its budget), `devkit/README.md`, the hand-off skill.
 
 ### Where each of DeePC's 85 tests went
@@ -218,7 +218,8 @@ expected wording moved unchanged. All moved tests passed on their first run here
 - **DeePC's suite:** 246 passed in about 200 s on `v0.4.0` (2c's record); 248 passed in 231 s
   after step 1; after step 2, 131 tests in 114 s, of which one failed: `CLAUDE.md` was one line
   over its 140-line budget. Shortened; its file and the three others changed since passed again
-  (24 passed). The whole suite was not run a second time after that one-line edit.
+  (24 passed). Then, on Benchlab's pushed branch (`25d7dde`, installed from GitHub, no local
+  copy): the whole suite, 131 passed in 110.6 s.
 - **The numbers did not move.** Every DeePC piece run and drawn (70 files) on a clone of
   `e3b1f06` with Benchlab 0.4.0 from the tag, and on the finished working tree with Benchlab
   0.5.0. They differ only in: provenance (`date`, `duration_s`, `git_dirty`, and `versions`,
@@ -235,9 +236,8 @@ expected wording moved unchanged. All moved tests passed on their first run here
 
 ### Still to do
 
-- **The git steps, each on the developer's word:** the branch in both repositories; commits;
-  Benchlab pushed and its PR; DeePC's source line pointed at Benchlab's branch, `uv lock`, its
-  suite, its PR; Benchlab merged and tagged `v0.5.0`; DeePC's source line pointed at `main`,
-  `uv lock`, its suite again, merged; branches deleted.
+- **The git steps left, each on the developer's word:** Benchlab #5 merged and tagged `v0.5.0`;
+  DeePC's source line pointed at `main`, `uv lock`, its suite again, #21 merged; branches
+  deleted.
 - `docs/for-review.md`, "R1", holds the eight choices made on the way.
 - Then R2, the words (`docs/design.md` §10): the first branch that should need no DeePC change.

@@ -15,9 +15,10 @@ this repository and nothing of the laptop the work was done on:
   this working copy (`README.md`, "How a project declares itself"; that line is never committed).
   Its whole suite takes about two minutes; R2 showed a change may need none of it.
 - **The scripts used to check that DeePC's numbers do not move are not kept.** The method is
-  written out: `docs/plan-branch-R1.md`, "As built", "Not done, or to do again" in its history,
-  and `docs/plan-branch-R3.md`, "Measured": every piece run and drawn into a folder before and
-  after, records compared field by field and stills byte for byte.
+  written out: `docs/plan-branch-1.md`, "Verification" (which piece is run with which settings,
+  then drawn), and `docs/plan-branch-R1.md` and `docs/plan-branch-R3.md`, "Measured" (what two
+  runs of one code already differ in): every piece run and drawn into a folder before and after,
+  records compared field by field and stills byte for byte.
 - **The developer's toy projects** (P1 to P9, `docs/design.md` §10) are a private file on their
   computer, all not started on 2026-11-17. Ask them; none of it belongs in this repository.
 - **How the developer works** is below, and holds in any session: every question through the

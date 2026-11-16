@@ -87,3 +87,17 @@ plan left open, or what changed on the way, each easy to change; say which.
 8. **One `except Exception` in `benchlab/testing.py` carries no `# noqa: BLE001`**: it raises
    again, naming the run and the chart, so ruff does not count it blind and refuses the marker as
    unused. `CLAUDE.md`'s "Fail loud" words say every one carries it.
+
+## R2: the page's words, held by Benchlab (2026-11-16, not yet merged)
+
+Built from `docs/plan-branch-R2.md`. The page reads as before.
+
+1. **Nothing in a project's words file stops the Lab** (yours, 2026-11-15, chosen again on
+   2026-11-16 over "say nothing" and over the plan's refusal): an entry it cannot use is left
+   out, the page keeps Benchlab's word, and the terminal names what was left out, once, at start.
+   The plan Claude wrote first kept the refusal; it had been written without reading your
+   decision 4.
+2. **The line is printed in the terminal only**, not shown on the page.
+3. **A project's test warns, and does not fail,** on an entry left out.
+4. **Benchlab's own words are today's**, the made-up project's file moved as it was.
+5. **DeePC's full words file still works** and can be deleted whenever you want (158 lines).

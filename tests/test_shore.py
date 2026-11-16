@@ -18,7 +18,7 @@ README = (Path(__file__).resolve().parent.parent / "README.md").read_text()
 #: module a project took it from before 0.5.
 NAMES = {"Settings": config, "with_overrides": config, "Record": record, "Series": record,
          "Number": record, "Provenance": record, "stamp": record, "bound_refs": record}
-#: The names a project's declared module holds.
+#: The names a project's declared module holds; ``WORDS`` it may leave out (from 0.6).
 DECLARED = {"NAMES", "get_component", "COMMAND", "TITLE", "ROOT", "LIBRARIES", "WORDS"}
 #: What a setting's ``metadata`` may carry.
 METADATA = ("group", "unit", "lines", "needs", "replicate", "draws", "record_of", "folded", "rows")
@@ -38,6 +38,10 @@ def test_the_declaration_requires_no_name_beyond_those_promised() -> None:
     assert project.GROUP == "benchlab"
     assert set(project.DECLARED) <= DECLARED, \
         f"a project must now also declare {sorted(set(project.DECLARED) - DECLARED)}"
+
+
+def test_a_project_need_not_name_a_words_file() -> None:
+    assert "WORDS" not in project.DECLARED
 
 
 def test_the_two_commands_and_the_check_are_where_a_project_names_them() -> None:

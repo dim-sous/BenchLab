@@ -18,7 +18,8 @@ It began as DeePC's bench, moved here unchanged but for what tied it to DeePC
 (`docs/design.md` §8: runs in progress first, `docs/plan-branch-2a.md`, v0.2.0; no hovers,
 `docs/plan-branch-2b.md`, v0.3.0; words as slots, `docs/plan-branch-2c.md`, v0.4.0). From
 2026-11-15 it is being rebuilt to be used the way numpy is (`docs/design.md` §10: what a project
-may use, named and promised, `docs/plan-branch-R1.md`, v0.5.0).
+may use, named and promised, `docs/plan-branch-R1.md`, v0.5.0; the page's words held here,
+`docs/plan-branch-R2.md`, v0.6.0).
 
 ## How a project declares itself
 
@@ -31,7 +32,7 @@ COMMAND = "deepc"                                       # the command its pyproj
 TITLE = "DeePC Lab"                                     # the Lab's title
 ROOT = Path(__file__).resolve().parent.parent.parent    # the repository whose commit stamps a record
 LIBRARIES = ("numpy", "scipy", "cvxpy", "osqp", "scs")  # the libraries whose versions a record keeps
-WORDS = Path(__file__).with_name("words.toml")          # every word the Lab's page writes itself
+WORDS = Path(__file__).with_name("words.toml")          # only if it changes a word of the Lab's page
 ```
 
 and in its `pyproject.toml`, Benchlab by a range, the two commands, and the entry point that
@@ -55,15 +56,19 @@ benchlab = { git = "https://github.com/dim-sous/BenchLab", branch = "main" }
 then `uv sync`. The project's `uv.lock` holds the exact commit, and `uv lock --upgrade-package
 benchlab` raises it, as for any other library. The range is the promise of "What a project may
 use", written down: uv 0.10.10 does not hold a git source to it (measured 2026-11-16: a commit at
-version 0.4.0 resolved under `>=0.5,<1`), so the lock file does the pinning. Benchlab refuses, in words, an environment where no project declares itself, where
-two do, or where the module lacks one of these names. A record's provenance keeps the commit of
-`ROOT`, the versions of `LIBRARIES`, then Benchlab's own version.
+version 0.4.0 resolved under `>=0.5,<1`), so the lock file does the pinning. Benchlab refuses, in words, an environment where no project
+declares itself, where two do, or where the module lacks one of these names (`WORDS` it may
+leave out). A record's provenance keeps the commit of `ROOT`, the versions of `LIBRARIES`, then
+Benchlab's own version.
 
-The words file fills every slot Benchlab names for its page (`benchlab/lab/words.py`): TOML, one
-table per part of the page, `[strip] cap = "up to {n} side by side"`; a word that counts has a
-`.one` and a `.many`. The Lab will not start on a file that leaves a slot empty, names one
-Benchlab does not have, or writes a field a slot does not offer, and names each. The made-up
-project's, `tests/toy/words.toml`, holds every slot.
+Benchlab holds every word its page writes itself (`benchlab/lab/words.toml`, a word for each slot
+`benchlab/lab/words.py` names). A project that wants a word different lists it, and only it, in a
+words file of its own and names that file as `WORDS`: TOML, one table per part of the page,
+`[strip] cap = "up to {n} side by side"`; a word that counts has a `.one` and a `.many`. Every
+slot it leaves out keeps Benchlab's word, and a project with no words file gets them all.
+Nothing in that file stops the Lab: an entry Benchlab cannot use (it names no slot, or writes a
+field its slot does not offer) is left out, the page keeps Benchlab's word, and the Lab says so
+once in its terminal.
 
 While Benchlab and a project are worked on together on one computer, the project points at the
 local copy instead, `benchlab = { path = "../BenchLab", editable = true }`, and that line is never
@@ -82,7 +87,8 @@ added.** Everything else in Benchlab is its own and may change in any version.
 | the names `benchlab` holds | `Settings`, `with_overrides`, `Record`, `Series`, `Number`, `Provenance`, `stamp`, `bound_refs`, as `from benchlab import Settings, Record` |
 | a setting | a `param` parameter on a `Settings`, its `metadata` carrying `group` (required) and any of `unit`, `lines`, `needs`, `replicate`, `draws`, `record_of`, `folded`, `rows` (`benchlab/record/config.py` says what each is) |
 | a piece | a module holding `Config` (a `Settings`), `run` (`run(config) -> record`) and `Record` (a frozen dataclass on Benchlab's `Record`, its `component` the piece's registered name) |
-| the declaration | the entry point in the group `benchlab`, and the module it names, holding `NAMES`, `get_component`, `COMMAND`, `TITLE`, `ROOT`, `LIBRARIES` and `WORDS` |
+| the declaration | the entry point in the group `benchlab`, and the module it names, holding `NAMES`, `get_component`, `COMMAND`, `TITLE`, `ROOT` and `LIBRARIES`, and `WORDS` if it changes a word |
+| the words | a words file naming the words of the page the project changes, by the slots of `benchlab/lab/words.toml`. A slot's name is not promised: an entry Benchlab cannot use is left out and said, never refused |
 | the two commands | `benchlab.cli:main` and `benchlab.lab:main`, as the project's `pyproject.toml` names them; its tests may call `main` of either |
 | the run file | a run saved by an earlier version is still listed and drawn |
 | the check | `benchlab.testing`, holding `check_project` |
@@ -101,7 +107,7 @@ def test_the_pieces_plug_into_the_bench(tmp_path):
 
 `check_project` refuses, naming the piece or the file and the cause: an incomplete declaration; a
 piece that does not hold `Config`, `run` and `Record`, or whose defaults do not build; settings
-that do not build the Lab's form; a words file that does not fill the page's slots; a run that
+that do not build the Lab's form; a run that
 does not load, or declares a chart that does not draw; and a Python file of the project that
 imports more of Benchlab than this list.
 

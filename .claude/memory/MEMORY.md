@@ -1,7 +1,40 @@
 # Benchlab: where the work stands
 
-Start here in a new session. Updated 2026-11-14, with branch 2b merged (`v0.3.0`) and 2c to 2e
-being built straight through (VS Code on the developer's computer, WSL2, 12 CPUs).
+Start here in a new session. Updated 2026-11-16: **branch R1 is built, checked and up for
+review: BenchLab #5 and DeePC-Sandbox #21 are open, not merged**; `docs/plan-branch-R1.md`,
+"As built", holds the whole state. The direction changed on 2026-11-15 (`docs/design.md` §10): Benchlab, to be renamed RunLab,
+is to be used like numpy. 2d and 2e are on hold; 2c is the last branch merged (`v0.4.0`). VS Code
+on the developer's computer, WSL2, 12 CPUs.
+
+## R1, built 2026-11-16, both PRs open, awaiting the merge
+
+- **The developer chose R1 first** and approved its plan (`docs/plan-branch-R1.md`). Built: the
+  names a project may use (`from benchlab import ...`), the promise they stay until 1.0
+  (`README.md`, `tests/test_shore.py`), the one check a project calls
+  (`benchlab.testing.check_project`), DeePC's five test files that read Benchlab's insides gone
+  (79 of their 85 tests now here, on the made-up project, which has a second piece, `lag`), DeePC
+  on the range `benchlab>=0.5,<1`. Version `0.5.0`.
+- **Checked:** Benchlab 306 passed in 72 s (198 in 35 s before), ruff clean. DeePC 131 tests in
+  114 s (246 in about 200 s before); one failed, `CLAUDE.md` a line over its budget, fixed and
+  its file re-run, the whole suite not run again after that. DeePC's runs and stills as before
+  but provenance and wall-clock fields. DeePC's Lab driven once in headless Chromium.
+- **Committed and pushed on `r1-shore` in both, on the developer's word** (2026-11-16: "Commit and
+  open both PRs"): BenchLab `25d7dde`, PR #5; DeePC `89c4594`, PR #21, its source line on
+  Benchlab's branch while both are open. DeePC's whole suite on the pushed branch: 131 passed in
+  111 s. **Left, each on the developer's word:** merge #5 and tag `v0.5.0`; DeePC's source line
+  to `main`, `uv lock`, its suite, merge #21; branches deleted, both copies back on `main` and
+  `master`. This edit of the notes, the plan's and DeePC's are uncommitted: they ride with the
+  next commit. DeePC's remote address still carries the repository's old name; GitHub sends
+  it on to `dim-sous/DeePC-Sandbox`.
+- **uv does not hold a git source to a version range** (measured, uv 0.10.10): the range is the
+  written promise, `uv.lock` does the pinning.
+- **For the developer's review:** `docs/for-review.md`, "R1", eight choices.
+- **The session was cut once**: the developer's laptop went down while DeePC's pieces ran on
+  several cores (cause theirs; they later said "the problem is fixed"). The scratch folder is
+  cleared by a restart: a baseline worth keeping does not belong there.
+- **Usage:** the developer asked for it lean on 2026-11-16: no parallel reviewers, no agent
+  fan-out, "a few bugs here and there are fine, we will iron them out later".
+- **Next after the git steps:** R2, the words: the first branch that should need no DeePC change.
 
 ## Where it stands
 
@@ -62,22 +95,29 @@ being built straight through (VS Code on the developer's computer, WSL2, 12 CPUs
    reviewers (34 findings, 31 confirmed, all fixed or written in "As built"). Checked:
    Benchlab 185 passed; DeePC 244 on the tag, its side door as before but those pieces'
    descriptions. A slip closing it, recovered: `docs/project/failures.md` [L1].
-2. **2c words as slots, built** (`docs/plan-branch-2c.md` with its "As built"; branch
-   `words-as-slots` here and in DeePC, not yet committed): 136 slots (`benchlab/lab/words.py`),
-   `WORDS` declared, the toy's and DeePC's `words.toml` holding today's words; both pages'
-   words identical to v0.3.0's in every toured state; Benchlab 198 passed. Then its review and
-   git steps, then 2d the tree, 2e the cards' full controls, built straight through (below).
-   2c's proof that no word moves: a tour of the page's states collecting every word it shows
-   (scratchpad `words2c/`: `tour.py`, the toy's `test_toy_tour.py` run with `-p tests.conftest`,
-   DeePC's `deepc_tour.sh`); taken on v0.3.0 before any 2c code: `toy-before-a.json` and
-   `deepc-before-a.json` (two tours of each matched). A tour that raises plotly's `_guiEditing`
-   error is run again (`docs/for-review.md`, found on the way).
-   Then Hydrofoil moves (with its naming pass), the shared calculations, BESS, old runs and Re-fly
-   (`docs/design.md` §8). Waiting for a later branch: progress percentages, when a piece reports
-   one; DeePC still pins panel itself and lists matplotlib, which only Benchlab uses now.
+2. **2c words as slots merged** (2026-11-14): BenchLab #4 (merge `5f6431a`, tagged `v0.4.0`)
+   and DeePC-Sandbox #20 (merge `e3b1f06`), pinned at `v0.4.0`, its suite 246 passed. 136 slots
+   (`benchlab/lab/words.py`), `WORDS` declared; both pages' words identical to v0.3.0's in
+   every toured state. No review (the developer's usage).
+3. **On hold since 2026-11-15: 2d the tree and 2e the cards' full controls.** The developer set
+   a new direction (`docs/design.md` §10; the incident, `docs/project/failures.md` [L2]): a change
+   in a project never needs a change in RunLab, and the other way round, as with numpy. They
+   accept a large rewrite ("thats okay") and asked for it to be planned later, not now (their
+   usage). Nothing is built for it; Benchlab stays at `v0.4.0` and DeePC on it.
+4. **The route is written, not decided** (2026-11-15, `docs/design.md` §10, "The route"): R1
+   the shore named and promised, R2 words, R3 a piece's own plotly figures, R4 files a run
+   writes, R5 new setting kinds, R6 the rename to RunLab as 1.0 (the rename's place is the
+   developer's; the rest is Claude's proposal). §10 also holds "The image": Gibson's static
+   islands, dynamic sea, read from his write-up.
+5. **R1 first, the developer's choice (2026-11-16)**: see "R1 in progress" above. Waiting for a
+   later branch, as before:
+   progress percentages, when a piece reports one; DeePC still pins panel itself and lists
+   matplotlib, which only Benchlab uses now.
 
 ## How the developer works
 
+- **Claude is the engineer who plans and builds** (the developer, 2026-11-15): explanations of
+  what was done and why are a side. No quizzes or teaching unless asked.
 - **Every question goes through AskUserQuestion**, with the context inside the question, never as
   text at the end of a message (2026-11-13: "WHEN I ASK QUESTION TO WHICH I EXPECT ANSWERS,
   ALWAYS USE THE ASKTHEUSER TOOL"). On 2026-11-14 they had it added to `~/.claude/CLAUDE.md` on
@@ -86,6 +126,9 @@ being built straight through (VS Code on the developer's computer, WSL2, 12 CPUs
   page shows is theirs, settled only after driving it. How it is built is Claude's, said with
   its reason. Push back when an answer costs more than it looks, and write the cost beside the
   decision (`docs/design.md` §3, decision 5, is the example).
+- **Plain words, no software language** (2026-11-15: "plain it bro, i dont understand software
+  language, i am not a software engineer"): say it with what they know, such as instruments,
+  plants and controllers, never in software terms.
 - The siblings' rules hold here too: propose, then plan mode, then build. Ask before any
   multi-agent fan-out, every time. Hand off in the Lab, or say plainly there is nothing to drive.
   No git write without their word.
@@ -102,6 +145,8 @@ being built straight through (VS Code on the developer's computer, WSL2, 12 CPUs
   From 2c on, no parallel reviewers (the developer, 2026-11-14, at 93% of their weekly
   usage: "skip the reviwers ... Mistakes and bugs are fine for now. We will fix everything
   at the delivery"): tests, Claude's own drive, then the git steps; lean on tokens.
+  **Ended 2026-11-15**, with 2d and 2e on hold: every git write again needs the developer's word
+  in that turn, and the rewrite gets its own.
 - **A hand-off is a walkthrough**: what to click, what to type, what the page should then show,
   each step driven by Claude first, never squeezed into a question's dialog (2026-11-14: a list
   of steps without them was "not clear as to what to run/drive and what to observe").

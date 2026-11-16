@@ -1,0 +1,102 @@
+"""The made-up project's second piece: a first-order lag, τ ẏ = -y + K u, driven by the u of a
+saved wave run and sampled at the wave's own step under a zero-order hold -- exactly,
+y[k+1] = a y[k] + (1 - a) K u[k] with a = exp(-Δt/τ), or by forward Euler, a = 1 - Δt/τ.
+
+It holds what the wave does not, each for a test that needs one: a setting naming another piece's
+saved run; two defaults the code resolves (K: none is 1; the hold: none is exact); a list of
+numbers (the limits y is drawn against, as references named by what they bound) and a list of
+text (the traces the output chart draws), a row each in the form; a unit; constants a run used beyond its
+Config; and the lag's Bode magnitude and phase, on logarithmic axes."""
+
+from __future__ import annotations
+
+import dataclasses
+import time
+
+import numpy as np
+import param
+
+from benchlab import Number, Provenance, Series, Settings, bound_refs, stamp
+from benchlab import Record as _Record
+
+from . import wave
+
+__all__ = ["Config", "run", "Record"]
+
+_TRACES = ("u", "y")
+
+
+class Config(Settings):
+    wave_run = param.String("results/wave/default.json", label="Wave run",
+                            doc="The saved wave run whose u drives the lag.",
+                            metadata={"group": "Source", "record_of": "wave"})
+    gain = param.Number(None, allow_None=True, label="K", doc="The lag's gain; none: 1.",
+                        metadata={"group": "Lag"})
+    tau = param.Number(0.05, bounds=(0.0, None), inclusive_bounds=(False, True), label="τ",
+                       doc="The lag's time constant.", metadata={"group": "Lag", "unit": "s"})
+    hold = param.Selector(default=None, objects=["exact", "euler"], allow_None=True, label="Hold",
+                          doc="How the lag is sampled; none: exact.", metadata={"group": "Lag"})
+    limits = param.List([-1.0, 1.0], item_type=float, label="Limits",
+                        doc="The lower and the upper bound y is drawn against.",
+                        metadata={"group": "Output", "rows": {"label": "Limit {}", "add": "+ Limit"}})
+    keep = param.List(["y"], item_type=str, label="Traces",
+                      doc="The traces the output chart draws, each u or y.",
+                      metadata={"group": "Output", "rows": {"label": "Trace {}", "add": "+ Trace"}})
+
+
+@dataclasses.dataclass(frozen=True)
+class Record(_Record):
+    name: str
+    config: Config
+    provenance: Provenance | None
+    t: np.ndarray
+    u: np.ndarray
+    y: np.ndarray
+    omega: np.ndarray
+    magnitude: np.ndarray
+    phase: np.ndarray
+    constants: dict
+    numbers: dict
+
+    component = "lag"
+    label = "Lag"
+    produced_by = "uv run toy run lag"
+
+    def series(self) -> tuple[Series, ...]:
+        held = {"u": self.u, "y": self.y}
+        return (Series(name="output", x=self.t, x_label="t [s]", y_label="y [-]",
+                       traces=tuple((k, held[k]) for k in self.config.keep),
+                       refs=bound_refs(self.config.limits, "y", "-"), group="Time"),
+                Series(name="bode-magnitude", x=self.omega, x_label="ω [rad/s]", y_label="|G| [-]",
+                       traces=(("|G|", self.magnitude),), group="Frequency", x_log=True,
+                       y_log=True),
+                Series(name="bode-phase", x=self.omega, x_label="ω [rad/s]", y_label="∠G [deg]",
+                       traces=(("∠G", self.phase),), group="Frequency", x_log=True,
+                       doc="The lag's phase, from 0 down to -90 degrees."))
+
+    def number_specs(self) -> tuple[Number, ...]:
+        return (Number("peak_y", "Peak of y", headline=True, group="Time"),
+                Number("corner", "Corner frequency", unit="rad/s", group="Frequency"))
+
+
+def run(cfg: Config) -> Record:
+    started = time.perf_counter()
+    unknown = [k for k in cfg.keep if k not in _TRACES]
+    if unknown:
+        raise ValueError(f"the lag keeps the traces {' and '.join(_TRACES)}; it holds no "
+                         f"{', '.join(unknown)}")
+    source = wave.Record.load(cfg.wave_run)
+    gain = 1.0 if cfg.gain is None else cfg.gain
+    hold = cfg.hold or "exact"
+    step = float(source.t[1] - source.t[0])
+    a = float(np.exp(-step / cfg.tau)) if hold == "exact" else 1.0 - step / cfg.tau
+    y = np.zeros_like(source.u)
+    for k in range(len(y) - 1):
+        y[k + 1] = a * y[k] + (1.0 - a) * gain * source.u[k]
+    omega = np.logspace(-2.0, 2.0, 41) / cfg.tau
+    return Record(name="default", config=cfg, provenance=stamp(time.perf_counter() - started),
+                  t=source.t, u=source.u, y=y, omega=omega,
+                  magnitude=abs(gain) / np.sqrt(1.0 + (omega * cfg.tau) ** 2),
+                  phase=-np.degrees(np.arctan(omega * cfg.tau)),
+                  constants={"gain": gain, "hold": hold, "step_s": step},
+                  numbers={"peak_y": float(np.max(np.abs(y))), "corner": 1.0 / cfg.tau})

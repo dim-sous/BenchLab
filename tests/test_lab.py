@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import ast
 import dataclasses
-import os
 import re
 import shlex
 import sys
@@ -21,7 +20,7 @@ from typing import Any
 
 import pytest
 
-from benchlab import cli, project, record
+from benchlab import project, record
 from benchlab.lab import jobs, state
 from benchlab.lab.app import Lab
 from benchlab.runner import planned
@@ -126,18 +125,6 @@ def test_the_lab_never_calls_what_could_compute_on_what_it_reads() -> None:
 
 # --- the page, over the made-up project's runs ---------------------------------------------
 
-@pytest.fixture
-def two_runs(tmp_path) -> tuple[str, str]:
-    """``first`` (the defaults) and ``second`` (A = 2), the first older by the clock."""
-    out = tmp_path / "results"
-    for words in (["--name", "first"], ["--set", "amplitude=2", "--name", "second"]):
-        cli.main(["run", "wave", *words, "--out-dir", str(out)])
-    first, second = out / "wave" / "first.json", out / "wave" / "second.json"
-    now = second.stat().st_mtime
-    os.utime(first, (now - 60, now - 60))            # the clock can step; pin the order
-    return str(tmp_path), "results"
-
-
 def _tripwire(real: types.ModuleType) -> types.SimpleNamespace:
     """The piece with everything the Lab may READ -- its declarations, and its records through
     ``Record.load``, which is reading -- and a raise on everything that would COMPUTE: running
@@ -234,7 +221,7 @@ def test_the_page_wears_the_projects_title_and_lists_its_pieces(two_runs) -> Non
     lab = Lab(root, out_dir, every=lambda cb, ms: None, toast=lambda _w: None)
     header = lab.page().objects[0]
     assert ">Toy Lab</b>" in header.objects[0].object
-    assert lab.piece_select.options == {"Wave": "wave"}
+    assert lab.piece_select.options == {"Wave": "wave", "Lag": "lag"}
     assert [r["name"] for r in state.records(root, out_dir)] == ["second", "first"]
 
 
@@ -253,7 +240,7 @@ def test_the_line_the_lab_prints_is_the_side_door_command() -> None:
     assert jobs.run_argv("wave", [], "p", "elsewhere")[-2:] == ["--out-dir", "elsewhere"]
     line = jobs.line_of(jobs.run_argv("wave", ["amplitude=2"], "a.b-c_1"))
     assert shlex.split(line) == jobs.run_argv("wave", ["amplitude=2"], "a.b-c_1"), "it reads back"
-    with pytest.raises(ValueError, match=r"unknown piece 'bogus'; registered: \['wave'\]"):
+    with pytest.raises(ValueError, match=r"unknown piece 'bogus'; registered: \['wave', 'lag'\]"):
         jobs.run_argv("bogus", [], "probe")
 
 

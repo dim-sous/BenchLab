@@ -11,6 +11,12 @@ on 2026-11-13: "i am not a software engineer, thus take every last one of my ans
 of salt". So Claude pushes back when an answer costs more than it looks, and the cost found is
 written beside the decision.
 
+**2026-11-15: the direction changed (§10).** RunLab, as Benchlab is to be renamed, is to be used
+like numpy: a change in a project never needs a change in RunLab, and the other way round. The
+rewrite toward it is planned later. Until then branches 2d and 2e wait, what is built (`v0.1.0`
+to `v0.4.0`) stays as it is, and DeePC stays on `v0.4.0`. Where this document and §10 disagree,
+§10 holds.
+
 ---
 
 ## 1. What Benchlab is
@@ -45,6 +51,8 @@ efficiency").
 1. **Name and home.** Benchlab, public, `dim-sous/benchlab`. Public because DeePC is public, and
    a public project cannot be installed by others if it depends on a private one. Each project
    keeps `uv run lab` as the command that opens it.
+   **2026-11-15:** the name becomes RunLab (the developer: "lets go with RunLab, i prefer it").
+   The rename itself is not done yet. `runlab` was free on PyPI on 2026-11-14.
 2. **Order.** DeePC first, then Hydrofoil, then BESS. RCWS is decided once those three work.
 3. **Running.** Start run launches each run as its own program, started by the Lab and talking to
    it directly. Today's hidden terminal and its output drawer go. The command line stays as a
@@ -52,6 +60,10 @@ efficiency").
 4. **Words are empty cells.** Benchlab names every slot for its own buttons and labels and holds
    no word. Each project's words file fills every slot. A missing word stops the Lab from
    starting and names the slot.
+   **Replaced 2026-11-15, in the rewrite (§10):** RunLab holds its own words, and a project's
+   file lists only the words it changes; nothing is checked at start. The developer: "If a word
+   is missing or wrong i will see it in the lab and make the change. No reason for anything more
+   complex than that."
 5. **No hovers** on settings, charts or numbers. The developer's reason: "if the name is
    appropriate/standard then it should be enough to avoid confusion and/or misinterpretation".
    Greyed buttons keep their reason on hover, because those are Benchlab's own words. A
@@ -193,7 +205,8 @@ onto Benchlab is planned against where that rewrite stands, never on top of a ha
    own test project. The runner comes here with its first user, the page. Driven in DeePC.
    Built as branches, each driven before the next (the developer, 2026-11-14): **2a** runs in
    progress (`docs/plan-branch-2a.md`), **2b** no hovers (`docs/plan-branch-2b.md`), **2c** words
-   as slots (`docs/plan-branch-2c.md`), **2d** the tree, **2e** the cards' full controls. The old 2b, words as slots and no
+   as slots (`docs/plan-branch-2c.md`), **2d** the tree, **2e** the cards' full controls (2d and
+   2e on hold since 2026-11-15, §10). The old 2b, words as slots and no
    hovers, was split in two on 2026-11-14: one changes what the page shows and is driven, the
    other changes none of it and proves itself by the page's text staying word for word the same.
 3. **Hydrofoil moves**, with its naming pass.
@@ -215,3 +228,126 @@ onto Benchlab is planned against where that rewrite stands, never on top of a ha
 - **The repository is public**: no papers, no private data, no credentials in it.
 - **RCWS's Lab** is twice the size of the others (scenes, overlays, validation, sweeps). Whether
   Benchlab can carry it is open until the other three work.
+
+## 10. The direction from 2026-11-15: RunLab, used like numpy
+
+**The rule** (the developer, 2026-11-15): every project uses RunLab the way it uses numpy,
+matplotlib or plotly. "If I change smth in DeePC, numpy does not change. RunLab should be
+flexible enough to do that." RunLab is "dynamic in the sense that it is adaptable, flexible and
+versatile"; the developer's image for it is Carlton Gibson's "static islands, dynamic sea". The
+rule holds both ways:
+
+- a change in a project never needs a change in RunLab;
+- a new version of RunLab never needs a change in a project, unless the project wants what is
+  new.
+
+This document's first lines already said "installed in each project the way numpy is". That held
+for installing Benchlab, not for changing a project.
+
+**The image**, read 2026-11-15 (Carlton Gibson, "Static Islands, Dynamic Sea", DjangoCon Europe
+2026 and PyCon Italia 2026; https://noumenal.es/stack-report/thoughts-from-djangocon-europe/,
+https://2026.pycon.it/en/event/static-islands-dynamic-sea): "The answer isn't to abandon Python's
+dynamic core—it's to build static islands where they help." Claude's reading for RunLab: the sea
+is what differs from project to project; the islands are what every project's bench shares, kept
+fixed by RunLab; the shore is where a project hands things over (today the declaration and the
+record). Each part is sorted by one question: is it the same for every project?
+
+**Where Benchlab stands against it** (measured 2026-11-15 on `v0.4.0` and DeePC `e3b1f06`; the
+incident is `docs/project/failures.md` [L2]):
+
+- A piece hands the page two things only: series, drawn as lines against x, and numbers
+  (`benchlab/record/__init__.py:6`, `benchlab/figure/chart.py:3`). A histogram, a heatmap, a
+  table, an image, or a file a run writes (a trained network, a checkpoint) each needs a
+  Benchlab change.
+- A setting is one of six kinds: whole number, number, yes/no, text, choice, list
+  (`benchlab/record/config.py:86`). A matrix or a date needs a Benchlab change.
+- The declaration (`benchlab/project.py:30`) gives a project no way to add a part of the page.
+- DeePC takes numpy by a range (`numpy>=2.4.2`) and Benchlab at an exact tag raised by hand
+  (§4, "Pinned versions"). Each of 2a, 2b and 2c needed a DeePC PR (#18, #19, #20).
+- Every new word slot is an edit in every project: DeePC's #20 was its copy of the page's 136
+  words.
+- §4 planned one test per project that its pieces plug in. DeePC holds 1,727 lines of tests of
+  the Lab (of its 3,354 test lines), reading the Lab's insides (`benchlab.lab.app`, `form`,
+  `state`, `view`, `words`).
+- DeePC's own code, outside its tests, uses seven names of the record layer (`Settings`,
+  `Record`, `Series`, `Number`, `Provenance`, `stamp`, `bound_refs`), and Benchlab reads from a
+  piece its `Config`, `run` and `Record` (`benchlab/runner.py:70`, `benchlab/lab/state.py:36`).
+  What ties DeePC to Benchlab's insides is its tests (five files, 1,929 lines with
+  `test_figure.py`), its words file and its pin.
+
+**Its shape, as discussed on 2026-11-15** (nothing built; the developer: "lets plan for it but
+not now"):
+
+- The ready-made page stays the default: a project gets it with no work, as plotly's quick way
+  (`plotly.express`) gives a whole chart in one line.
+- Under it, the page's parts are open for a project to use as it likes, as plotly's raw parts
+  (`graph_objects`) are when the quick way cannot do something; plotly itself never changes for
+  it.
+- The first and cheapest opening: a piece may hand the page any plotly figure it made itself.
+  The page already draws with plotly, so this one opening covers histograms, heatmaps, images,
+  tables and 3D. A figure in a record changes the run file: a new version, old runs still drawn.
+- RunLab holds its own words, and a project's file lists only the words it changes (decision 4,
+  replaced).
+
+**For the plan to settle**
+
+- Which parts of the page open first, and in what order, each with its first user (decision 8's
+  rule).
+- Comparing runs whose results are a project's own figures (found 2026-11-15: two heatmaps cannot
+  lie on one chart). The page can show them side by side; one chart of several runs needs what
+  they mean, which only the project knows. Claude's advice, not decided: a project may also hand
+  over how to draw one chart from several runs; the ready-made charts merge runs as today.
+- Decision 7, every feature of the four Labs: with a page a project can extend, a feature only
+  one project uses could live in that project.
+- How a project takes RunLab: by a version range, as it takes numpy, instead of a tag raised by
+  hand (§4).
+- What replaces "Benchlab is tested twice" (`CLAUDE.md`): a project's tests would read only
+  RunLab's open parts, never its insides.
+- Tools that already work this way, not yet looked at: MLflow, TensorBoard, DVC, Guild AI. Each
+  is tried its own way and judged by whether it can be trusted, never by lines (RCWS [A15]).
+- The projects it must serve beyond DeePC, Hydrofoil and BESS: the developer's Toy Project
+  Prompts (P1 to P9: their runs write and read trained networks, checkpoints and datasets; P2
+  needs a histogram and images), RCWS (decision 2), and others. Some of them are private and
+  RunLab is public: none of their code or details come into it.
+- Which project moves after DeePC (decision 2). Claude's advice, not decided: Hydrofoil and BESS
+  are simulation studies like DeePC, so a training or data project would test the rule harder.
+- In which repositories RunLab is renamed (when: R6, below).
+
+**The route, proposed by Claude on 2026-11-15** (measured on `v0.4.0` and DeePC `e3b1f06`). Not
+decided: the developer asked for it written down, the work to start when their weekly usage
+resets. One branch each, in this order:
+
+1. **R1, the shore named and promised.** Benchlab names what a project may use and promises it
+   within a version range, and ships one check a project calls from one test, as numpy ships
+   `numpy.testing`. DeePC's five test files that read Benchlab's insides go; what they check that
+   Benchlab's own suite does not moves here, onto the toy project. DeePC takes Benchlab by a
+   range. The last branch to need a DeePC change; its runs' numbers unchanged (the refactor rule).
+2. **R2, words.** RunLab holds its 136 words; a project's file lists only those it changes.
+3. **R3, a piece's own plotly figures.** The run file's new version, old runs still drawn.
+   MLflow and TensorBoard are looked at before it.
+4. **R4, files a run writes** (trained networks, checkpoints).
+5. **R5, settings beyond the six kinds** (a matrix, a date).
+6. **R6, the rename to RunLab, as 1.0** (the developer, 2026-11-15: last, once the shore is
+   proven; after R1 it touches about five import lines in DeePC).
+
+**R1 is built** (2026-11-16, `docs/plan-branch-R1.md` with its "As built", `v0.5.0`; the developer
+chose it over figures first). What a project may use is listed in `README.md` and held by
+`tests/test_shore.py`; `benchlab.testing.check_project` is the one check a project calls. Measured
+on DeePC: its five test files that read Benchlab's insides are gone (1,929 lines), 79 of their 85
+tests now run here on the made-up project, and every Benchlab import left in DeePC is one of
+`benchlab`'s own names, `main` of `benchlab.cli`, or `check_project`. Its runs' numbers did not
+move. Found on the way: uv 0.10.10 does not hold a git source to a version range (a commit at
+0.4.0 resolved under `>=0.5,<1`), so the range is the written promise and `uv.lock` does the
+pinning.
+
+R3 to R5 each come with its first user (decision 8's rule); 2d and 2e resume after R6. Why R1
+first: once DeePC reads only the shore, each later branch lands without a DeePC change and so
+shows the rule holds. The alternative, figures first, shows something new sooner, but R3 and R4
+would each need a DeePC PR again.
+
+**On hold:** 2d and 2e (§8). What is built stays as it is; DeePC stays on `v0.4.0`.
+
+**The cost, accepted** (the developer, 2026-11-15): "I understand that this is a massive rewrite
+when we spent many hours on building the lab but thats okay." And: "this is the same kind of
+mistake we made when we were first developing the lab for the RCWS repo". RCWS [A9] found "the
+record layer is a narrow pipe between a rich computation and a fixed figure".

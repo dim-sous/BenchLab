@@ -1,6 +1,6 @@
 """Benchlab's shape. It reaches a project only through ``benchlab/project.py``, and its layers
 import one way: ``project``, ``record``, then ``figure`` and ``runner``, then ``cli``, then
-``lab`` (DeePC's ``tests/test_devkit_layers.py``, its half about these layers, moved here with
+``lab``, then ``testing``; the package's own ``__init__`` holds names of ``record`` (DeePC's ``tests/test_devkit_layers.py``, its half about these layers, moved here with
 them).
 
 The layers only ever touch a Config or a Record and never know what is inside: if a line of their
@@ -27,7 +27,9 @@ SOURCES = sorted(p for p in PACKAGE.rglob("*.py") if "__pycache__" not in p.part
 _MAY_IMPORT = {"project": set(), "record": {"project"}, "figure": {"record"},
                "runner": {"project", "record"},
                "cli": {"project", "record", "figure", "runner"},
-               "lab": {"project", "record", "figure", "runner", "cli"}}
+               "lab": {"project", "record", "figure", "runner", "cli"},
+               # the names a project may use, and the check it calls (tests/test_shore.py)
+               "__init__": {"record"}, "testing": {"project", "record", "figure", "lab"}}
 #: Benchlab's dependencies (``pyproject.toml``), by the name they are imported by.
 _DEPENDENCIES = {"matplotlib", "numpy", "panel", "param", "plotly"}
 #: What finds or imports a module by a name read at run time: the project's door, and only its.
@@ -66,7 +68,7 @@ def _ids(paths: list[Path]) -> list[str]:
 
 
 def test_every_layer_is_in_the_import_table() -> None:
-    layers = {_layer(p) for p in SOURCES} - {"__init__"}
+    layers = {_layer(p) for p in SOURCES}
     assert layers == set(_MAY_IMPORT), f"benchlab holds {sorted(layers)}; the table names " \
                                        f"{sorted(_MAY_IMPORT)}"
 

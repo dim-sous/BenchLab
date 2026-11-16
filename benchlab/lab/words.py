@@ -64,6 +64,8 @@ SLOTS: dict[str, tuple[str, ...]] = {
     "cards.x": (), "cards.runs": (), "cards.overlay": (), "cards.split": (), "cards.mean": (),
     "cards.rms": (), "cards.each": (),
     "cards.one_run": (), "cards.nothing_differs": (), "cards.no_colour": (),
+    # a card of a figure the piece draws itself
+    "cards.own_runs": (), "cards.own_without.one": ("runs",), "cards.own_without.many": ("runs",),
     # the form
     "form.heading": (), "form.from_defaults": (), "form.from_run": ("run",),
     "form.clear": (), "form.close": (), "form.run": (),

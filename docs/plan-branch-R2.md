@@ -105,9 +105,10 @@ kinds (R5); the rename (R6); 2d and 2e.
 
 ---
 
-## As built (2026-11-16; built and checked, not yet committed)
+## As built (2026-11-16; merged)
 
-On the branch `r2-words` in BenchLab, uncommitted. DeePC's repository is untouched.
+Merged on the developer's word: BenchLab #6 (merge `521948e`, tagged `v0.6.0`). DeePC's
+repository is untouched: no branch, no PR, its lock still on Benchlab `v0.5.0`.
 
 ### One departure, the developer's
 
@@ -165,9 +166,8 @@ chose: **always start, and say what was left out.** So:
 
 ### Still to do
 
-- The git steps, each on the developer's word: commit, push, PR, merge, tag `v0.6.0`. BenchLab
-  only: DeePC gets no branch and no PR, and takes `0.6.0` whenever it wants by
-  `uv lock --upgrade-package benchlab`.
+- The git steps are done. DeePC takes `0.6.0` whenever it wants, by
+  `uv lock --upgrade-package benchlab` and its suite.
 - DeePC's `devkit/harness/words.toml` (158 lines, every word Benchlab's own) and its `WORDS` line
   can go, in a branch of DeePC's own, when the developer wants.
 - Then R3, a piece's own plotly figures (`docs/design.md` §10).

@@ -1,12 +1,33 @@
 # Benchlab: where the work stands
 
-Start here in a new session. Updated 2026-11-16: **branch R2 is built and checked on `r2-words`,
-not yet committed**; `docs/plan-branch-R2.md`, "As built", holds the whole state. R1 is merged
-(BenchLab #5, `v0.5.0`; DeePC-Sandbox #21). The direction since 2026-11-15 (`docs/design.md`
-§10): Benchlab, to be renamed RunLab, is used like numpy. 2d and 2e are on hold. VS Code on the
-developer's computer, WSL2, 12 CPUs.
+Start here in a new session. Updated 2026-11-17: **branch R3 is built and checked on
+`r3-figures` in BenchLab and in DeePC, not yet committed, waiting for the developer to drive it**;
+`docs/plan-branch-R3.md`, "As built", holds the whole state. R1 and R2 are merged (`v0.5.0`,
+`v0.6.0`). The direction since 2026-11-15 (`docs/design.md` §10): Benchlab, to be renamed RunLab,
+is used like numpy. 2d and 2e are on hold. VS Code on the developer's computer, WSL2, 12 CPUs.
 
-## R2, built 2026-11-16, awaiting the git steps
+## R3, built 2026-11-17, awaiting the developer's drive and the git steps
+
+- **A piece may hand the page a plotly figure it draws itself**: `benchlab.Figure`,
+  `Record.figures()`, drawn when shown from the record's own fields (the run file keeps the
+  numbers; its `panels` and `panel_groups` gain the figures' names). Version `0.7.0`.
+- **The developer's four choices (2026-11-17):** first user DeePC's pole map on System; several
+  runs, one figure per run, stacked; a short read of MLflow's and TensorBoard's docs; no saved
+  picture yet (`draw` names what it left out).
+- **DeePC** (`r3-figures`): the pole map, one test, `benchlab>=0.7,<1`. **Its `pyproject.toml`
+  and `uv.lock` point at the local Benchlab copy: never committed that way.**
+- **Checked:** Benchlab 328 passed in 80 s (315 before), ruff clean. DeePC 132 passed in 114 s.
+  DeePC's runs as before but provenance, wall-clock fields and the System file's two lists
+  gaining `pole-map`. A System run saved on 0.5.0 draws its pole map. DeePC's Lab driven in
+  headless Chromium, screenshots looked at.
+- **Found by driving:** under plotly's stock template the grid and zero lines did not show on
+  the card's paper; the card's look is now laid under a piece's figure as a plotly template.
+- **For the developer after driving:** `docs/for-review.md`, "R3", six points; the first is the
+  colour of a stacked figure (the piece's own, not the run's).
+- **Left, each on the developer's word:** the git steps listed at the end of the plan's "As
+  built". **After it:** R4, files a run writes.
+
+## R2, merged 2026-11-16
 
 - **Benchlab holds the page's 136 words** (`benchlab/lab/words.toml`); a project's file lists only
   those it changes and `WORDS` is optional. Version `0.6.0`. BenchLab only: **DeePC needed no
@@ -18,7 +39,10 @@ developer's computer, WSL2, 12 CPUs.
   4's "Replaced" note and kept the refusal; found while editing `docs/design.md`, put to the
   developer, reworked. Read the numbered decisions of `docs/design.md` §3 before planning what
   they touch.
-- **Left, each on the developer's word:** commit, push, PR, merge, tag `v0.6.0`.
+- **Git, on the developer's word** (2026-11-16: "All the way: merge and tag"): BenchLab #6 merged
+  (`521948e`), tagged `v0.6.0`, its state read before the branch went, the branch deleted, the
+  copy back on `main`, clean but for this edit of the notes and the plan's, which ride with the
+  next branch. DeePC stays on Benchlab `0c99bf1` (`v0.5.0`) in its lock until it wants more.
 - **After it:** R3, a piece's own plotly figures. DeePC's words file can be deleted in a branch
   of its own when the developer wants.
 

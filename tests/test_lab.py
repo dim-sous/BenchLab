@@ -53,6 +53,8 @@ _ALLOWED = {# the declared project: its pieces, and its command and title -- wor
             # the figure layer's, so a chart sits on its card's paper
             "benchlab.figure.chart": {"chart_of", "sweep_of", "pool_refusal", "distinct"},
             "benchlab.figure.twin": {"figure_of"},
+            # a figure the piece draws itself, as the page's pane takes it: passed through
+            "benchlab.figure.own": {"own_figure"},
             "benchlab.figure.style": {"series_color", "FONT", "MONO", "SURFACE", "INK",
                                       "INK_SECONDARY", "GRID"}}
 _THIRD_PARTY = {"panel", "param"}

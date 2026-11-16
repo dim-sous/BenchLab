@@ -119,6 +119,12 @@ def draw_command(args: argparse.Namespace) -> int:
                          f"compares runs of one piece")
     component = get_component(pieces.pop())
     pairs = [(Path(path).stem, component.Record.load(path)) for path in args.records]
+    # the figures a piece draws itself are the page's to show (the developer, 2026-11-17)
+    own = list(dict.fromkeys(f.name for _, record in pairs for f in record.figures()))
+    asked = [name for name in (args.panels or []) if name in own]
+    if asked:
+        raise ValueError(f"{', '.join(asked)}: drawn by the piece itself, which the Lab's page "
+                         f"shows; `draw` writes the charts ({', '.join(own)} are not charts)")
     shaping = {"runs": args.runs} if args.runs else {}
     first = Path(args.records[0])
     out_dir = Path(args.out_dir) if args.out_dir else first.parent / folder_of(
@@ -135,6 +141,9 @@ def draw_command(args: argparse.Namespace) -> int:
         paths = draw(pairs, out_dir, panels=args.panels, **shaping)
     for path in paths:
         print(path)
+    if own and not args.panels and not args.number:
+        print(f"not drawn, the piece's own figures, which the Lab's page shows: {', '.join(own)}",
+              file=sys.stderr)
     return 0
 
 

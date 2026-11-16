@@ -11,8 +11,8 @@ removed, renamed or changed in meaning before 1.0 (``README.md``, "What a projec
 any version.
 """
 
-from benchlab.record import Number, Provenance, Record, Series, bound_refs, stamp
+from benchlab.record import Figure, Number, Provenance, Record, Series, bound_refs, stamp
 from benchlab.record.config import Settings, with_overrides
 
-__all__ = ["Settings", "with_overrides", "Record", "Series", "Number", "Provenance", "stamp",
-           "bound_refs"]
+__all__ = ["Settings", "with_overrides", "Record", "Series", "Figure", "Number", "Provenance",
+           "stamp", "bound_refs"]

@@ -101,3 +101,23 @@ Built from `docs/plan-branch-R2.md`. The page reads as before.
 3. **A project's test warns, and does not fail,** on an entry left out.
 4. **Benchlab's own words are today's**, the made-up project's file moved as it was.
 5. **DeePC's full words file still works** and can be deleted whenever you want (158 lines).
+
+## R3: a piece's own figures (2026-11-17, not yet merged)
+
+Built from `docs/plan-branch-R3.md`, on your four choices of that day. First user: DeePC's pole
+map. What is left for you to judge after driving it:
+
+1. **The colours on a stacked figure.** Each run's figure is drawn in the piece's own colours
+   (the first chart colour), not in the run's colour. The dot beside the run's name is the run's.
+   The other way round is possible: each run's figure in that run's colour.
+2. **The pole map's look**, which is DeePC's: crosses, both axes on one scale (so a tall, narrow
+   set of poles leaves room at the sides), lines at zero, `Re` and `Im`, no title, in the group
+   "Poles" after Frequency and Time.
+3. **The card's look is laid under every such figure** (paper, type, grid, margins, colours),
+   since plotly's stock look left the grid invisible on the card. A piece that sets something
+   itself keeps it.
+4. **The words**: "A piece's own figure is drawn once per run" (why the control is greyed) and
+   "<run> declares no such figure". Yours to change, in Benchlab's words file.
+5. **Every figure of a shown run is built when the run loads**, open or not. Nothing for a pole
+   map; a piece with heavy figures would want them built on opening.
+6. **No saved picture of such a figure** (your choice); `draw` names what it left out.

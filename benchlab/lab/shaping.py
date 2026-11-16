@@ -7,7 +7,9 @@ of shaping a chart is one entry here (RCWS ``feat/unequal-state-mixing``, ``lab/
 Three, after the developer's cut of 2026-11-11: a chart card's runs (Overlay | Split | Mean |
 RMS); a number card's setting on the bottom axis (X) and its runs (All | Mean | RMS). A control a
 card cannot use is greyed with the reason on its hover: the figure layer's refusal in its own
-words where it is one (``figure.chart.pool_refusal``).
+words where it is one (``figure.chart.pool_refusal``). A card of a figure the piece draws itself
+(kind ``own``) carries the chart card's control, greyed whole: such a figure is drawn once per
+run, and only the piece could merge two.
 
 No Panel here, so what a card offers is tested without a page.
 """
@@ -37,7 +39,8 @@ class Card:
 
 @dataclass(frozen=True)
 class Context:
-    """What a card's controls are read off: its kind and how many runs it draws; on a chart
+    """What a card's controls are read off: its kind (``chart``, ``numbers``, or ``own`` for a
+    chart card whose panel is a figure the piece draws itself) and how many runs it draws; on a chart
     card why each statistic cannot pool its runs (``{"mean": why, "rms": why}``, ``""`` where it
     can); on a numbers card the settings on offer for its bottom axis (words -> setting) and
     whether a colour holds two runs at one value."""
@@ -84,6 +87,8 @@ def _chart_runs_options(card: Card, ctx: Context) -> list[tuple[str, Any, str]]:
 
 
 def _one_run(card: Card, ctx: Context) -> str:
+    if ctx.kind == "own":
+        return say("cards.own_runs")
     return say("cards.one_run") if ctx.runs < 2 else ""
 
 
@@ -100,7 +105,7 @@ SHAPINGS: tuple[Shaping, ...] = (
             unusable=lambda card, ctx: "" if ctx.axes else say("cards.nothing_differs"),
             shown=lambda card, ctx: card.x,
             keywords=lambda card, ctx: {"vs": card.x}),
-    Shaping("runs", "cards.runs", "one", 2, kinds=("chart",), options=_chart_runs_options,
+    Shaping("runs", "cards.runs", "one", 2, kinds=("chart", "own"), options=_chart_runs_options,
             unusable=_one_run, shown=_chart_runs,
             keywords=lambda card, ctx: {"runs": _chart_runs(card, ctx)}),
     Shaping("runs", "cards.runs", "one", 2, kinds=("numbers",),

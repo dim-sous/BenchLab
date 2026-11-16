@@ -4,8 +4,9 @@
 A piece's ``Record`` is a frozen dataclass whose first field is ``name`` (also the file stem) and
 which carries ``config`` (the Config the run used), ``provenance`` and ``numbers: dict[str,
 float]``, plus the arrays its figures will draw. It declares, from its own fields, the panels a
-figure layer may draw (``series()``) and the words and units of its numbers (``number_specs()``),
-so a drawing and a listing cannot drift from the data.
+figure layer may draw (``series()``), the figures it draws itself (``figures()``: what lines
+against an abscissa cannot say) and the words and units of its numbers (``number_specs()``), so a
+drawing and a listing cannot drift from the data.
 
 A number with no answer is left out of ``numbers``, never saved as NaN. Non-finite values inside
 an array ride as the tokens ``"nan"``, ``"inf"``, ``"-inf"`` and load back as floats. A float is
@@ -31,7 +32,7 @@ import numpy as np
 from benchlab.project import declared
 from benchlab.record.config import Settings, from_dict, to_dict
 
-__all__ = ["Provenance", "stamp", "Series", "bound_refs", "Number", "Record", "read_header", "capital",
+__all__ = ["Provenance", "stamp", "Series", "Figure", "bound_refs", "Number", "Record", "read_header", "capital",
            "COMPONENT_KEY", "PANELS_KEY", "NUMBER_SPECS_KEY", "PANEL_GROUPS_KEY", "HEADER_KEYS"]
 
 COMPONENT_KEY, PANELS_KEY, NUMBER_SPECS_KEY = "component", "panels", "number_specs"
@@ -126,6 +127,24 @@ class Series:
                                      f"{len(edge)} values against {n}")
 
 
+@dataclasses.dataclass(frozen=True)
+class Figure:
+    """One panel the piece draws itself: a plotly figure built from the record's own fields, for
+    what a :class:`Series` cannot say -- a histogram, a heatmap, an image, points on a plane. The
+    run file keeps the fields, never the figure: it is drawn when shown, by the code of the day.
+    Its title, labels and legend are the piece's own (``CLAUDE.md``, "Figures describe")."""
+
+    name: str        # its key in the chart list and the page's address, kebab-case
+    figure: Any      # a ``plotly.graph_objects.Figure``, or the plain dict of one
+    group: str = ""  # the heading a listing puts it under
+    title: str = ""  # the words a listing and a card show for it; left out, its name
+    doc: str = ""
+
+    def __post_init__(self) -> None:
+        if not self.title:
+            object.__setattr__(self, "title", self.name)
+
+
 def bound_refs(bounds: Any, quantity: str, unit: str) -> tuple[tuple[str, float], ...]:
     """A panel's reference lines for ``quantity``'s ``[lower, upper]`` bounds in ``unit``, each a
     finite one (an infinite bound is no line), named with the quantity and its unit (CLAUDE.md:
@@ -213,16 +232,27 @@ class Record:
     def series(self) -> tuple[Series, ...]:
         return ()
 
+    def figures(self) -> tuple[Figure, ...]:
+        return ()
+
     def number_specs(self) -> tuple[Number, ...]:
         return ()
 
     # -- the header a listing reads without rebuilding the body
     def header(self) -> dict[str, Any]:
-        series = self.series()
+        """The record's piece, its panels -- the charts ``series()`` declares, then the figures
+        ``figures()`` does, in one list of names -- their groups, and its numbers' words. A
+        name declared twice is refused: a chart and a figure are opened by the same name."""
+        panels = [*self.series(), *self.figures()]
+        names = [p.name for p in panels]
+        twice = sorted({n for n in names if names.count(n) > 1})
+        if twice:
+            raise ValueError(f"{type(self).component} declares the panel(s) {twice} more than "
+                             f"once; a chart and a figure share one list of names")
         return {COMPONENT_KEY: type(self).component,
-                PANELS_KEY: [s.name for s in series],
+                PANELS_KEY: names,
                 NUMBER_SPECS_KEY: [dataclasses.asdict(n) for n in self.number_specs()],
-                PANEL_GROUPS_KEY: {s.name: s.group for s in series}}
+                PANEL_GROUPS_KEY: {p.name: p.group for p in panels}}
 
     def save(self, path: str | os.PathLike[str]) -> Path:
         """Write header then fields, atomically. Refuses a non-finite or undeclared number."""

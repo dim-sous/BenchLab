@@ -330,6 +330,14 @@ resets. One branch each, in this order:
    needed no change.
 3. **R3, a piece's own plotly figures.** The run file's new version, old runs still drawn.
    MLflow and TensorBoard are looked at before it.
+   **Built** (2026-11-17, `docs/plan-branch-R3.md`, `v0.7.0`; first user, DeePC's pole map):
+   `Figure` and `Record.figures()`; one figure per shown run, stacked (the developer's
+   choice); no saved picture yet (theirs too). The look, a short read of both tools' pages:
+   MLflow stores a run's matplotlib or plotly figure as a file of the run, plotly kept live;
+   TensorBoard renders a matplotlib figure into an image; neither page speaks of merging
+   several runs' figures. Both store the finished picture. RunLab keeps the numbers in the
+   run file and the piece draws the figure when shown, so the file's only change is two
+   lists gaining the figures' names, and a run saved before a figure existed gains it.
 4. **R4, files a run writes** (trained networks, checkpoints).
 5. **R5, settings beyond the six kinds** (a matrix, a date).
 6. **R6, the rename to RunLab, as 1.0** (the developer, 2026-11-15: last, once the shore is

@@ -15,9 +15,11 @@ from benchlab.record import config
 
 README = (Path(__file__).resolve().parent.parent / "README.md").read_text()
 #: The names ``benchlab`` holds for a project's pieces, promised from 0.5, each with the inner
-#: module a project took it from before 0.5.
+#: module that holds it (where a project took it from before 0.5).
 NAMES = {"Settings": config, "with_overrides": config, "Record": record, "Series": record,
-         "Number": record, "Provenance": record, "stamp": record, "bound_refs": record}
+         "Number": record, "Provenance": record, "stamp": record, "bound_refs": record,
+         # from 0.7: a figure a piece draws itself
+         "Figure": record}
 #: The names a project's declared module holds; ``WORDS`` it may leave out (from 0.6).
 DECLARED = {"NAMES", "get_component", "COMMAND", "TITLE", "ROOT", "LIBRARIES", "WORDS"}
 #: What a setting's ``metadata`` may carry.
@@ -72,7 +74,7 @@ def test_a_setting_keeps_every_metadata_key_it_may_carry() -> None:
 
 def test_the_readme_names_everything_promised() -> None:
     shore = README.split("## What a project may use")[1].split("\n## ")[0]
-    promised = [*NAMES, *DECLARED, *METADATA, "Config", "run", "benchlab.cli:main",
+    promised = [*NAMES, *DECLARED, *METADATA, "Config", "run", "figures()", "benchlab.cli:main",
                 "benchlab.lab:main", "benchlab.testing", "check_project"]
     missing = [word for word in promised if f"`{word}`" not in shore]
     assert not missing, f"the README's list leaves out {missing}"

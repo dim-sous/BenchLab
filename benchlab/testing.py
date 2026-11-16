@@ -20,9 +20,12 @@ import warnings
 from collections.abc import Sequence
 from pathlib import Path
 
+import plotly.graph_objects as go
+
 import benchlab
 from benchlab.figure.chart import chart_of
 from benchlab.figure.draw import draw
+from benchlab.figure.own import own_figure
 from benchlab.figure.twin import figure_of
 from benchlab.lab import state, words
 from benchlab.lab.form import Form
@@ -52,8 +55,8 @@ def check_project(runs: Sequence[str | os.PathLike[str]] = (), *,
       whose ``component`` is the piece's registered name), or its defaults do not build;
     - a piece's settings do not build the Lab's form;
     - one of ``runs``, record files the project made, is of no registered piece, does not load
-      through its piece's ``Record``, or declares a chart that does not draw, as a still or on
-      the page;
+      through its piece's ``Record``, declares a chart that does not draw, as a still or on
+      the page, or a figure of its own that plotly does not take;
     - a Python file under ``sources`` (the declared ``ROOT`` when ``None``; folders whose name
       starts with a dot are skipped) imports more of Benchlab than a project may use.
 
@@ -109,6 +112,12 @@ def _check_run(path: Path, names: Sequence[str], out: Path) -> None:
             figure_of(chart_of(pairs, series.name))
         except Exception as exc:        # whatever stops a chart, raised again naming its run
             raise AssertionError(f"{path}: the chart {series.name!r} does not draw "
+                                 f"({type(exc).__name__}: {exc})") from exc
+    for figure in record.figures():
+        try:
+            go.Figure(own_figure(record, figure.name))
+        except Exception as exc:        # whatever plotly refuses, raised again naming its run
+            raise AssertionError(f"{path}: the figure {figure.name!r} is not one plotly takes "
                                  f"({type(exc).__name__}: {exc})") from exc
 
 

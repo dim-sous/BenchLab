@@ -10,6 +10,7 @@ injected. How a run is queued, followed and stopped is ``tests/test_runner.py``'
 
 from __future__ import annotations
 
+import dataclasses
 import html
 import json
 import os
@@ -406,7 +407,7 @@ def test_opening_a_chart_is_the_figure_layers_and_queues_no_run(lag_runs) -> Non
     assert "title=" not in title, "no hover on the title (docs/design.md decision 5)"
     assert not any("down to -90" in w for w in _card_words(lab, "bode-phase")), \
         "nor its description anywhere on the card"
-    assert "2 of 3 open" in lab.open_count.object
+    assert "2 of 4 open" in lab.open_count.object
     assert list(lab._lines) == ["Time", "Frequency"], "listed in the record's groups"
     assert all(f">{group}<" in line.objects[0].object for group, line in lab._lines.items())
     _tabs(lab)["output"].value = False
@@ -569,7 +570,7 @@ def test_a_click_on_the_chart_list_builds_none_of_it_again(lag_runs) -> None:
     assert all(lab.group_toggles()[group] is toggle for group, toggle in index.items())
     assert not lab.toggles()["bode-phase"].value
     assert lab.group_toggles()["Frequency"].label == "▸ Frequency"
-    assert "1 of 3 open" in lab.open_count.object
+    assert "1 of 4 open" in lab.open_count.object
 
 
 def _older(record):
@@ -577,8 +578,9 @@ def _older(record):
     refuses to compare runs of two pieces)."""
     keep = [s for s in record.series() if s.name == "u"]
     older = type("Older", (), {"component": type(record).component})()
-    for name, value in (("series", lambda: tuple(keep)), ("config", record.config),
-                        ("numbers", record.numbers), ("number_specs", record.number_specs)):
+    for name, value in (("series", lambda: tuple(keep)), ("figures", tuple),
+                        ("config", record.config), ("numbers", record.numbers),
+                        ("number_specs", record.number_specs)):
         setattr(older, name, value)
     return older
 
@@ -810,3 +812,74 @@ def test_a_list_setting_with_rows_draws_a_labelled_box_per_item_and_its_edits_re
     lab._fill_controls()
     assert [r[1].value for r in _rows_of_editor(keep)] == ["u", "y"]
     assert [r[1].value for r in _rows_of_editor(limits)] == ["0.5"]
+
+
+# ---------------------------------------------------------------- a figure the piece draws itself
+
+def _own_panes(lab: Lab, panel: str) -> list[dict]:
+    """The figures an own-figure card draws, top to bottom, as its Plotly panes hold them."""
+    return [pane.object for pane in _card(lab, panel).select(pn.pane.Plotly)]
+
+
+def _own_names(lab: Lab, panel: str) -> list[str]:
+    """The run names an own-figure card writes above its figures, top to bottom."""
+    return [name for o in _card(lab, panel).select(pn.pane.HTML)
+            for name in re.findall(r"data-run='([^']+)'", o.object)]
+
+
+def test_a_pieces_own_figure_is_listed_with_the_charts_and_opens_a_card(lag_runs) -> None:
+    """Branch R3: the lag draws its pole itself, a plotly figure; the page lists it in its group
+    after the charts and shows it as the piece drew it."""
+    lab, queue, *_ = _lab(lag_runs, "lag")
+    assert list(lab.toggles()) == ["output", "bode-magnitude", "bode-phase", "pole"]
+    _tabs(lab)["pole"].value = True
+    assert queue.runs() == [] and lab.open_charts == ["output", "pole"]
+    assert "data-panel='pole'" in _card(lab, "pole").objects[0].objects[0].object
+    assert ">Pole<" in _card(lab, "pole").objects[0].objects[0].object, "its own title"
+    [fig] = _own_panes(lab, "pole")
+    assert fig["data"][0]["x"] == [-1.0 / 0.2], "the shown run's, `second`, whose τ is 0.2"
+    assert fig["layout"]["xaxis"]["title"]["text"] == "Re [rad/s]"
+    assert _rows_of(lab, "pole") == ["second"] and _own_names(lab, "pole") == [], \
+        "one run shown: no name above its figure"
+    assert _greyed(lab, "pole") == {
+        "Overlay | Split | Mean | RMS": "A piece's own figure is drawn once per run"}
+    assert lab.group_toggles()["Frequency"].label == "▾ Frequency", "opened, its group shows"
+
+
+def test_several_runs_stack_a_figure_each_under_its_runs_name(lag_runs) -> None:
+    """The developer, 2026-11-17: one figure per run, stacked. The page cannot merge what only
+    the piece can read."""
+    lab, *_ = _lab(lag_runs, "lag")
+    _tabs(lab)["pole"].value = True
+    _tick(lab, "first")
+    assert _rows_of(lab, "pole") == ["second", "first"] == _own_names(lab, "pole"), \
+        "in the order ticked, each named"
+    assert [fig["data"][0]["x"] for fig in _own_panes(lab, "pole")] == [[-5.0], [-20.0]]
+    assert _greyed(lab, "pole") == {
+        "Overlay | Split | Mean | RMS": "A piece's own figure is drawn once per run"}, \
+        "two runs shown, and still nothing to pick"
+    assert _rows_of(lab, "output") == ["second", "first"], "the chart beside it overlays, as ever"
+    assert lab.page().get_root() is not None, "the page builds with it"
+    _tick(lab, "second", False)
+    assert _rows_of(lab, "pole") == ["first"] and _own_names(lab, "pole") == []
+
+
+def test_a_shown_run_that_draws_no_such_figure_is_named_on_the_card(lag_runs) -> None:
+    lab, *_ = _lab(lag_runs, "lag")
+    real = lab._record_of
+
+    def without(run):
+        """``first`` as a record saved before the piece drew its pole would read under a class
+        that draws none."""
+        record, why = real(run)
+        if run["name"] != "first":
+            return record, why
+        older = type("Older", (type(record),), {"figures": lambda self: ()})
+        return older(**{f.name: getattr(record, f.name) for f in dataclasses.fields(record)}), why
+
+    lab._record_of = without
+    _tabs(lab)["pole"].value = True
+    _tick(lab, "first")
+    assert _rows_of(lab, "pole") == ["second"] and len(_own_panes(lab, "pole")) == 1
+    assert _own_names(lab, "pole") == ["second"], "two runs shown: the one drawn is named"
+    assert "first declares no such figure" in _card_words(lab, "pole")

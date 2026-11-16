@@ -5,8 +5,9 @@ y[k+1] = a y[k] + (1 - a) K u[k] with a = exp(-Δt/τ), or by forward Euler, a =
 It holds what the wave does not, each for a test that needs one: a setting naming another piece's
 saved run; two defaults the code resolves (K: none is 1; the hold: none is exact); a list of
 numbers (the limits y is drawn against, as references named by what they bound) and a list of
-text (the traces the output chart draws), a row each in the form; a unit; constants a run used beyond its
-Config; and the lag's Bode magnitude and phase, on logarithmic axes."""
+text (the traces the output chart draws), a row each in the form; a unit; constants a run used
+beyond its Config; the lag's Bode magnitude and phase, on logarithmic axes; and a figure it
+draws itself, its pole on the complex plane, which lines against an abscissa cannot say."""
 
 from __future__ import annotations
 
@@ -16,7 +17,7 @@ import time
 import numpy as np
 import param
 
-from benchlab import Number, Provenance, Series, Settings, bound_refs, stamp
+from benchlab import Figure, Number, Provenance, Series, Settings, bound_refs, stamp
 from benchlab import Record as _Record
 
 from . import wave
@@ -73,6 +74,14 @@ class Record(_Record):
                 Series(name="bode-phase", x=self.omega, x_label="ω [rad/s]", y_label="∠G [deg]",
                        traces=(("∠G", self.phase),), group="Frequency", x_log=True,
                        doc="The lag's phase, from 0 down to -90 degrees."))
+
+    def figures(self) -> tuple[Figure, ...]:
+        pole = -1.0 / self.config.tau
+        return (Figure(name="pole", group="Frequency", title="Pole", figure={
+            "data": [{"type": "scatter", "mode": "markers", "x": [pole], "y": [0.0],
+                      "marker": {"symbol": "x", "size": 11}}],
+            "layout": {"xaxis": {"title": {"text": "Re [rad/s]"}},
+                       "yaxis": {"title": {"text": "Im [rad/s]"}, "scaleanchor": "x"}}}),)
 
     def number_specs(self) -> tuple[Number, ...]:
         return (Number("peak_y", "Peak of y", headline=True, group="Time"),

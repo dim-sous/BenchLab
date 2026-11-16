@@ -43,7 +43,8 @@ new session starts from `.claude/memory/MEMORY.md`: keep it current and commit i
   A change in a project never needs a change here, and a new version here never needs a change
   in a project that does not want what is new. Branch R1 (`v0.5.0`) named what a project may use
   and promised it until 1.0; R2 to R6 follow, and 2d and 2e wait for them (`docs/design.md` §10).
-  R2 (`v0.6.0`) put the page's words here. A result that is not a line chart still needs a
+  R2 (`v0.6.0`) put the page's words here; R3 (`v0.7.0`) lets a piece hand the page a figure
+  it draws itself. A file a run writes, and a setting beyond the six kinds, still need a
   change here.
   ([L2]; RCWS `[A9]`)
 - **Benchlab names no project.** Its code and the words its page shows reach a project only

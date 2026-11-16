@@ -63,15 +63,20 @@ def _shows(page, *words: str, timeout: float = 45.0) -> list[str]:
 
 
 @contextlib.contextmanager
-def _served(tmp_path, query: str = "", *, width: int = 1440, second: tuple[str, ...] = ()):
+def _served(tmp_path, query: str = "", *, width: int = 1440, second: tuple[str, ...] = (),
+            lag: bool = False):
     """The Lab served over two toy runs, ``first`` and ``second`` (the defaults, but for the
-    settings ``second`` names for it), and a browser page ``width`` wide on it (``query`` its
-    address's, e.g. ``?shown=first``): ``(page, errors, root, out_dir)``, the errors those the
-    page raises and those it logs to its console."""
+    settings ``second`` names for it) -- and, with ``lag``, a run ``one`` of the lag on ``first``
+    -- and a browser page ``width`` wide on it (``query`` its address's, e.g. ``?shown=first``):
+    ``(page, errors, root, out_dir)``, the errors those the page raises and those it logs to its
+    console."""
     root, out_dir = str(tmp_path), "results"
     for name, sets in (("first", ()), ("second", second)):
         cli.main(["run", "wave", "--name", name, "--out-dir", str(tmp_path / out_dir),
                   *(w for item in sets for w in ("--set", item))])
+    if lag:
+        cli.main(["run", "lag", "--name", "one", "--out-dir", str(tmp_path / out_dir),
+                  "--set", f"wave_run={tmp_path / out_dir / 'wave' / 'first.json'}"])
     with socket.socket() as probe:
         probe.bind(("127.0.0.1", 0))
         port = probe.getsockname()[1]
@@ -353,4 +358,25 @@ def test_a_list_setting_shows_a_labelled_row_per_item_and_adds_one(tmp_path) -> 
         page.keyboard.type(" and u", delay=40)                  # key by key, as a person types
         page.wait_for_timeout(1500)
         assert box.input_value() == "y and u", "every key reached the box (code review)"
+        assert not errors[switched:], errors[switched:]
+
+
+def test_a_figure_the_piece_draws_itself_is_drawn_in_the_browser_as_the_piece_drew_it(
+        tmp_path) -> None:
+    """Branch R3: the lag's pole, a plotly figure of the piece's own, opened from the chart list;
+    plotly in the browser holds the piece's own point and the page raises nothing for it."""
+    with _served(tmp_path, lag=True) as (page, errors, _root, _out_dir):
+        _shows(page, "2 on disk")
+        page.locator("select").first.select_option(label="Lag")
+        _shows(page, "1 on disk")
+        page.wait_for_timeout(1500)
+        switched = len(errors)
+        page.locator("button", has_text="Frequency").first.click()   # its group, in the index
+        page.wait_for_timeout(600)
+        page.locator("button", has_text="Pole").first.click()
+        plots = {p["meta"]["panel"]: p for p in _charts(page, 2)}
+        assert sorted(plots) == ["output", "pole"]
+        [trace] = plots["pole"]["traces"]
+        assert trace["x"] == [-20] and trace["y"] == [0], "the pole of the default τ = 0.05"
+        assert "Pole" in page.evaluate(_TEXT), "the card's title"
         assert not errors[switched:], errors[switched:]

@@ -5,8 +5,8 @@ The bench every project shares. A project brings its pieces: for each one its se
 
 | package | holds |
 |---|---|
-| `benchlab/record/` | the settings layer (`Settings` on `param`: every setting with a group, refused in words when wrong, `needs` for a setting that applies only while another holds a named value, `None` for the code's own default, `record_of` for a setting naming another piece's saved run) and the run file (`Record`, saved as one JSON and loaded back bit for bit; `Series` and `Number`, the charts and numbers a record declares; `Provenance`, what produced it) |
-| `benchlab/figure/` | one panel spec built from what the records declare, drawn two ways: a PNG still with a JSON sidecar, and the Lab's live chart. Runs overlaid, a row each, or pooled by their mean or RMS; a summary number against a setting |
+| `benchlab/record/` | the settings layer (`Settings` on `param`: every setting with a group, refused in words when wrong, `needs` for a setting that applies only while another holds a named value, `None` for the code's own default, `record_of` for a setting naming another piece's saved run) and the run file (`Record`, saved as one JSON and loaded back bit for bit; `Series` and `Number`, the charts and numbers a record declares; `Figure`, a plotly figure the record draws itself from its own fields, for what lines against an axis cannot say; `Provenance`, what produced it) |
+| `benchlab/figure/` | one panel spec built from what the records declare, drawn two ways: a PNG still with a JSON sidecar, and the Lab's live chart. Runs overlaid, a row each, or pooled by their mean or RMS; a summary number against a setting. A figure a piece draws itself is passed through to the page as the piece drew it, on the card's paper |
 | `benchlab/runner.py` | one run of a piece: its Config (the one given, else the defaults) with the settings given, run, named and saved; what a sweep makes. The side door and the Lab both run it, so the same settings make the same file |
 | `benchlab/cli/` | the project's command, the side door: `<command> run <piece>` (settings from a file, `--set`, `--sweep`; one record per run) and `<command> draw <record>…` (the panels as stills, or `--number N --vs SETTING`) |
 | `benchlab/lab/` | the Lab: one local page on Panel over the records -- the runs to tick, filter and compare, their charts as cards, the form that starts runs. Each run is its own process (`python -m benchlab.runner`), never more at once than the machine has cores, shown in the runs in progress along the bottom with a Stop each; the Lab never goes through the command line and computes nothing itself |
@@ -19,7 +19,7 @@ It began as DeePC's bench, moved here unchanged but for what tied it to DeePC
 `docs/plan-branch-2b.md`, v0.3.0; words as slots, `docs/plan-branch-2c.md`, v0.4.0). From
 2026-11-15 it is being rebuilt to be used the way numpy is (`docs/design.md` §10: what a project
 may use, named and promised, `docs/plan-branch-R1.md`, v0.5.0; the page's words held here,
-`docs/plan-branch-R2.md`, v0.6.0).
+`docs/plan-branch-R2.md`, v0.6.0; a piece's own figures, `docs/plan-branch-R3.md`, v0.7.0).
 
 ## How a project declares itself
 
@@ -84,9 +84,9 @@ added.** Everything else in Benchlab is its own and may change in any version.
 
 | | what a project may use |
 |---|---|
-| the names `benchlab` holds | `Settings`, `with_overrides`, `Record`, `Series`, `Number`, `Provenance`, `stamp`, `bound_refs`, as `from benchlab import Settings, Record` |
+| the names `benchlab` holds | `Settings`, `with_overrides`, `Record`, `Series`, `Figure`, `Number`, `Provenance`, `stamp`, `bound_refs`, as `from benchlab import Settings, Record` |
 | a setting | a `param` parameter on a `Settings`, its `metadata` carrying `group` (required) and any of `unit`, `lines`, `needs`, `replicate`, `draws`, `record_of`, `folded`, `rows` (`benchlab/record/config.py` says what each is) |
-| a piece | a module holding `Config` (a `Settings`), `run` (`run(config) -> record`) and `Record` (a frozen dataclass on Benchlab's `Record`, its `component` the piece's registered name) |
+| a piece | a module holding `Config` (a `Settings`), `run` (`run(config) -> record`) and `Record` (a frozen dataclass on Benchlab's `Record`, its `component` the piece's registered name). The record declares what it can draw: `series()`, its charts, lines against an axis; and `figures()`, the plotly figures it draws itself, each a `Figure` |
 | the declaration | the entry point in the group `benchlab`, and the module it names, holding `NAMES`, `get_component`, `COMMAND`, `TITLE`, `ROOT` and `LIBRARIES`, and `WORDS` if it changes a word |
 | the words | a words file naming the words of the page the project changes, by the slots of `benchlab/lab/words.toml`. A slot's name is not promised: an entry Benchlab cannot use is left out and said, never refused |
 | the two commands | `benchlab.cli:main` and `benchlab.lab:main`, as the project's `pyproject.toml` names them; its tests may call `main` of either |
@@ -108,7 +108,8 @@ def test_the_pieces_plug_into_the_bench(tmp_path):
 `check_project` refuses, naming the piece or the file and the cause: an incomplete declaration; a
 piece that does not hold `Config`, `run` and `Record`, or whose defaults do not build; settings
 that do not build the Lab's form; a run that
-does not load, or declares a chart that does not draw; and a Python file of the project that
+does not load, declares a chart that does not draw, or a figure of its own plotly does not take;
+and a Python file of the project that
 imports more of Benchlab than this list.
 
 ## Working on Benchlab

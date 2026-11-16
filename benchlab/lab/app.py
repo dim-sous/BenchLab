@@ -35,6 +35,7 @@ from typing import Any, Callable, Optional
 import panel as pn
 
 from benchlab.figure.chart import chart_of, distinct, pool_refusal, sweep_of
+from benchlab.figure.own import own_figure
 from benchlab.figure.style import series_color
 from benchlab.figure.twin import figure_of
 from benchlab.project import title
@@ -228,6 +229,14 @@ def _tab_cell(toggle: pn.widgets.Toggle, note: str) -> pn.Column:
             if note else [])
     return pn.Column(toggle, *said, margin=(3, 3), width=22 + 8 * len(toggle.label),
                      sizing_mode="fixed", styles={"flex": "1 1 auto", "max-width": "none"})
+
+
+def _declared(record: Any) -> tuple[list[str], dict[str, str], dict[str, str]]:
+    """What a record can draw, as its class declares it now: the names of its charts, then of
+    the figures it draws itself, with each one's group and its title."""
+    panels = [*record.series(), *record.figures()]
+    return ([p.name for p in panels], {p.name: p.group for p in panels},
+            {p.name: p.title for p in panels})
 
 
 def _colour(i: int) -> str:
@@ -477,11 +486,7 @@ class Lab:
             record, why = state.load(run), ""
         except (ValueError, OSError) as exc:
             record, why = None, str(exc)
-        drawn = None
-        if record is not None:
-            series = record.series()
-            drawn = ([s.name for s in series], {s.name: s.group for s in series},
-                     {s.name: s.title for s in series})
+        drawn = None if record is None else _declared(record)
         self._loaded[run["path"]] = (run["mtime"], record, why, drawn)
         return record, why
 
@@ -610,9 +615,7 @@ class Lab:
         if hit is not None and hit[1] is record:
             panels, groups, titles = hit[3]          # read once with the record
         else:
-            series = record.series()
-            panels, groups = [s.name for s in series], {s.name: s.group for s in series}
-            titles = {s.name: s.title for s in series}
+            panels, groups, titles = _declared(record)
         return {**run, "panels": panels, "panel_groups": groups, "panel_titles": titles}
 
     def _shown_drawable(self) -> list[dict[str, Any]]:
@@ -806,6 +809,8 @@ class Lab:
         pairs, refused = self._pairs()
         if card.kind == "numbers":
             return self._numbers_view(card, pairs, refused)
+        if any(f.name == card.chart for _, record in pairs for f in record.figures()):
+            return self._own_view(card, pairs, refused)
         return self._chart_view(card, pairs, refused)
 
     def _frame(self, card: shaping.Card, title: str, tools: list[Any], body: Any,
@@ -923,6 +928,36 @@ class Lab:
                 self.drawn[card.id] = [n for n, _ in pairs]
         return self._frame(card, declared.title if declared else card.chart,
                            self._toolbar(card, ctx), body, foot, warn)
+
+    def _own_view(self, card: shaping.Card, pairs: list[tuple[str, Any]],
+                  refused: list[str]) -> pn.Column:
+        """A figure the piece draws itself, once per shown run that declares it, each under its
+        run's name where there is more than one: the page cannot merge what only the piece can
+        read (``docs/design.md`` §10; the developer, 2026-11-17). A shown run that declares no
+        such figure is named in the foot. The card's control is every chart card's, greyed."""
+        held = [(name, own_figure(record, card.chart)) for name, record in pairs]
+        drawn = [(name, fig) for name, fig in held if fig is not None]
+        without = [name for name, fig in held if fig is None]
+        title = next((f.title for _, record in pairs for f in record.figures()
+                      if f.name == card.chart), card.chart)
+        rows: list[Any] = []
+        for name, fig in drawn:
+            if len(pairs) > 1:
+                dot = _colour(self.shown.index(name)) if name in self.shown else ""
+                rows.append(_html(f"<span style='color:{dot}'>●</span> "
+                                  f"<span data-run='{html.escape(name)}'>{html.escape(name)}</span>",
+                                  style=_LABEL, margin=(6, 0, 0, 4)))
+            rows.append(pn.pane.Plotly(fig, config=_PLOT_CONFIG, sizing_mode="stretch_width",
+                                       height=fig["layout"]["height"]))
+        body: Any = pn.Column(*rows, margin=0, sizing_mode="stretch_width") if rows \
+            else pn.pane.HTML("")
+        words = list(refused)
+        if without:
+            words.append(say_n("cards.own_without", len(without), runs=", ".join(without)))
+        self.drawn[card.id] = [name for name, _ in drawn]
+        ctx = shaping.Context("own", runs=len(drawn))
+        return self._frame(card, title, self._toolbar(card, ctx), body, " · ".join(words),
+                           bool(words))
 
     def _numbers_context(self, card: shaping.Card,
                          pairs: list[tuple[str, Any]]) -> shaping.Context:

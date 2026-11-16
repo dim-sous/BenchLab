@@ -9,10 +9,11 @@ from pathlib import Path
 
 import pytest
 
+import benchlab
 import tests.toy as toy
 from benchlab import cli, project, testing
 from benchlab.testing import check_project
-from tests.toy import wave
+from tests.toy import lag, wave
 
 TOY = Path(toy.__file__).parent
 
@@ -43,8 +44,23 @@ def _declare(monkeypatch, piece: object) -> None:
     project.declared.cache_clear()
 
 
-def test_the_made_up_project_and_its_run_plug_in(run) -> None:
-    check_project(runs=[run], sources=[TOY])
+@pytest.fixture
+def lag_run(run) -> Path:
+    """A lag on ``run``: a record with a figure of its own."""
+    cli.main(["run", "lag", "--set", f"wave_run={run}", "--name", "one",
+              "--out-dir", str(run.parent.parent)])
+    return run.parent.parent / "lag" / "one.json"
+
+
+def test_the_made_up_project_and_its_runs_plug_in(run, lag_run) -> None:
+    check_project(runs=[run, lag_run], sources=[TOY])
+
+
+def test_a_figure_plotly_does_not_take_is_refused_naming_its_run(lag_run, monkeypatch) -> None:
+    bad = benchlab.Figure(name="pole", figure={"data": [{"type": "scatter", "no_such": 1}]})
+    monkeypatch.setattr(lag.Record, "figures", lambda self: (bad,))
+    with pytest.raises(AssertionError, match=r"one\.json: the figure 'pole' is not one plotly takes"):
+        check_project(runs=[lag_run], sources=[TOY])
 
 
 def test_a_piece_lacking_a_name_is_refused_naming_it(monkeypatch) -> None:

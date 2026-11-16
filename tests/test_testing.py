@@ -62,6 +62,16 @@ def test_a_record_registered_under_another_name_is_refused(monkeypatch) -> None:
         check_project(sources=[TOY])
 
 
+def test_an_entry_of_the_words_file_benchlab_leaves_out_is_a_warning_not_a_refusal(
+        tmp_path, monkeypatch) -> None:
+    """A slot renamed in a later Benchlab must not fail a project's suite."""
+    named = tmp_path / "words.toml"
+    named.write_text('[strip]\ntoggel = "Runs under way"\n', encoding="utf-8")
+    monkeypatch.setattr(toy, "WORDS", named, raising=False)
+    with pytest.warns(UserWarning, match=r"strip.toggel \(Benchlab names no such slot\)"):
+        check_project(sources=[TOY])
+
+
 def test_a_file_that_is_no_run_is_refused_in_the_loaders_words(tmp_path) -> None:
     path = tmp_path / "stray.json"
     path.write_text('{"a": 1}')

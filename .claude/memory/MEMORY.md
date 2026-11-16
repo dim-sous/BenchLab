@@ -1,12 +1,28 @@
 # Benchlab: where the work stands
 
-Start here in a new session. Updated 2026-11-16: **branch R1 is built, checked and up for
-review: BenchLab #5 and DeePC-Sandbox #21 are open, not merged**; `docs/plan-branch-R1.md`,
-"As built", holds the whole state. The direction changed on 2026-11-15 (`docs/design.md` §10): Benchlab, to be renamed RunLab,
-is to be used like numpy. 2d and 2e are on hold; 2c is the last branch merged (`v0.4.0`). VS Code
-on the developer's computer, WSL2, 12 CPUs.
+Start here in a new session. Updated 2026-11-16: **branch R2 is built and checked on `r2-words`,
+not yet committed**; `docs/plan-branch-R2.md`, "As built", holds the whole state. R1 is merged
+(BenchLab #5, `v0.5.0`; DeePC-Sandbox #21). The direction since 2026-11-15 (`docs/design.md`
+§10): Benchlab, to be renamed RunLab, is used like numpy. 2d and 2e are on hold. VS Code on the
+developer's computer, WSL2, 12 CPUs.
 
-## R1, built 2026-11-16, both PRs open, awaiting the merge
+## R2, built 2026-11-16, awaiting the git steps
+
+- **Benchlab holds the page's 136 words** (`benchlab/lab/words.toml`); a project's file lists only
+  those it changes and `WORDS` is optional. Version `0.6.0`. BenchLab only: **DeePC needed no
+  change**, checked on a scratch clone of its `master` (131 passed, all 136 words as on `v0.5.0`,
+  its Lab driven). Benchlab: 315 passed in 73 s, ruff clean.
+- **Nothing in a project's words file stops the Lab** (the developer, 2026-11-15, and again
+  2026-11-16): an entry it cannot use is left out and named once in the terminal. So no slot
+  name is promised. **Claude's slip, recorded:** the R2 plan was written without reading decision
+  4's "Replaced" note and kept the refusal; found while editing `docs/design.md`, put to the
+  developer, reworked. Read the numbered decisions of `docs/design.md` §3 before planning what
+  they touch.
+- **Left, each on the developer's word:** commit, push, PR, merge, tag `v0.6.0`.
+- **After it:** R3, a piece's own plotly figures. DeePC's words file can be deleted in a branch
+  of its own when the developer wants.
+
+## R1, merged 2026-11-16
 
 - **The developer chose R1 first** and approved its plan (`docs/plan-branch-R1.md`). Built: the
   names a project may use (`from benchlab import ...`), the promise they stay until 1.0
@@ -18,14 +34,14 @@ on the developer's computer, WSL2, 12 CPUs.
   114 s (246 in about 200 s before); one failed, `CLAUDE.md` a line over its budget, fixed and
   its file re-run, the whole suite not run again after that. DeePC's runs and stills as before
   but provenance and wall-clock fields. DeePC's Lab driven once in headless Chromium.
-- **Committed and pushed on `r1-shore` in both, on the developer's word** (2026-11-16: "Commit and
-  open both PRs"): BenchLab `25d7dde`, PR #5; DeePC `89c4594`, PR #21, its source line on
-  Benchlab's branch while both are open. DeePC's whole suite on the pushed branch: 131 passed in
-  111 s. **Left, each on the developer's word:** merge #5 and tag `v0.5.0`; DeePC's source line
-  to `main`, `uv lock`, its suite, merge #21; branches deleted, both copies back on `main` and
-  `master`. This edit of the notes, the plan's and DeePC's are uncommitted: they ride with the
-  next commit. DeePC's remote address still carries the repository's old name; GitHub sends
-  it on to `dim-sous/DeePC-Sandbox`.
+- **Git, each step on the developer's word** (2026-11-16: "Commit and open both PRs", then "merge
+  both PRs and finish the git steps"): BenchLab #5 merged (`0c99bf1`) and tagged `v0.5.0`; DeePC's
+  source line moved to Benchlab's `main`, its lock at `0c99bf1`, its whole suite again (131
+  passed in 118 s), DeePC-Sandbox #21 merged (`3cf9542`); each merge's state read before its
+  branch went ([L1]); both branches deleted, both copies back on `main` and `master`, clean but
+  for this edit of the notes and the plan's, which ride with the next branch. DeePC's remote
+  address still carries the repository's old name; GitHub sends it on to
+  `dim-sous/DeePC-Sandbox`, where a merged PR's branch is deleted by GitHub itself.
 - **uv does not hold a git source to a version range** (measured, uv 0.10.10): the range is the
   written promise, `uv.lock` does the pinning.
 - **For the developer's review:** `docs/for-review.md`, "R1", eight choices.
@@ -34,7 +50,8 @@ on the developer's computer, WSL2, 12 CPUs.
   cleared by a restart: a baseline worth keeping does not belong there.
 - **Usage:** the developer asked for it lean on 2026-11-16: no parallel reviewers, no agent
   fan-out, "a few bugs here and there are fine, we will iron them out later".
-- **Next after the git steps:** R2, the words: the first branch that should need no DeePC change.
+- **Next:** R2, the words: the first branch that should need no DeePC change. DeePC takes a
+  later Benchlab only when it wants it, by `uv lock --upgrade-package benchlab` and its suite.
 
 ## Where it stands
 

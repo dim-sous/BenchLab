@@ -140,11 +140,10 @@ rename (R6), 2d and 2e, any project other than DeePC.
 
 ---
 
-## As built (2026-11-16; built, checked, both PRs open)
+## As built (2026-11-16; merged)
 
-Committed on `r1-shore` in both repositories and pushed, on the developer's word: BenchLab #5
-(`25d7dde`) and DeePC-Sandbox #21 (`89c4594`), neither merged. Every further git step needs
-their word.
+Merged on the developer's word: BenchLab #5 (merge `0c99bf1`, tagged `v0.5.0`) and DeePC-Sandbox
+#21 (merge `3cf9542`), which takes Benchlab from `main` at `0c99bf1`.
 The session was cut once, by the developer's laptop going down mid-run (cause theirs to find; a
 restart cleared the scratch folder and the first before-and-after runs with it); all checks below
 were run after it.
@@ -219,7 +218,8 @@ expected wording moved unchanged. All moved tests passed on their first run here
   after step 1; after step 2, 131 tests in 114 s, of which one failed: `CLAUDE.md` was one line
   over its 140-line budget. Shortened; its file and the three others changed since passed again
   (24 passed). Then, on Benchlab's pushed branch (`25d7dde`, installed from GitHub, no local
-  copy): the whole suite, 131 passed in 110.6 s.
+  copy): the whole suite, 131 passed in 110.6 s; and on Benchlab's `main` after its merge
+  (`0c99bf1`): 131 passed in 118.1 s.
 - **The numbers did not move.** Every DeePC piece run and drawn (70 files) on a clone of
   `e3b1f06` with Benchlab 0.4.0 from the tag, and on the finished working tree with Benchlab
   0.5.0. They differ only in: provenance (`date`, `duration_s`, `git_dirty`, and `versions`,
@@ -236,8 +236,7 @@ expected wording moved unchanged. All moved tests passed on their first run here
 
 ### Still to do
 
-- **The git steps left, each on the developer's word:** Benchlab #5 merged and tagged `v0.5.0`;
-  DeePC's source line pointed at `main`, `uv lock`, its suite again, #21 merged; branches
-  deleted.
+- The git steps are done: both merged, `v0.5.0` tagged, both branches deleted, both copies on
+  `main` and `master`.
 - `docs/for-review.md`, "R1", holds the eight choices made on the way.
 - Then R2, the words (`docs/design.md` §10): the first branch that should need no DeePC change.

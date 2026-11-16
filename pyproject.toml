@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "benchlab"
-version = "0.5.0"
+version = "0.6.0"
 description = "The bench every project shares: settings and run files, charts, a command line and the Lab's page over a project's pieces"
 readme = "README.md"
 requires-python = ">=3.13"
@@ -39,6 +39,11 @@ ignore = ["E731", "E741", "E702", "B905"]
 [tool.setuptools.packages.find]
 # benchlab/ only: tests/ (and the made-up project inside it) is never installed
 include = ["benchlab*"]
+
+[tool.setuptools.package-data]
+# the page's own words: the one file of the package that is not Python, left out of an installed
+# copy unless named here (tests/test_packaging.py builds the package and looks)
+"benchlab.lab" = ["words.toml"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

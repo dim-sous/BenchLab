@@ -1,7 +1,11 @@
-# Every word the Lab's page writes itself, one table per part of the page (Benchlab names each
-# slot: benchlab/lab/words.py). A word writes a field as {n}; a word that counts has a .one and a
-# .many. Leaving a slot out, naming one Benchlab does not have, or writing a field a slot does not
-# offer stops the Lab from starting, naming each. Write {{ for a brace.
+# Benchlab's own words: every word the Lab's page writes itself, one table per part of the page
+# (the slots and the fields each offers: benchlab/lab/words.py). A word writes a field as {n}; a
+# word that counts has a .one and a .many. Write {{ for a brace.
+#
+# A project changes a word by listing it, and only it, in a words file of its own, in this form,
+# and naming that file as WORDS in its declaration (README.md). An entry Benchlab cannot use (it
+# names no slot here, or writes a field its slot does not offer) is left out: the page keeps the
+# word below, and the Lab says so once in its terminal.
 
 [header]
 refresh = "Refresh"

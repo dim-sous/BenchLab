@@ -1,8 +1,9 @@
 """The made-up project Benchlab's own tests run on: its registry and its declaration, as a project
 writes them (``README.md``), and two pieces: ``wave``, and ``lag``, which a saved wave run
-drives. It uses of Benchlab only what a project may (``tests/test_testing.py`` holds that). It is
-not installed: ``tests/conftest.py`` stands in for the entry point an installed project's
-``pyproject.toml`` gives.
+drives. It uses of Benchlab only what a project may (``tests/test_testing.py`` holds that), and
+names no words file: its page keeps Benchlab's own words. It is not installed:
+``tests/conftest.py`` stands in for the entry point an installed project's ``pyproject.toml``
+gives.
 """
 
 from __future__ import annotations
@@ -20,8 +21,6 @@ TITLE = "Toy Lab"
 ROOT = Path(__file__).resolve().parents[2]
 #: Not in alphabetical order, so a record's versions can only have taken theirs from here.
 LIBRARIES: tuple[str, ...] = ("param", "numpy")
-#: Every word the Lab's page writes itself (``benchlab.lab.words``).
-WORDS = Path(__file__).with_name("words.toml")
 
 
 def get_component(name: str) -> ModuleType:

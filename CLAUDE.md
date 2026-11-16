@@ -43,14 +43,14 @@ new session starts from `.claude/memory/MEMORY.md`: keep it current and commit i
   A change in a project never needs a change here, and a new version here never needs a change
   in a project that does not want what is new. Branch R1 (`v0.5.0`) named what a project may use
   and promised it until 1.0; R2 to R6 follow, and 2d and 2e wait for them (`docs/design.md` §10).
-  A project's words file, and a result that is not a line chart, still need a change here.
+  R2 (`v0.6.0`) put the page's words here. A result that is not a line chart still needs a
+  change here.
   ([L2]; RCWS `[A9]`)
 - **Benchlab names no project.** Its code and the words its page shows reach a project only
   through the project's declaration (`benchlab/project.py`); what a test can hold of this,
-  `tests/test_layers.py` holds. A word only one project needs belongs to that project, as a cell
-  Benchlab names (`docs/design.md` decision 4): the page's own words are slots
-  (`benchlab/lab/words.py`), filled by each project's words file. The rewrite replaces this:
-  RunLab holds its own words, and a project's file lists only those it changes (§10).
+  `tests/test_layers.py` holds. Benchlab holds the page's own words (`benchlab/lab/words.toml`),
+  none of them a project's: a word only one project needs is written in that project's words
+  file, over the slot Benchlab names for it (`docs/design.md` §10, R2).
 - **The run file is a contract with every project.** A change to what a record saves, or how it
   loads, is a new Benchlab version, and every project takes it by raising its lock
   (`uv lock --upgrade-package benchlab`) and running its own suite. A run saved before the

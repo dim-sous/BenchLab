@@ -53,9 +53,12 @@ def stop_runs_on_sigterm() -> None:
 def main(argv=None) -> int:
     args = build_parser().parse_args(argv)
     try:
-        words.words()                       # a missing word stops the Lab before it serves
+        words.words()                       # no project declared stops the Lab before it serves
+        left_out = words.left_out()
     except (ValueError, LookupError, OSError) as exc:
         raise SystemExit(f"lab: {exc}") from exc
+    if left_out:
+        print(f"lab: {left_out}")
     root = os.path.abspath(args.root or os.getcwd())
     stop_runs_on_sigterm()
     print(f"Lab on http://127.0.0.1:{args.port}   (root {root}, records under {args.out_dir}/, "

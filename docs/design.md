@@ -63,7 +63,9 @@ efficiency").
    **Replaced 2026-11-15, in the rewrite (§10):** RunLab holds its own words, and a project's
    file lists only the words it changes; nothing is checked at start. The developer: "If a word
    is missing or wrong i will see it in the lab and make the change. No reason for anything more
-   complex than that."
+   complex than that." Built in R2 (2026-11-16): an entry the Lab cannot use is left out, the
+   page keeps Benchlab's word, and the terminal says so once (the developer's choice that day,
+   over saying nothing).
 5. **No hovers** on settings, charts or numbers. The developer's reason: "if the name is
    appropriate/standard then it should be enough to avoid confusion and/or misinterpretation".
    Greyed buttons keep their reason on hover, because those are Benchlab's own words. A
@@ -323,6 +325,9 @@ resets. One branch each, in this order:
    Benchlab's own suite does not moves here, onto the toy project. DeePC takes Benchlab by a
    range. The last branch to need a DeePC change; its runs' numbers unchanged (the refactor rule).
 2. **R2, words.** RunLab holds its 136 words; a project's file lists only those it changes.
+   **Built** (2026-11-16, `docs/plan-branch-R2.md`, `v0.6.0`): `benchlab/lab/words.toml`; `WORDS`
+   optional; nothing in a project's file stops the Lab, so no slot name needs promising. DeePC
+   needed no change.
 3. **R3, a piece's own plotly figures.** The run file's new version, old runs still drawn.
    MLflow and TensorBoard are looked at before it.
 4. **R4, files a run writes** (trained networks, checkpoints).

@@ -16,6 +16,7 @@ from __future__ import annotations
 import ast
 import os
 import tempfile
+import warnings
 from collections.abc import Sequence
 from pathlib import Path
 
@@ -23,10 +24,9 @@ import benchlab
 from benchlab.figure.chart import chart_of
 from benchlab.figure.draw import draw
 from benchlab.figure.twin import figure_of
-from benchlab.lab import state
+from benchlab.lab import state, words
 from benchlab.lab.form import Form
-from benchlab.lab.words import load
-from benchlab.project import declared, get_component, piece_names, words_path
+from benchlab.project import declared, get_component, piece_names
 from benchlab.record import COMPONENT_KEY, Record, read_header
 from benchlab.record.config import Settings
 
@@ -51,19 +51,23 @@ def check_project(runs: Sequence[str | os.PathLike[str]] = (), *,
     - a piece does not hold ``Config`` (a ``Settings``), ``run`` and ``Record`` (a ``Record``
       whose ``component`` is the piece's registered name), or its defaults do not build;
     - a piece's settings do not build the Lab's form;
-    - the words file does not fill the page's slots (:func:`benchlab.lab.words.load`'s refusal);
     - one of ``runs``, record files the project made, is of no registered piece, does not load
       through its piece's ``Record``, or declares a chart that does not draw, as a still or on
       the page;
     - a Python file under ``sources`` (the declared ``ROOT`` when ``None``; folders whose name
       starts with a dot are skipped) imports more of Benchlab than a project may use.
+
+    What of the project's words file Benchlab leaves out is a warning, never a refusal: a slot
+    renamed in a later Benchlab must not fail a project's suite.
     """
     names = piece_names()
     for name in names:
         _check_piece(name)
     for piece in state.pieces():
         _check_form(piece)
-    load(words_path())
+    left_out = words.left_out()
+    if left_out:
+        warnings.warn(left_out, stacklevel=2)
     with tempfile.TemporaryDirectory() as out:
         for path in runs:
             _check_run(Path(path), names, Path(out))

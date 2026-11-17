@@ -1,5 +1,58 @@
 # RunLab (named Benchlab until 0.10): where the work stands
 
+**Start here in a new session: the section just below, then `docs/findings-2026-11-17.md`.**
+What follows it are dated records, each keeping the words of its day; where one says "nothing
+is next", the section below is later.
+
+## 2026-11-17, afternoon: the trial moves, the developer's aim, and the line that is not drawn
+
+- **The aim, the developer's (from a phone):** "I want to complete runlab by the end of the
+  week so that I can use it on deepc, bess, RCWS and pretty much all and any repos/projects",
+  then: the hydrofoil stabilizer, the hydrofoil GNC, green hydrogen "and whatever else I make
+  in the future".
+- **Claude's first answer was from keyword counts and these notes, and five of its eight claims
+  did not hold** (`docs/project/failures.md` [L3]). The developer: "are you sure about your
+  claims? I want you to investigate again. Do not try to defend a codebase architecture, format
+  or decisions, only it's purpose and reason for existence."
+- **What was then run** (`docs/findings-2026-11-17.md`, every number with its conditions):
+  RunLab's suite; DeePC's suite on 0.10.0, unedited (138 passed); Hydrofoil and BESS moved,
+  and Green Hydrogen given an adapter, each in a scratch copy with its remote removed; RCWS
+  read, no code of it run. Nothing was built, changed or committed in any project.
+  Hydrofoil runs on RunLab with equal numbers and five losses. BESS cannot move: RunLab does
+  not read a setting that is rows of several fields, so a saved battery run does not load.
+  Green Hydrogen runs in the Lab from 151 lines beside it. RCWS's layers hold 4,615 lines
+  RunLab's do not.
+- **The developer's choices that day, each through AskUserQuestion:** by Friday, Hydrofoil and
+  Green Hydrogen (over BESS first, and over finishing the page first); the workplace's two
+  repositories take RunLab too, Hydrofoil-Flight-Control now and RCWS after BESS (over the
+  developer's own repositories only); and "Save findings only" (over starting to build).
+- **The line is not drawn, the developer's finding.** Asked whether a setting's help line
+  should show on the page when Hydrofoil moves, they answered: "the fact you are asking makes
+  me believe that we have not yet well defined what runlab can do and is common across repos
+  and where the line between a repo and runlab is". The help-line question itself is not
+  answered. Claude's proposal of a line is in the findings, "A line, proposed by Claude, not
+  decided": how a run is asked for, run, saved, listed, compared and drawn is RunLab's, what
+  it means is the project's; a matter of taste is the project's switch with RunLab's default;
+  RunLab grows only from a real project. **Settle it with them before anything is built.**
+- **Next, in this order, none of it started:** the line; what Hydrofoil's move needs of RunLab
+  (the `settings` command, a dash per reference line in a still of one run, runs saved before a
+  move, the help line as the line decides); Hydrofoil-Flight-Control moved, as the trial did it
+  (Hydrofoil-GNC is the same commit today, `d423b86`); Green Hydrogen's adapter; a starter for a
+  new project; rows of several fields, then BESS; RCWS. Each is proposed, planned and handed
+  off as every branch here; no git write without their word.
+- **To move a project in a scratch copy again:** copy it, remove its remote, point it at this
+  working copy (`[tool.uv.sources] benchlab = { path = ..., editable = true }`), declare it
+  (`README.md`), change its pieces' imports to `runlab`, delete its four layers, `uv sync`, run
+  through its own command, and compare the run files field by field with ones made in an
+  unedited copy. On a cloud machine the browser is Chromium build 1243, Playwright 1.63's
+  (Hydrofoil pins 1.65), and the page's request for its fonts is refused, which fails this
+  repository's own browser tests there.
+- **How the developer works, said again that day:** "Always use the asktheuser tool to get
+  answers"; "I am losing you. Long story short": lead with the answer, a phone's screen long;
+  a decision that is theirs is asked as one, never folded into a question about a detail.
+
+## The state before that afternoon (2026-11-17, morning)
+
 Start here in a new session. Updated 2026-11-17: **R1 to R6 are merged and tagged** (`v0.5.0`
 to `v0.10.0`; R6 is the rename); each `docs/plan-branch-R*.md`, "As built", holds what was
 built and measured. **The route is done and the work is stopped on the developer's word**

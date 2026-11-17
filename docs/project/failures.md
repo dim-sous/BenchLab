@@ -38,3 +38,34 @@ The developer: "this is the same kind of mistake we made when we were first deve
 for the RCWS repo" (RCWS [A9]: "the record layer is a narrow pipe between a rich computation and
 a fixed figure"). Rule: `CLAUDE.md`, "RunLab is used like numpy"; the direction:
 `docs/design.md` §10.
+
+## [L3] What each project needs of RunLab, said from counts and refuted by moving it (2026-11-17)
+
+The developer asked whether RunLab could be finished within the week and used by every
+repository. Claude answered from keyword counts over the four Labs' folders and from the
+repositories' notes: Hydrofoil misses "nothing", BESS two features, RCWS "about seven", Green
+Hydrogen "has to be rebuilt first", BESS's chart controls are "copying code over, one branch",
+and a day-by-day plan to Friday on those. The developer: "are you sure about your claims? I
+want you to investigate again. Do not try to defend a codebase architecture, format or
+decisions, only it's purpose and reason for existence."
+
+RunLab was then run, and Hydrofoil, BESS and Green Hydrogen moved in scratch copies
+(`docs/findings-2026-11-17.md`, with each number's conditions):
+
+- Hydrofoil ran on RunLab with every value equal, and lost five things, among them every run
+  saved before the move (`Provenance.__init__() got an unexpected keyword argument 'python'`).
+- BESS's battery ran; a saved battery run did not load (`segments … is not a list of numbers`),
+  so its estimator could not start. Of the 228 definitions BESS's layers share with RunLab's,
+  115 differ.
+- RCWS's layers hold 322 definitions, 4,615 lines, that RunLab's do not.
+- Green Hydrogen ran in the Lab from 151 lines beside it, none of its own code edited, its H2
+  yield equal to its own script's (97.6224 mol).
+- A figure of a piece's own with 40 animation frames reached the page with none.
+
+Five of the eight claims checked did not hold. The same answer ended in three questions typed
+as text, against this repository's rule that every question goes through AskUserQuestion; the
+developer: "Always use the asktheuser tool to get answers."
+
+Rule: what a project needs of RunLab is found by moving the project in a scratch copy and
+running it, before it is said; a count of names is not a measurement (`CLAUDE.md`, "Evidence
+over judgement").

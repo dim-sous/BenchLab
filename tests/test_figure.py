@@ -78,6 +78,17 @@ def test_an_overlay_names_each_run_and_draws_what_both_hold_identically_once(run
     assert [ln.label for ln in same.axes[0].lines] == ["a, b — u (identical)"]
 
 
+def test_a_reference_line_is_never_solid_and_two_of_a_panel_differ(source) -> None:
+    """One run, the runs overlaid and a row per run: the two bounds wear the patterns after the
+    solid one, the same two however the runs are shown, so a bound keeps its dash when a second
+    run is ticked and is never drawn as a trace is."""
+    fast, slow = lag.run(lag.Config(wave_run=source)), lag.run(lag.Config(wave_run=source, tau=0.2))
+    for pairs, how in (([("a", fast)], {}), ([("a", fast), ("b", slow)], {}),
+                       ([("a", fast), ("b", slow)], {"runs": "rows"})):
+        for axes in chart_of(pairs, "output", **how).axes:
+            assert [r.dash for r in axes.refs] == ["dash", "dot"], (len(pairs), how)
+
+
 def test_a_panel_no_run_declares_is_refused(runs, tmp_path) -> None:
     with pytest.raises(ValueError, match="no run declares"):
         draw([("a", runs["wave"])], tmp_path, panels=["no-such-panel"])

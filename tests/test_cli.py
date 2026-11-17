@@ -19,7 +19,8 @@ def _run(out, *words: str) -> None:
 def test_the_command_is_the_projects_and_its_pieces_are_the_choices() -> None:
     parser = cli.build_parser()
     assert parser.prog == "toy"
-    assert parser.description.startswith("``toy``: run a piece, draw its records.")
+    assert parser.description.startswith("``toy``: run a piece, draw its records, list its "
+                                         "settings.")
     with pytest.raises(SystemExit):
         parser.parse_args(["run", "bogus"])
 
@@ -58,6 +59,22 @@ def test_a_draw_writes_each_panel_beside_the_record_with_its_sidecar(tmp_path) -
     assert sorted(os.listdir(folder)) == ["u.png", "u.png.json", "y.png", "y.png.json"]
     sidecar = json.loads((folder / "y.png.json").read_text())
     assert sidecar["figure"] == "y.png" and sidecar["runs"] == ["a"] and sidecar["git_sha"]
+
+
+def test_settings_lists_a_pieces_settings_under_their_groups(capsys) -> None:
+    """A line per setting: the variable ``--set`` takes, the name the piece gives it, its unit,
+    its default, its choices, its description."""
+    assert cli.main(["settings", "lag"]) == 0
+    lines = capsys.readouterr().out.splitlines()
+    assert lines[:3] == ["", "Source", "  wave_run \"Wave run\" = 'results/wave/default.json': "
+                                       "The saved wave run whose u drives the lag."]
+    assert "  tau \"τ\" [s] = 0.05: The lag's time constant." in lines
+    assert ("  hold \"Hold\" = None one of ['exact', 'euler']: How the lag is sampled; none: "
+            "exact.") in lines
+    groups = [line for line in lines if line and not line.startswith(" ")]
+    assert groups[:2] == ["Source", "Lag"]
+    with pytest.raises(SystemExit):
+        cli.main(["settings", "no-such-piece"])
 
 
 def test_a_draw_of_a_run_whose_file_differs_draws_it_and_says_how(tmp_path, capsys) -> None:

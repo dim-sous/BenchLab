@@ -5,6 +5,7 @@ what a record's provenance takes from it."""
 from __future__ import annotations
 
 import importlib.metadata
+import platform
 import subprocess
 import sys
 import types
@@ -87,9 +88,11 @@ def test_a_module_lacking_a_declared_name_is_refused_naming_each(monkeypatch) ->
         project.declared()
 
 
-def test_a_record_is_stamped_from_the_projects_root_and_libraries_then_runlab() -> None:
+def test_a_record_is_stamped_with_python_the_projects_libraries_then_runlab() -> None:
     prov = stamp(0.5)
-    assert list(prov.versions) == [*toy.LIBRARIES, "benchlab"]      # its install name until 1.0
+    # Python's own version first, then the project's, then RunLab's by its install name until 1.0
+    assert list(prov.versions) == ["python", *toy.LIBRARIES, "benchlab"]
+    assert prov.versions["python"] == platform.python_version()
     assert prov.versions["benchlab"] == importlib.metadata.version("benchlab")
     head = subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=toy.ROOT, check=True,
                           capture_output=True, text=True).stdout.strip()

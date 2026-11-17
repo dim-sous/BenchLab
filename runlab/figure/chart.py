@@ -143,6 +143,13 @@ def _band_owner(s: Series, label: str) -> int | None:
     return 0 if len(labels) == 1 else None
 
 
+def _ref_dash(r: int) -> str:
+    """The dash of a panel's ``r``-th reference line: the patterns after the solid one, in turn.
+    A reference line is never solid, as a trace is, and two of one panel are told apart (drawn
+    solid in one colour, an upper and a lower bound of one run could not be)."""
+    return DASHES[1 + r % (len(DASHES) - 1)]
+
+
 def _alone(s: Series, xs: np.ndarray) -> tuple[tuple, tuple, tuple]:
     """One run's lines, bands and references: colours by position, the i-th trace slot i; a
     band its trace's colour (:func:`_band_owner`), a band about the panel the neutral."""
@@ -152,7 +159,8 @@ def _alone(s: Series, xs: np.ndarray) -> tuple[tuple, tuple, tuple]:
     bands = tuple(Band(label, xs, _edge(lo, n), _edge(hi, n),
                        NEUTRAL if (owner := _band_owner(s, label)) is None else series_color(owner))
                   for label, lo, hi in s.bands)
-    refs = tuple(Ref(label, float(v), INK_SECONDARY) for label, v in s.refs)
+    refs = tuple(Ref(label, float(v), INK_SECONDARY, _ref_dash(r))
+                 for r, (label, v) in enumerate(s.refs))
     return lines, bands, refs
 
 
@@ -213,7 +221,8 @@ def chart_of(pairs: Pairs, name: str, *, runs: str = "one") -> Panel:
             y = (w @ ys) / w.sum() if runs == "mean" else np.sqrt((w @ ys ** 2) / w.sum())
             lines.append(Line(f"{capital(_POOL_WORDS[runs])} of {len(held)} runs · {label}", xs, y,
                               series_color(j)))
-        refs = tuple(Ref(label, float(v), INK_SECONDARY) for label, v in first.refs)
+        refs = tuple(Ref(label, float(v), INK_SECONDARY, _ref_dash(r))
+                     for r, (label, v) in enumerate(first.refs))
         panel = Panel(name, first.x_label, (Axes(first.y_label, tuple(lines), (), refs),),
                       first.doc)
     elif len(held) == 1:
@@ -263,7 +272,7 @@ def chart_of(pairs: Pairs, name: str, *, runs: str = "one") -> Panel:
                                   NEUTRAL if owner is None else shade(series_color(i), owner)))
             for r, (label, v) in enumerate(s.refs):
                 ref_items.append((run, (label, float(v)),
-                                  Ref(label, float(v), INK_SECONDARY, DASHES[r % len(DASHES)])))
+                                  Ref(label, float(v), INK_SECONDARY, _ref_dash(r))))
         refs = tuple(Ref(f"{pre}{r.label}", r.value, r.color, r.dash)
                      for pre, r in _shared(ref_items, len(held)))
         panel = Panel(name, first.x_label,

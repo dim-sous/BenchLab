@@ -1,9 +1,10 @@
-"""``<command>``: run a piece, draw its records. BESS's ``bess`` (``devkit/terminal``).
+"""``<command>``: run a piece, draw its records, list its settings. BESS's ``bess`` (``devkit/terminal``).
 
     <command> run  <piece> [config.json] [--set SETTING=VALUE ...] [--sweep SETTING=V1,V2,... ...]
                   [--name NAME] [--out-dir DIR]
     <command> draw <record.json> [<record.json> ...] [--panel NAME ...] [--number NAME --vs SETTING]
                   [--runs HOW] [--out-dir DIR]
+    <command> settings <piece>
 
 ``<command>`` is the name the project declares (``COMMAND``, :mod:`runlab.project`) and gives
 this module's :func:`main` in its ``pyproject.toml``; ``--help`` says it in its place.
@@ -16,6 +17,8 @@ Config, in its words. ``draw`` writes the panels the records declare (every one,
 ``--panel``) as PNGs with JSON sidecars, over every record given, the runs shared as ``--runs``
 says; with ``--number`` it draws that summary number against the setting ``--vs`` instead. Default
 ``<out-dir>``: a folder beside the first record named after the records drawn (:func:`folder_of`).
+``settings`` prints every setting of a piece under its group: the variable ``--set`` takes, its
+name where the piece gives it one, its unit, its default, its choices and its description.
 """
 
 from __future__ import annotations
@@ -29,7 +32,7 @@ from typing import Optional, Sequence
 
 from runlab.project import command, get_component, piece_names
 from runlab.record import differences, read_header
-from runlab.record.config import from_dict
+from runlab.record.config import fields_of, from_dict
 from runlab.record.files import kept
 from runlab.runner import planned, run_once
 
@@ -76,7 +79,26 @@ def build_parser() -> argparse.ArgumentParser:
     d.add_argument("--out-dir", default=None,
                    help="default: beside the first record, in a folder named after the records")
     d.set_defaults(func=draw_command)
+
+    s = sub.add_parser("settings", help="list a piece's settings")
+    s.add_argument("piece", choices=piece_names(), help="a registered piece")
+    s.set_defaults(func=settings_command)
     return p
+
+
+def settings_command(args: argparse.Namespace) -> int:
+    """Every setting of the piece under its group, a line each, as the form reads them
+    (:func:`runlab.record.config.fields_of`)."""
+    group = None
+    for f in fields_of(get_component(args.piece).Config):
+        if f["group"] != group:
+            group = f["group"]
+            print(f"\n{group}")
+        named = f' "{f["label"]}"' if f["label"] != f["name"] else ""
+        unit = f" [{f['unit']}]" if f["unit"] else ""
+        choices = f" one of {f['choices']}" if f["choices"] else ""
+        print(f"  {f['name']}{named}{unit} = {f['default']!r}{choices}: {f['doc']}")
+    return 0
 
 
 def run_command(args: argparse.Namespace) -> int:

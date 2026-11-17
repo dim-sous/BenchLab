@@ -20,6 +20,7 @@ import dataclasses
 import json
 import math
 import os
+import platform
 import subprocess
 import types
 import typing
@@ -62,7 +63,7 @@ class Provenance:
     git_dirty: bool
     date: str              # UTC, ISO 8601
     duration_s: float
-    versions: dict         # {library: version}: the project's LIBRARIES, then RunLab's own
+    versions: dict         # {name: version}: Python's, the project's LIBRARIES, then RunLab's own
 
 
 def _git(*args: str) -> str:
@@ -76,8 +77,9 @@ def stamp(duration_s: float) -> Provenance:
                       git_dirty=bool(_git("status", "--porcelain")),
                       date=datetime.now(timezone.utc).isoformat(timespec="seconds"),
                       duration_s=float(duration_s),
-                      versions={lib: version(lib)
-                                for lib in (*declared().LIBRARIES, INSTALLED)})
+                      versions={"python": platform.python_version(),
+                                **{lib: version(lib)
+                                   for lib in (*declared().LIBRARIES, INSTALLED)}})
 
 
 # ---------------------------------------------------------------------------

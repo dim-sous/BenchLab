@@ -142,7 +142,7 @@ What is left for you to judge:
    as it is; no real project has such a setting with an empty default.
 8. **The two names (`run_files`, `files_of`) are not promised** until a project has used them.
 
-## R5: settings beyond the six kinds (2026-11-17, not yet merged)
+## R5: settings beyond the six kinds (2026-11-17, merged as #12)
 
 Built from `docs/plan-branch-R5.md`, on the made-up project alone (your choice of 2026-11-17).
 What is left for you to judge:

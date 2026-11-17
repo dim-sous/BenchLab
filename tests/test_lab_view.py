@@ -439,7 +439,7 @@ def test_runs_that_differ_in_their_seed_alone_pool_on_a_card_into_one_line(tmp_p
     _control(lab, "y", "Mean").value = True
     fig = _figure(lab, "y")
     names = [t["name"] for t in fig["data"] if t.get("showlegend") is not False]
-    assert names == ["Mean of 2 runs · y"]
+    assert names == ["95% interval of the mean, N = 2", "Mean of 2 runs · y"]
 
 
 def test_a_number_clicked_in_the_compare_table_is_a_card_every_run_a_point(two_runs) -> None:

@@ -24,6 +24,7 @@ import platform
 import subprocess
 import types
 import typing
+from collections.abc import Callable
 from datetime import datetime, timezone
 from importlib.metadata import version
 from pathlib import Path
@@ -111,6 +112,13 @@ class Series:
     title: str = ""
     #: The statistics its traces may be pooled by across runs ("mean", "rms"); () for none.
     pooled: tuple[str, ...] = ()
+    #: How many independent draws each trace is a mean of (a statistic a run averages over its
+    #: seeds): runs pooled together are weighted by it, and their draws counted together.
+    averaged: int = 1
+    #: The band of a mean of ``n`` independent draws, as an entry of ``bands``, ``(label, lo,
+    #: hi)``: drawn about the mean of runs pooled together, ``n`` all their draws. The formula
+    #: is the piece's own (BESS's is a chi-square band about a NEES); None for none.
+    mean_band: Callable[[int], tuple[str, Any, Any]] | None = None
     #: A logarithmic bottom axis or ordinate, declared by the record for a quantity read in
     #: decades (a Bode plot's ω and |G|); not a card's control.
     x_log: bool = False
@@ -125,6 +133,11 @@ class Series:
         if unknown:
             raise ValueError(f"panel {self.name!r} pools by {unknown}; a panel pools by "
                              f"'mean' or 'rms'")
+        if self.mean_band is not None and "mean" not in self.pooled:
+            raise ValueError(f"panel {self.name!r} declares the band of a mean but no 'mean' "
+                             f"pooling")
+        if int(self.averaged) < 1:
+            raise ValueError(f"panel {self.name!r} averages {self.averaged} draws; at least 1")
         n = len(self.x)
         for label, y in self.traces:
             if len(y) != n:

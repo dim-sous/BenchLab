@@ -1,12 +1,23 @@
 # RunLab (named Benchlab until 0.10): where the work stands
 
-Start here in a new session. Updated 2026-11-17: **R1 to R6 are merged** (`v0.5.0`, `v0.6.0`,
-`v0.7.0`, `v0.8.0`, `v0.9.0`; R6, the rename, is version `0.10.0`, **its tag the developer's
-to make**, below); each `docs/plan-branch-R*.md`, "As built", holds what was built and
-measured. **Next: 1.0, a branch of its own**, once a project has used R4's run folder and
-R5's settings (the developer's toy projects, not started on 2026-11-17). The direction since 2026-11-15
-(`docs/design.md` §10): RunLab is used like numpy. 2d and 2e are on hold. VS Code on the
-developer's computer, WSL2, 12 CPUs. Sections below this one's R6 part are dated records and
+Start here in a new session. Updated 2026-11-17: **R1 to R6 are merged and tagged** (`v0.5.0`
+to `v0.10.0`; R6 is the rename); each `docs/plan-branch-R*.md`, "As built", holds what was
+built and measured. **The route is done and the work is stopped on the developer's word**
+(2026-11-17, "Stop here"). **Nothing is next without them:**
+
+- **A toy project, the first real user of R4's run folder and R5's settings, waits for the
+  developer**: "I have no toy project ready and I would prefer to have a more active role in
+  their development which I can't do now" (2026-11-17, from a phone). Do not start one for
+  them; ask.
+- **1.0 waits for that project** (`docs/design.md` §10, R6): the install name `runlab`, the
+  stamp's key, DeePC's two install lines and its `<1`, R4's two names promised, the stand-in
+  dropped or kept, and the repository's name on GitHub (the developer's to change).
+- **2d and 2e** (the tree, the cards' full controls) are free to resume, and change what the
+  page shows, which the developer settles only after driving it at their computer.
+- **Theirs to read:** `docs/for-review.md`, "R4" (eight points), "R5" (seven), "R6" (six).
+
+The direction since 2026-11-15 (`docs/design.md` §10): RunLab is used like numpy. VS Code on
+the developer's computer, WSL2, 12 CPUs. The sections below the R6 part are dated records and
 keep the name of their day.
 
 ## R6, merged 2026-11-17 (built in the same cloud session)
@@ -27,9 +38,9 @@ keep the name of their day.
 - **For the developer:** `docs/for-review.md`, "R6", six points; the first is the repository's
   own name on GitHub, theirs to change.
 - **Git:** the developer chose "All the way: merge" (2026-11-17). Committed on
-  `ccr-ea61ca3b-35fv7x` (`f4ac646`), BenchLab #15 merged (`a133ef2`). **The tag `v0.10.0` is
-  not made**: it is the developer's to make, on `a133ef2`; check
-  `git ls-remote --tags origin v0.10.0` and strike this once it is there. DeePC is untouched
+  `ccr-ea61ca3b-35fv7x` (`f4ac646`), BenchLab #15 merged (`a133ef2`). **The tag `v0.10.0` was
+  made by the developer** (2026-11-17, GitHub's release page), on `e161b94`: `main`'s head
+  then, R6's merge plus a notes-only merge (#16). A plain tag, as `v0.8.0` and `v0.9.0`. DeePC is untouched
   and stays on Benchlab `5023526` (`v0.7.0`) in its lock; it can take `0.10.0` without an edit.
 - **After it: 1.0, a branch of its own**, once a project has used R4's run folder and R5's
   settings: the install name `runlab`, the stamp's key, DeePC's two install lines and its `<1`,

@@ -1,14 +1,15 @@
 # RunLab (named Benchlab until 0.10): where the work stands
 
-Start here in a new session. Updated 2026-11-17: **R1 to R5 are merged** (`v0.5.0`, `v0.6.0`,
-`v0.7.0`, `v0.8.0`, `v0.9.0`); each `docs/plan-branch-R*.md`, "As built", holds what was built
-and measured. **R6, the rename to RunLab, is built as 0.10.0 and committed on the session's
-branch** (below); its merge and its tag are written here once they are done. The direction since 2026-11-15
+Start here in a new session. Updated 2026-11-17: **R1 to R6 are merged** (`v0.5.0`, `v0.6.0`,
+`v0.7.0`, `v0.8.0`, `v0.9.0`; R6, the rename, is version `0.10.0`, **its tag the developer's
+to make**, below); each `docs/plan-branch-R*.md`, "As built", holds what was built and
+measured. **Next: 1.0, a branch of its own**, once a project has used R4's run folder and
+R5's settings (the developer's toy projects, not started on 2026-11-17). The direction since 2026-11-15
 (`docs/design.md` §10): RunLab is used like numpy. 2d and 2e are on hold. VS Code on the
 developer's computer, WSL2, 12 CPUs. Sections below this one's R6 part are dated records and
 keep the name of their day.
 
-## R6, built 2026-11-17 in the same cloud session
+## R6, merged 2026-11-17 (built in the same cloud session)
 
 - **The developer's choices (2026-11-17):** "Go" on R6; then **0.10.0 now and 1.0 later** (over
   the route's "as 1.0": R4's two names are not promised and neither R4 nor R5 has had a real
@@ -26,8 +27,10 @@ keep the name of their day.
 - **For the developer:** `docs/for-review.md`, "R6", six points; the first is the repository's
   own name on GitHub, theirs to change.
 - **Git:** the developer chose "All the way: merge" (2026-11-17). Committed on
-  `ccr-ea61ca3b-35fv7x`; the merge is written here once done. The tag `v0.10.0` is theirs to
-  make: check `git ls-remote --tags origin v0.10.0`.
+  `ccr-ea61ca3b-35fv7x` (`f4ac646`), BenchLab #15 merged (`a133ef2`). **The tag `v0.10.0` is
+  not made**: it is the developer's to make, on `a133ef2`; check
+  `git ls-remote --tags origin v0.10.0` and strike this once it is there. DeePC is untouched
+  and stays on Benchlab `5023526` (`v0.7.0`) in its lock; it can take `0.10.0` without an edit.
 - **After it: 1.0, a branch of its own**, once a project has used R4's run folder and R5's
   settings: the install name `runlab`, the stamp's key, DeePC's two install lines and its `<1`,
   R4's two names promised, the stand-in dropped or kept (the developer's). Then 2d and 2e.

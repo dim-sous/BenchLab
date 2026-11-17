@@ -163,7 +163,7 @@ What is left for you to judge:
 7. **A typed matrix equal to the default counts as set** when written differently
    (`[[1, 0], [0, 1]]` against `[[1.0, 0.0], [0.0, 1.0]]`): the form compares the text.
 
-## R6: the rename to RunLab (2026-11-17, not yet merged)
+## R6: the rename to RunLab (2026-11-17, merged as #15)
 
 Built from `docs/plan-branch-R6.md`, on your three choices of that day (0.10.0 now and 1.0
 later; the old name keeps working; the install name stays until 1.0). What is left for you:

@@ -4,7 +4,7 @@ The queue's rules are driven with stand-in processes, which end when the test sa
 once than it allows, the rest started in order as runs end; Stop ends one run and nothing else;
 how a run ended is read off its answer and its last line. Then real runs of the made-up project,
 each its own process as the Lab starts them: the same file as the command line's for the same
-settings (``docs/design.md`` §4), a refusal and a crash in their own words, a piece's print kept
+settings, a refusal and a crash in their own words, a piece's print kept
 off the answer, a stopped run that saves nothing.
 """
 
@@ -61,7 +61,7 @@ def test_never_more_run_at_once_than_allowed_and_the_rest_start_in_order() -> No
 
 
 def test_stop_ends_that_run_alone_and_the_next_starts() -> None:
-    """``docs/design.md`` §4: Stop ends that process and nothing else."""
+    """Stop ends that process and nothing else."""
     queue, started = _queue(2)
     runs = _submit(queue, "s", sweep="seed=1,2,3")
     assert _states(queue) == ["running", "running", "queued"]
@@ -246,7 +246,7 @@ def _ended(queue: jobs.Queue) -> None:
 
 
 def test_the_lab_and_the_side_door_write_the_same_file(tmp_path, toy_installed) -> None:
-    """``docs/design.md`` §4: the same settings run from the Lab and from the side door give
+    """The same settings run from the Lab and from the side door give
     identical files, provenance aside (its date and duration differ by nature)."""
     words = ["amplitude=2", "noise=0.3", "seed=4", "shape=square"]
     queue = _real()

@@ -26,7 +26,7 @@ that raises if it is run, and by checking every chart on the page is the figure 
 Every number on the page is the record's; every greyed control is its field's own gate or the
 figure layer's refusal; every refusal is the words of whatever refused it, but one: a typed
 value its setting cannot read, or one outside the bounds it declares, is refused when Run is
-pressed, in the Lab's own words (:func:`lab.jobs.refusals`, ``docs/design.md`` decision 5),
+pressed, in the Lab's own words (:func:`lab.jobs.refusals`),
 held to param's verdict by ``tests/test_runner.py``.
 
 Comparing runs is by name and by number: the shown runs share a card's chart -- on one pair of

@@ -20,13 +20,11 @@ The bench every project shares. A project brings its pieces: for each one its se
 | `runlab/project.py` | the one door to the project: the declaration below, found once and checked |
 | `runlab/testing.py` | the check a project calls from one test of its own: that what it declares is what RunLab reads |
 
-It began as DeePC's bench, moved here unchanged but for what tied it to DeePC
-(`docs/plan-branch-1.md`, v0.1.0); the page its developer designed is being built on it, a branch at a time
-(`docs/design.md` §8: runs in progress first, `docs/plan-branch-2a.md`, v0.2.0; no hovers,
-`docs/plan-branch-2b.md`, v0.3.0; words as slots, `docs/plan-branch-2c.md`, v0.4.0). From
-2026-11-15 it is being rebuilt to be used the way numpy is (`docs/design.md` §10: what a project
-may use, named and promised, `docs/plan-branch-R1.md`, v0.5.0; the page's words held here,
-`docs/plan-branch-R2.md`, v0.6.0; a piece's own figures, `docs/plan-branch-R3.md`, v0.7.0).
+It began as DeePC's bench, moved here unchanged but for what tied it to DeePC (v0.1.0); the
+page its developer designed is being built on it, a branch at a time (runs in progress first,
+v0.2.0; no hovers, v0.3.0; words as slots, v0.4.0). From 2026-11-15 it is being rebuilt to be
+used the way numpy is (what a project may use, named and promised, v0.5.0; the page's words
+held here, v0.6.0; a piece's own figures, v0.7.0).
 
 ## How a project declares itself
 

@@ -3,7 +3,7 @@ requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [project]
-# the name a project installs stays `benchlab` until 1.0 (docs/plan-branch-R6.md); the package
+# the name a project installs stays `benchlab` until 1.0; the package
 # it imports is `runlab`, with `benchlab` kept as a stand-in that hands over to it
 name = "benchlab"
 version = "0.10.0"

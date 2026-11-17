@@ -404,7 +404,7 @@ def test_opening_a_chart_is_the_figure_layers_and_queues_no_run(lag_runs) -> Non
     assert fig["layout"]["yaxis"]["title"]["text"] == "∠G [deg]", "the record's own words"
     assert fig["layout"]["xaxis"]["title"]["text"] == "ω [rad/s]"
     title = _card(lab, "bode-phase").objects[0].objects[0].object
-    assert "title=" not in title, "no hover on the title (docs/design.md decision 5)"
+    assert "title=" not in title, "no hover on the title"
     assert not any("down to -90" in w for w in _card_words(lab, "bode-phase")), \
         "nor its description anywhere on the card"
     assert "2 of 4 open" in lab.open_count.object

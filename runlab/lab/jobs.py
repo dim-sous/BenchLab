@@ -1,5 +1,5 @@
 """Runs in progress: each run its own process, queued and started by the Lab, never more at once
-than the machine has cores (``docs/design.md`` decision 3 and §4).
+than the machine has cores.
 
 A run is the program ``python -m runlab.runner`` (:mod:`runlab.runner`) under the Lab's own
 interpreter, in the project root: the Lab never goes through the command line. A run moves
@@ -14,8 +14,8 @@ Every word that becomes a run is checked against a declaration this module read 
 :func:`runlab.record.config.fields_of`); what the run makes of it is the runner's, refusals
 included, and a failed run says so in the last line it wrote. One rule is restated, and held to
 its source by a test: a typed value outside the bounds its setting declares, or one its setting
-cannot read, is refused before any run is queued (:func:`refusals`, ``docs/design.md``
-decision 5), in param's own comparisons; the piece's Config is still never built.
+cannot read, is refused before any run is queued (:func:`refusals`), in param's own
+comparisons; the piece's Config is still never built.
 """
 
 from __future__ import annotations
@@ -94,8 +94,8 @@ def checked(piece: str, planned: Sequence[tuple[str, Sequence[tuple[str, str]]]]
 
 def refusals(piece: str, typed: Mapping[str, str], swept: str = "",
              rungs: Sequence[str] = ()) -> tuple[dict[str, str], str]:
-    """What ``piece``'s settings refuse before any run is queued (``docs/design.md`` decision
-    5): each ``typed`` value, by setting, and the first refused rung of the ``swept`` setting, in
+    """What ``piece``'s settings refuse before any run is queued:
+    each ``typed`` value, by setting, and the first refused rung of the ``swept`` setting, in
     words; ``({}, "")`` when they take everything. A value is read as the run will read it
     (:func:`runlab.record.config.coerce_value`, on the setting's declaration) and held to the
     bounds the setting declares; the piece's Config is never built."""

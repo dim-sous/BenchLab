@@ -157,7 +157,7 @@ _TITLED = """() => {
 
 def test_nothing_wears_a_hover_but_a_greyed_control_and_run_refuses_under_a_setting(
         tmp_path, toy_installed) -> None:
-    """``docs/design.md`` decision 5, in the browser: with both runs shown, a chart card, a
+    """No hovers, in the browser: with both runs shown, a chart card, a
     number card, the form open and a run in the strip, the only hovers left are greyed controls'
     reasons (their style is :data:`runlab.lab.skin.GREYED`) and the chart toolbar's own button
     names, which the mockup kept. Then A = -1 and Run: refused under A, the form still open,

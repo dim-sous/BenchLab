@@ -1,4 +1,4 @@
-"""The page's words (``docs/design.md`` §10): RunLab names every slot and holds a word for each
+"""The page's words: RunLab names every slot and holds a word for each
 (``runlab/lab/words.toml``); a project's words file lists only the words it changes. Nothing in
 that file stops the Lab: an entry RunLab cannot use is left out, the page keeps RunLab's own
 word, and the Lab says so in its terminal. Read off the Lab's own sources: every slot named is

@@ -15,7 +15,7 @@ Everything on the page is derived from what is on disk, what is ticked and what 
 controls hold, on every event, in :meth:`Lab.render`; the one memo is the loaded records, keyed
 by their file's mtime. The page computes nothing and restates one rule: a typed value its setting
 cannot read, or one outside the bounds it declares, is refused when Run is pressed, in the Lab's
-own words (:func:`lab.jobs.refusals`, ``docs/design.md`` decision 5; ``tests/test_runner.py``
+own words (:func:`lab.jobs.refusals`; ``tests/test_runner.py``
 holds it to param's verdict). Otherwise a greyed control is its field's own gate or the figure
 layer's refusal, a refusal is the words of what refused it, a chart is the figure layer's. A click that raises, or a page that cannot be built, shows its error on the
 page.
@@ -822,7 +822,7 @@ class Lab:
         """A card: its title and close at the line's end; then its controls, one row of
         groups, a whole group wrapping onto the next line when the card is too narrow for it;
         then what it draws; then a foot -- why it could not draw. No hover: the title is the
-        chart's or the number's own words (``docs/design.md`` decision 5)."""
+        chart's or the number's own words."""
         close = _widget(pn.widgets.Button, label=say("cards.close"), width=34)
         close.on_click(lambda _e: self._close(card))
         # the panel's name rides on the title as data-panel: the tests found a card by its
@@ -937,7 +937,7 @@ class Lab:
                   refused: list[str]) -> pn.Column:
         """A figure the piece draws itself, once per shown run that declares it, each under its
         run's name where there is more than one: the page cannot merge what only the piece can
-        read (``docs/design.md`` §10; the developer, 2026-11-17). A shown run that declares no
+        read (the developer, 2026-11-17). A shown run that declares no
         such figure is named in the foot. The card's control is every chart card's, greyed."""
         held = [(name, own_figure(record, card.chart)) for name, record in pairs]
         drawn = [(name, fig) for name, fig in held if fig is not None]
@@ -1341,8 +1341,7 @@ class Lab:
     def _run(self) -> None:
         """Queue the form's runs, a sweep's side by side; Run never waits for the last one. A
         value its setting refuses -- out of its range, or not what it reads -- is said under
-        the setting, or under the sweep row, and nothing is queued (``docs/design.md``
-        decision 5)."""
+        the setting, or under the sweep row, and nothing is queued."""
         self._refused, self._sweep_refused = jobs.refusals(
             self.piece["name"], self.form.set, self.form.swept(), self.form.rungs())
         if self._refused or self._sweep_refused:

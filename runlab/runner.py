@@ -4,7 +4,7 @@
 runs they make, one per sweep combination, each with its record name and its setting pairs;
 ``run_once`` takes the piece's Config (the one given, as the command line reads a config file,
 else the defaults), applies those pairs once (so a gate a sweep opens is open when the setting
-behind it is checked), runs it, names the record and saves it. So the same settings make the same file whichever way they come in (``docs/design.md`` §4).
+behind it is checked), runs it, names the record and saves it. So the same settings make the same file whichever way they come in.
 
 Run as a program, ``python -m runlab.runner <piece> <name> <out_dir> <pairs as JSON>``, it is
 one run started by the Lab (decision 3: each run its own process, never the command line). Its

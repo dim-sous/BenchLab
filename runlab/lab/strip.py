@@ -1,6 +1,6 @@
 """The runs in progress, along the bottom: a row per run -- its name and piece, its state as a
 pill with the time it has run, a failure's words -- and Stop while it is queued or running, ✕ once
-it ended. The mockup's strip (``docs/design.md`` §5), drawn as the run list is: rows as data, a
+it ended. The mockup's strip, drawn as the run list is: rows as data, a
 click a MESSAGE to the page.
 
 A row is built once and then changed in place, and the rows are put back in order only when one

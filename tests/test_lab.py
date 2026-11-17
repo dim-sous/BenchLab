@@ -417,7 +417,7 @@ def test_the_form_ends_where_the_strip_begins(two_runs) -> None:
         f"calc(100vh - {skin.HEADER_PX + skin.STRIP_PX + skin.STRIP_LIST_PX}px)")
 
 
-# --- no hovers (``docs/design.md`` decision 5) -----------------------------------------------
+# --- no hovers -------------------------------------------------------------------------------
 
 def _drawn(lab: Lab) -> list[Any]:
     """Every Panel object the page draws: the header, both panes, the drawer, the strip."""
@@ -482,7 +482,7 @@ def test_a_greyed_setting_says_why_under_it(two_runs) -> None:
 ])
 def test_a_value_its_setting_refuses_is_said_under_it_and_nothing_is_queued(
         two_runs, picks, name, text, words) -> None:
-    """``docs/design.md`` decision 5, the developer's answer of 2026-11-14: refused when Run is
+    """The developer's answer of 2026-11-14: refused when Run is
     pressed, under the setting; the form stays open and nothing is queued. Edited, the words go."""
     from runlab.lab import skin
     root, out_dir = two_runs

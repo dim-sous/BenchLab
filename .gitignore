@@ -11,5 +11,5 @@ wheels/
 
 .vscode/
 
-# a computer's own Claude Code settings (e.g. autoMemoryDirectory pointing at .claude/memory)
+# a computer's own Claude Code settings
 .claude/settings.local.json

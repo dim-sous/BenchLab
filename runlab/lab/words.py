@@ -1,4 +1,4 @@
-"""The page's own words (``docs/design.md`` §10, which replaced decision 4).
+"""The page's own words.
 
 RunLab names every slot and the fields its word may use, and holds a word for each: its own
 words file, ``words.toml`` beside this module. A project may change any of them: its words file

@@ -21,7 +21,7 @@ NAMES = {"Settings": config, "with_overrides": config, "Record": record, "Series
          # from 0.7: a figure a piece draws itself
          "Figure": record}
 #: Held from 0.8 and not yet promised: built on the made-up project alone, no project having
-#: used them (``docs/plan-branch-R4.md``). They may still change; the README says so.
+#: used them. They may still change; the README says so.
 HELD = {"run_files": files, "files_of": files}
 #: The names a project's declared module holds; ``WORDS`` it may leave out (from 0.6).
 DECLARED = {"NAMES", "get_component", "COMMAND", "TITLE", "ROOT", "LIBRARIES", "WORDS"}

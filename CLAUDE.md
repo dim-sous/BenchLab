@@ -3,12 +3,19 @@
 One package, installed in each project the way numpy is, holding what every project's bench
 needs: the settings and run files, the charts, the command line and the Lab's page. What it is
 and how a project declares itself: `README.md`. What it is to become, and every decision made so
-far: `docs/design.md`. This file holds the working rules.
+far: the notes' `docs/design.md`. This file holds the working rules.
+
+**This repository holds only what a library holds** (the developer, 2026-11-17): the package,
+its tests, `README.md`, the licence, the settings and these rules. Every note (the session log,
+the plans, the findings, the incidents, the design's record) lives in "the notes": the private
+repository `dim-sous/project-notes`, folder `runlab/`. No note is written here.
 
 **Only advisory rules live here**, the ones no test can catch. A checked rule lives in the test
-that checks it. Each rule points at what holds it: an incident in `docs/project/failures.md`,
-a sibling's incident (DeePC `[D…]`, BESS `[B…]`, RCWS `[A…]`), or a test. A
-new session starts from `.claude/memory/MEMORY.md`: keep it current and commit it with each branch.
+that checks it. Each rule points at what holds it: an incident in the notes'
+`docs/project/failures.md`, a sibling's incident (DeePC `[D…]`, BESS `[B…]`, RCWS `[A…]`), or a
+test. A new session starts from the notes' `session-log.md`: keep it current and commit it there
+with each branch here. A session that has only this repository asks the developer for the notes
+before it plans anything.
 
 ## Commands
 
@@ -28,7 +35,7 @@ new session starts from `.claude/memory/MEMORY.md`: keep it current and commit i
   its cost in lines and compute time named; no abstraction for a future no branch needs yet.
 - What the page shows is the developer's, decided only after driving it. How it is built is
   Claude's, said with its reason; push back when an answer costs more than it looks, and write
-  the cost beside the decision (`docs/design.md` §3, decision 5).
+  the cost beside the decision (the notes' `docs/design.md` §3, decision 5).
 - No git write without the developer's word, in that turn, each time. Ask before ANY multi-agent
   fan-out, every time (RCWS `[A12]`). Every question to the developer goes through
   AskUserQuestion, with its context inside the question.
@@ -42,7 +49,8 @@ new session starts from `.claude/memory/MEMORY.md`: keep it current and commit i
 - **RunLab is used like numpy** (the developer, 2026-11-15; it was named Benchlab until 0.10).
   A change in a project never needs a change here, and a new version here never needs a change
   in a project that does not want what is new. Branch R1 (`v0.5.0`) named what a project may use
-  and promised it until 1.0; R2 to R6 follow, and 2d and 2e wait for them (`docs/design.md` §10).
+  and promised it until 1.0; R2 to R6 follow, and 2d and 2e wait for them (the notes'
+  `docs/design.md` §10).
   R2 (`v0.6.0`) put the page's words here; R3 (`v0.7.0`) lets a piece hand the page a figure
   it draws itself; R4 (`v0.8.0`) gives each run a folder for the files it writes, built on
   the made-up project alone and so not yet promised; R5 (`v0.9.0`) takes a setting of any
@@ -53,11 +61,11 @@ new session starts from `.claude/memory/MEMORY.md`: keep it current and commit i
   through the project's declaration (`runlab/project.py`); what a test can hold of this,
   `tests/test_layers.py` holds. RunLab holds the page's own words (`runlab/lab/words.toml`),
   none of them a project's: a word only one project needs is written in that project's words
-  file, over the slot RunLab names for it (`docs/design.md` §10, R2).
+  file, over the slot RunLab names for it (the notes' `docs/design.md` §10, R2).
 - **The run file is a contract with every project.** A change to what a record saves, or how it
   loads, is a new RunLab version, and every project takes it by raising its lock
   (`uv lock --upgrade-package benchlab`: the install name until 1.0) and running its own suite. A run saved before the
-  change is still listed and drawn (`docs/design.md` §4).
+  change is still listed and drawn (the notes' `docs/design.md` §4).
 - **Evidence over judgement.** A claim about the code, in a comment, a README or a PR, is checked
   against the code the day it is written; never assert why a number moved, measure it.
 - **The comment rule**, four kinds and nothing else: (1) a function, parameter or return doc;

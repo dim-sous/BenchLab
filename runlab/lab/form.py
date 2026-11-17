@@ -107,11 +107,12 @@ class Form:
         return self.sweep_field if self.sweep_field and self.sweep_values.strip() else ""
 
     def axes(self) -> list[tuple[str, str]]:
-        """What the sweep row can vary: every setting but a list of numbers and one of another
-        kind (a matrix), whose own commas the runner would split as the sweep's, and but a saved
-        run's path, which the name of the record each rung writes cannot hold."""
+        """What the sweep row can vary: every setting but a list of numbers, a list of rows and
+        one of another kind (a matrix), whose own commas the runner would split as the sweep's,
+        and but a saved run's path, which the name of the record each rung writes cannot hold."""
         return [(f["name"], term(f)) for f in self.fields
-                if f["type"] != "list" and not f.get("other") and not f.get("record_of")]
+                if f["type"] not in ("list", "rows") and not f.get("other")
+                and not f.get("record_of")]
 
     # -- gates
     @staticmethod

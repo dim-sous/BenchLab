@@ -79,7 +79,7 @@ SLOTS: dict[str, tuple[str, ...]] = {
     "form.heading": (), "form.from_defaults": (), "form.from_run": ("run",),
     "form.clear": (), "form.close": (), "form.run": (),
     "form.name": (), "form.sweep": (), "form.sweep_none": (), "form.sweep_values": (),
-    "form.code_default": (), "form.default": ("value",),
+    "form.code_default": (), "form.default": ("value",), "form.add_row": ("name",),
     "form.group_changed": ("changed", "total"), "form.group_defaults": ("total",),
     "form.sweep_axis": ("setting",), "form.gated": ("setting", "other", "wanted", "value"),
     "form.set": ("n",), "form.taken.one": ("settings",), "form.taken.many": ("settings",),

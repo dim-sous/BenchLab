@@ -17,6 +17,9 @@ def text(value: Any) -> str:
         return as_text(value)
     if isinstance(value, float):
         return f"{value:.4g}"
+    if isinstance(value, (list, tuple)) and value and all(isinstance(v, dict) for v in value):
+        # a list of rows: each row's values in its own order, the rows apart (BESS's view.text)
+        return "; ".join(" · ".join(text(v) for v in row.values()) for row in value)
     if isinstance(value, (list, tuple)):
         return ", ".join(text(v) for v in value)
     return str(value)

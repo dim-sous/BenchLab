@@ -5,9 +5,11 @@ y[k+1] = a y[k] + (1 - a) K u[k] with a = exp(-Δt/τ), or by forward Euler, a =
 It holds what the wave does not, each for a test that needs one: a setting naming another piece's
 saved run; two defaults the code resolves (K: none is 1; the hold: none is exact); a list of
 numbers (the limits y is drawn against, as references named by what they bound) and a list of
-text (the traces the output chart draws), a row each in the form; a unit; constants a run used
-beyond its Config; the lag's Bode magnitude and phase, on logarithmic axes; and a figure it
-draws itself, its pole on the complex plane, which lines against an abscissa cannot say."""
+text (the traces the output chart draws), a row each in the form; a list of rows, a table (the
+steps and ramps added to the input, each row a time, a shape and a size; none by default, so a
+run at the defaults is the wave's u alone); a unit; constants a run used beyond its Config; the
+lag's Bode magnitude and phase, on logarithmic axes; and a figure it draws itself, its pole on
+the complex plane, which lines against an abscissa cannot say."""
 
 from __future__ import annotations
 
@@ -27,10 +29,27 @@ __all__ = ["Config", "run", "Record"]
 _TRACES = ("u", "y")
 
 
+class Step(Settings):
+    """One row of the input's additions: from ``at`` on, a step of ``size`` or a ramp of slope
+    ``size`` is added to the wave's u."""
+
+    at = param.Number(0.5, bounds=(0.0, None), label="From",
+                      doc="The time the addition starts.", metadata={"group": "Source", "unit": "s"})
+    shape = param.Selector(default="step", objects=["step", "ramp"], label="Shape",
+                           doc="A step of the size, or a ramp of that slope.",
+                           metadata={"group": "Source",
+                                     "lines": {"step": "step [-]", "ramp": "ramp [1/s]"}})
+    size = param.Number(1.0, label="Size", doc="The step's height, or the ramp's slope.",
+                        metadata={"group": "Source"})
+
+
 class Config(Settings):
     wave_run = param.String("results/wave/default.json", label="Wave run",
                             doc="The saved wave run whose u drives the lag.",
                             metadata={"group": "Source", "record_of": "wave"})
+    steps = param.List([], item_type=Step, label="Additions",
+                       doc="What is added to the wave's u, in order: each row a step or a ramp "
+                           "from its time on.", metadata={"group": "Source"})
     gain = param.Number(None, allow_None=True, label="K", doc="The lag's gain; none: 1.",
                         metadata={"group": "Lag"})
     tau = param.Number(0.05, bounds=(0.0, None), inclusive_bounds=(False, True), label="τ",
@@ -99,12 +118,16 @@ def run(cfg: Config) -> Record:
     hold = cfg.hold or "exact"
     step = float(source.t[1] - source.t[0])
     a = float(np.exp(-step / cfg.tau)) if hold == "exact" else 1.0 - step / cfg.tau
-    y = np.zeros_like(source.u)
+    u = source.u
+    for row in cfg.steps:
+        since = np.clip(source.t - row.at, 0.0, None)
+        u = u + row.size * (since if row.shape == "ramp" else (source.t >= row.at).astype(float))
+    y = np.zeros_like(u)
     for k in range(len(y) - 1):
-        y[k + 1] = a * y[k] + (1.0 - a) * gain * source.u[k]
+        y[k + 1] = a * y[k] + (1.0 - a) * gain * u[k]
     omega = np.logspace(-2.0, 2.0, 41) / cfg.tau
     return Record(name="default", config=cfg, provenance=stamp(time.perf_counter() - started),
-                  t=source.t, u=source.u, y=y, omega=omega,
+                  t=source.t, u=u, y=y, omega=omega,
                   magnitude=abs(gain) / np.sqrt(1.0 + (omega * cfg.tau) ** 2),
                   phase=-np.degrees(np.arctan(omega * cfg.tau)),
                   constants={"gain": gain, "hold": hold, "step_s": step},

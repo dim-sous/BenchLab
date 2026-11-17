@@ -118,6 +118,8 @@ def _refusal(p: param.Parameter, f: dict[str, Any], text: str) -> str:
         value = coerce_value(p, text)
     except ValueError as exc:
         label = f["label"]
+        if f.get("element_fields"):     # a list of rows: the cell's own refusal, naming its row
+            return str(exc)
         if f.get("other"):
             return say("refuse.unread", setting=label, text=text)
         if isinstance(p, param.Integer):

@@ -1,7 +1,7 @@
 # Benchlab: where the work stands
 
 Start here in a new session. Updated 2026-11-17: **R1, R2, R3 and R4 are merged** (`v0.5.0`,
-`v0.6.0`, `v0.7.0`; R4 is version `0.8.0`, **its tag not yet made**, below); each `docs/plan-branch-R*.md`, "As built", holds what was built
+`v0.6.0`, `v0.7.0`, `v0.8.0`); each `docs/plan-branch-R*.md`, "As built", holds what was built
 and measured. **Next: R5, settings beyond the six kinds**, on the developer's go; it needs a
 first user or the developer's word to go without one, as R4 did. The direction since 2026-11-15
 (`docs/design.md` §10): Benchlab, to be renamed RunLab, is used like numpy. 2d and 2e are on
@@ -29,13 +29,12 @@ hold. VS Code on the developer's computer, WSL2, 12 CPUs.
 - **The developer looked at the screenshots and said "Figs look good, proceed"**, then "All
   the way: merge and tag" (2026-11-17). Git, on those words: one commit (`0d80852`) and one
   for the notes on `ccr-ea61ca3b-35fv7x`, BenchLab #9 merged (`464a6bb`).
-- **The tag `v0.8.0` is not made.** The cloud session could push to its own branch only: the
-  tag's push was cut off three times and it had no other way to make one. The notes merged
-  with #9 said "tagged"; **Claude's slip, recorded:** they were written before the merge and
-  the tag, as done. The developer said they would make the tag themselves (2026-11-17), on
-  `464a6bb`; check `git ls-remote --tags origin v0.8.0` and strike this point once it is there.
-  A cloud session cannot tag: write a git step into the notes only after it is done.
-  DeePC is untouched and stays on Benchlab `5023526` (`v0.7.0`) in its lock until it wants more.
+- **The tag `v0.8.0` was made by the developer** (2026-11-17, from GitHub's release page on a
+  phone), on `af76991`: `main`'s head then, R4's merge (`464a6bb`) plus a notes-only merge
+  (#10). It is a plain tag, where `v0.7.0` carries a message. The cloud session could not make
+  it: it may push to its own branch only, and the tag's push was cut off three times.
+  **Claude's slip, recorded:** the notes merged with #9 said "tagged" before the tag existed;
+  #10 corrected them. Write a git step into the notes only after it is done.
 - **Still to do:** a toy project that writes files, to try the two names before they are
   promised; the eight points of `docs/for-review.md`, "R4", are the developer's to judge.
 - **After it:** R5, settings beyond the six kinds; it has the same first-user question.

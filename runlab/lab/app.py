@@ -427,6 +427,10 @@ class Lab:
         self._loaded: dict[str, tuple[float, Any, str, Optional[tuple]]] = {}
         #: card id -> the runs its chart draws, in the order shown
         self.drawn: dict[int, list[str]] = {}
+        #: Each open chart's pane with the words of its bottom axis; and, per bottom axis, the
+        #: range a zoom left on it (``None`` once reset): every chart over it is shown at it.
+        self._panes: dict[int, tuple[pn.pane.Plotly, str]] = {}
+        self._ranges: dict[str, Optional[list[Any]]] = {}
         self._answer: Optional[Callable[[], None]] = None   # what the dialog's yes does
         self._read_url()
 
@@ -931,7 +935,7 @@ class Lab:
         """One card per open chart and number: the numbers first, then the charts in the order
         the records declare them."""
         runs = self.shown_runs()
-        self.drawn = {}
+        self.drawn, self._panes = {}, {}
         if not runs:
             self.cards_box.objects = [_html(html.escape(say("cards.empty_runs")), style=_DIM)]
             return
@@ -1148,11 +1152,51 @@ class Lab:
         return self._frame(card, title, self._toolbar(card, ctx), body, foot, warn)
 
     def _body(self, card: shaping.Card, panel: Any) -> Any:
-        """What a card shows: the figure layer's chart, as its live twin."""
+        """What a card shows: the figure layer's chart, as its live twin. A chart is drawn at
+        the range a zoom left on its bottom axis, and its own zooms are heard
+        (:meth:`_on_zoom`); a number card's bottom axis is a setting, so it is neither."""
         # a number card draws no legend: the hover names each point's run (RCWS)
         fig = figure_of(panel, legend=card.kind != "numbers")
-        return pn.pane.Plotly(fig, config=_PLOT_CONFIG, sizing_mode="stretch_width",
+        linked = card.kind == "chart"
+        if linked and self._ranges.get(panel.x_label):
+            fig["layout"]["xaxis"] = {**fig["layout"]["xaxis"],
+                                      "range": self._ranges[panel.x_label], "autorange": False}
+        pane = pn.pane.Plotly(fig, config=_PLOT_CONFIG, sizing_mode="stretch_width",
                               height=fig["layout"]["height"])
+        if linked:
+            pane.param.watch(lambda e, key=card.id: self._on_zoom(key, e.new), "relayout_data")
+            self._panes[card.id] = (pane, panel.x_label)
+        return pane
+
+    def _on_zoom(self, key: int, data: Any) -> None:
+        """A zoom on one chart reaches every open chart over the same bottom axis, and a reset
+        too; the range is kept for a chart drawn afterwards. A chart already on that range is
+        not pushed, so a push cannot echo back (BESS's ``lab/app.py``, ``_on_relayout``). The
+        range is plotly's own, as the chart reported it: on a logarithmic axis, the powers of
+        ten."""
+        if not isinstance(data, dict) or key not in self._panes:
+            return
+        if "xaxis.range[0]" in data and "xaxis.range[1]" in data:
+            rng: Optional[list[Any]] = [data["xaxis.range[0]"], data["xaxis.range[1]"]]
+        elif data.get("xaxis.autorange"):
+            rng = None
+        else:
+            return
+        _, label = self._panes[key]
+        if self._ranges.get(label) == rng:
+            return                                 # the echo of a push, or nothing new
+        self._ranges[label] = rng
+        for other, (pane, other_label) in self._panes.items():
+            if other == key or other_label != label:
+                continue
+            fig = pane.object
+            xaxis = dict(fig["layout"].get("xaxis", {}))
+            if rng is None:
+                xaxis.pop("range", None)
+                xaxis["autorange"] = True
+            else:
+                xaxis["range"], xaxis["autorange"] = rng, False
+            pane.object = {**fig, "layout": {**fig["layout"], "xaxis": xaxis}}
 
     def _close(self, card: shaping.Card) -> None:
         if card in self.cards:
@@ -1471,7 +1515,7 @@ class Lab:
         # every one of these is keyed by a bare run name, which belongs to the piece it came from
         self.shown, self.cards, self._loaded, self._from = [], [], {}, None
         self._groups_shown, self._groups_met, self._tabs_hold = set(), set(), None
-        self._unfolded = set()
+        self._unfolded, self._ranges = set(), {}
         self._draw_form()
         # the name and sweep boxes outlive a form: unwritten, they kept the last piece's words,
         # which the next Run no longer used (2026-11-14, found driving 2b's hand-off)

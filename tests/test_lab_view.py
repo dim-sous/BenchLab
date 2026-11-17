@@ -442,6 +442,60 @@ def test_runs_that_differ_in_their_seed_alone_pool_on_a_card_into_one_line(tmp_p
     assert names == ["95% interval of the mean, N = 2", "Mean of 2 runs · y"]
 
 
+# --- a zoom on one chart reaches every open chart over the same bottom axis -------------------
+
+def _pane(lab: Lab, panel: str) -> pn.pane.Plotly:
+    return next(o for o in _card(lab, panel).objects if isinstance(o, pn.pane.Plotly))
+
+
+def _span(lab: Lab, panel: str) -> list | None:
+    """The range a card's figure shows of its bottom axis; ``None`` for the whole of it."""
+    xaxis = _figure(lab, panel)["layout"]["xaxis"]
+    return None if xaxis.get("autorange", True) else list(xaxis["range"])
+
+
+def test_a_zoom_on_one_chart_is_on_the_other_and_on_every_card_drawn_after_it(two_runs) -> None:
+    lab, *_ = _lab(two_runs)                         # ``second`` is shown on arrival
+    for name in ("u", "y"):
+        _tabs(lab)[name].value = True
+    assert (_span(lab, "u"), _span(lab, "y")) == (None, None)
+    _pane(lab, "u").relayout_data = {"xaxis.range[0]": 0.2, "xaxis.range[1]": 0.6}
+    assert _span(lab, "y") == [0.2, 0.6]
+    assert _span(lab, "u") is None, "the zoomed chart is on it already: nothing is pushed back"
+    _tick(lab, "first")                              # every card is drawn again
+    assert (_span(lab, "u"), _span(lab, "y")) == ([0.2, 0.6], [0.2, 0.6])
+    _control(lab, "y", "Split").value = True
+    assert _span(lab, "y") == [0.2, 0.6]
+    lab.compare_table._handle_msg({"number": "rms_u"})
+    assert _card_of(lab, number="rms_u").id not in lab._panes, \
+        "a number card's bottom axis is a setting"
+    assert _span(lab, "u") == [0.2, 0.6], "the number card opened, the charts drawn again"
+    _pane(lab, "y").relayout_data = {"yaxis.range[0]": -1.0, "yaxis.range[1]": 1.0}
+    assert _span(lab, "u") == [0.2, 0.6], "a zoom of the ordinate says nothing of the bottom axis"
+    _pane(lab, "y").relayout_data = {"xaxis.autorange": True}       # a double click
+    assert _span(lab, "u") is None
+    _tick(lab, "first", on=False)
+    assert (_span(lab, "u"), _span(lab, "y")) == (None, None), "a reset is kept too"
+
+
+def test_a_zoom_moves_the_charts_over_its_own_axis_alone_and_another_piece_starts_whole(
+        lag_runs) -> None:
+    lab, *_ = _lab(lag_runs, "lag")
+    for name in ("output", "bode-magnitude", "bode-phase", "pole"):
+        _tabs(lab)[name].value = True
+    _pane(lab, "bode-magnitude").relayout_data = {"xaxis.range[0]": 0.5, "xaxis.range[1]": 2.0}
+    assert _span(lab, "bode-phase") == [0.5, 2.0], "a log axis: the powers of ten, as reported"
+    assert _span(lab, "output") is None, "over t, not ω"
+    assert _card_of(lab, "pole").id not in lab._panes, "a figure the piece draws itself"
+    _tick(lab, "first")
+    assert (_span(lab, "bode-magnitude"), _span(lab, "bode-phase"), _span(lab, "output")) == \
+        ([0.5, 2.0], [0.5, 2.0], None)
+    lab.piece_select.value = "wave"
+    lab.piece_select.value = "lag"
+    _tabs(lab)["bode-phase"].value = True
+    assert _span(lab, "bode-phase") is None, "another piece and back: the range is forgotten"
+
+
 def test_a_number_clicked_in_the_compare_table_is_a_card_every_run_a_point(two_runs) -> None:
     lab, *_ = _lab(two_runs)
     _tick(lab, "first")

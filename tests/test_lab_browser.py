@@ -294,6 +294,35 @@ def test_every_chart_in_the_browser_is_exactly_its_records_numbers(tmp_path) -> 
         assert not errors, errors
 
 
+def test_a_zoom_drawn_with_the_mouse_on_one_chart_moves_the_other(tmp_path) -> None:
+    """The one path the page's own tests cannot walk: from the mouse, through plotly and the
+    page's code, to the other chart; and a double click back to the whole of both."""
+    with _served(tmp_path, "?shown=first&open=u,y") as (page, errors, root, out_dir):
+        assert len(_charts(page, 2)) == 2
+        plots = page.locator(".js-plotly-plot")
+        ticks = lambda i: plots.nth(i).locator(".xtick text").all_text_contents()
+
+        def settled(what, said: str) -> None:
+            deadline = time.time() + 20
+            while not what() and time.time() < deadline:
+                page.wait_for_timeout(200)
+            assert what(), (said, ticks(0), ticks(1))
+
+        whole = ticks(1)
+        assert ticks(0) == whole
+        box = plots.first.locator(".nsewdrag").first.bounding_box()
+        y = box["y"] + box["height"] / 2
+        page.mouse.move(box["x"] + box["width"] * 0.30, y)
+        page.mouse.down()
+        page.mouse.move(box["x"] + box["width"] * 0.45, y, steps=8)
+        page.mouse.move(box["x"] + box["width"] * 0.60, y, steps=8)
+        page.mouse.up()
+        settled(lambda: ticks(0) != whole and ticks(1) == ticks(0), "the other chart follows")
+        page.mouse.dblclick(box["x"] + box["width"] / 2, y)
+        settled(lambda: ticks(0) == whole and ticks(1) == whole, "a reset reaches it too")
+        assert not errors, errors
+
+
 def test_driving_every_kind_of_card_raises_nothing_in_the_browser(tmp_path) -> None:
     with _served(tmp_path, "?shown=second,first&open=u",
                  second=("amplitude=2",)) as (page, errors, _root, _out_dir):

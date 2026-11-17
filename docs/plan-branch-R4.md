@@ -116,7 +116,8 @@ old files by age or size; files shared between runs (a dataset); progress; R5; R
 
 Built in a cloud session and, on the developer's word ("Commit and push"), committed and
 pushed on the branch `ccr-ea61ca3b-35fv7x`. After they saw the screenshots ("Figs look good,
-proceed"; "All the way: merge and tag"): BenchLab #9 merged, tagged `v0.8.0`.
+proceed"; "All the way: merge and tag"): BenchLab #9 merged (`464a6bb`). The tag
+`v0.8.0` is not made: the cloud session could not push one, and the developer makes it.
 
 ### What was built
 

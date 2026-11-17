@@ -109,7 +109,8 @@ notes only after it is done.
 
 Built in a cloud session and committed on the branch `ccr-ea61ca3b-35fv7x`, on the
 developer's word ("All the way: merge"): BenchLab #15 merged (`a133ef2`). The tag `v0.10.0`
-is the developer's to make, on that commit.
+the developer made themselves, from GitHub's release page, on `e161b94` (that merge and a
+notes-only one, #16).
 
 ### What was built
 
@@ -167,5 +168,4 @@ is the developer's to make, on that commit.
 
 ### Still to do
 
-- The tag `v0.10.0`, which is the developer's to make.
 - 1.0, a branch of its own ("What waits for 1.0").

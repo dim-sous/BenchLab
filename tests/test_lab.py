@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import ast
 import dataclasses
+import json
 import re
 import shlex
 import sys
@@ -35,10 +36,11 @@ _ALLOWED = {# the declared project: its pieces, and its command and title -- wor
             "runlab.project": {"piece_names", "get_component", "command", "title",
                                  # and the file of the page's own words (lab.words)
                                  "words_path"},
-            # a record's header keys, and how every word the page shows begins (the developer's
-            # rule, 2026-10-27)
+            # a record's header keys, how every word the page shows begins (the developer's
+            # rule, 2026-10-27), and the record layer's own statement of how a file departs
+            # from what its piece reads, which the list words
             "runlab.record": {"read_header", "FILES_KEY", "COMPONENT_KEY", "PANELS_KEY", "NUMBER_SPECS_KEY",
-                                "PANEL_GROUPS_KEY", "HEADER_KEYS", "capital"},
+                                "PANEL_GROUPS_KEY", "HEADER_KEYS", "capital", "differences"},
             # the settings' declarations; and a typed value read as the run will read it, so
             # Run refuses what the run would refuse before queueing it (decision 5)
             "runlab.record.config": {"fields_of", "coerce_value"},
@@ -52,7 +54,9 @@ _ALLOWED = {# the declared project: its pieces, and its command and title -- wor
             # twin of it the page shows; the colour a run wears is the figure layer's slot, so
             # its dot in the list matches its lines; the page's paper, inks, rules and type are
             # the figure layer's, so a chart sits on its card's paper
-            "runlab.figure.chart": {"chart_of", "sweep_of", "pool_refusal", "distinct"},
+            # and whether a run declares a chart at all, so a card names the run it leaves out
+            "runlab.figure.chart": {"chart_of", "sweep_of", "pool_refusal", "distinct",
+                                    "series_of"},
             "runlab.figure.twin": {"figure_of"},
             # a figure the piece draws itself, as the page's pane takes it: passed through
             "runlab.figure.own": {"own_figure"},
@@ -104,10 +108,15 @@ def test_the_lab_imports_only_its_allowlist_and_no_third_party_but_panel(path: P
                                       f"{module}; allowed: {sorted(allowed)}")
 
 
-def test_the_header_keys_the_lab_reads_are_the_records_own() -> None:
-    """``state`` names the header keys one by one; if the record layer gains another, this fails
-    instead of every rail row turning red with a false 'holds gone field'."""
-    assert state._HEADER == record.HEADER_KEYS
+def test_how_a_file_differs_is_the_record_layers_statement_not_the_labs(two_runs) -> None:
+    """``state`` words what ``record.differences`` states and compares nothing itself: a header
+    key the record layer gains cannot turn every row's note into a false 'holds gone field'."""
+    root, out_dir = two_runs
+    for row in state.records(root, out_dir):
+        raw = json.loads(Path(row["path"]).read_text())
+        assert set(record.HEADER_KEYS) <= set(raw) | {record.FILES_KEY}
+        assert record.differences(project.get_component(row["piece"]).Record, raw) == ()
+        assert row["notes"] == [] and row["stale"] == ""
 
 
 def test_the_lab_never_calls_what_could_compute_on_what_it_reads() -> None:

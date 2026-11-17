@@ -60,6 +60,25 @@ def test_a_draw_writes_each_panel_beside_the_record_with_its_sidecar(tmp_path) -
     assert sidecar["figure"] == "y.png" and sidecar["runs"] == ["a"] and sidecar["git_sha"]
 
 
+def test_a_draw_of_a_run_whose_file_differs_draws_it_and_says_how(tmp_path, capsys) -> None:
+    """A file that holds more than its piece reads now is drawn all the same. How it differs is
+    said on the error stream, so the output stream still holds only what was drawn."""
+    _run(tmp_path, "--name", "a")
+    record = tmp_path / "wave" / "a.json"
+    raw = json.loads(record.read_text())
+    raw["provenance"]["python"] = "3.11.9"
+    raw["mood"] = [1, 2]
+    record.write_text(json.dumps(raw))
+    capsys.readouterr()
+    assert cli.main(["draw", str(record)]) == 0
+    said = capsys.readouterr()
+    assert "a: its result also holds mood" in said.err
+    assert "a: its provenance also holds python" in said.err
+    assert "also holds" not in said.out
+    assert sorted(os.listdir(tmp_path / "wave" / "a")) == ["u.png", "u.png.json", "y.png",
+                                                            "y.png.json"]
+
+
 def test_runs_that_differ_in_their_seed_alone_are_drawn_pooled(tmp_path) -> None:
     _run(tmp_path, "--set", "noise=0.5", "--sweep", "seed=1,2,3", "--name", "n")
     records = sorted(str(p) for p in (tmp_path / "wave").glob("*.json"))

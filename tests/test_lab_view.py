@@ -585,9 +585,10 @@ def _older(record):
     return older
 
 
-def test_a_run_without_the_panel_is_the_figure_layers_refusal_on_the_card(two_runs) -> None:
-    """Drawn over the runs that hold it, the chart would leave the others out unsaid; the figure
-    layer refuses (the charts branch's rule), and the card says so in its words."""
+def test_a_run_without_the_panel_is_left_out_of_the_card_by_name(two_runs) -> None:
+    """The chart is drawn over the runs that declare it, and the card's foot names the run it
+    leaves out (the developer's design of 2026-11-13: "a chart card that says which run it
+    leaves out")."""
     lab, *_ = _lab(two_runs)
     # `first` is made to declare its u only, as an older record of the piece would
     real = lab._record_of
@@ -598,8 +599,8 @@ def test_a_run_without_the_panel_is_the_figure_layers_refusal_on_the_card(two_ru
             row["panels"] = ["u"]
     _tick(lab, "first")
     _tabs(lab)["y"].value = True
-    assert _rows_of(lab, "y") == [] and _figure(lab, "y") is None
-    assert any("First declare no panel 'y'" in w for w in _card_words(lab, "y"))
+    assert _rows_of(lab, "y") == ["second"] and _figure(lab, "y") is not None
+    assert any("first declares no such chart" in w for w in _card_words(lab, "y"))
     subs = [o.object for o in lab.tabs.select(pn.pane.HTML)]
     assert any("1 of 2 runs" in s for s in subs)
 
@@ -621,7 +622,53 @@ def test_a_record_that_does_not_load_is_a_line_on_the_card_in_the_loaders_words(
     assert _columns(lab) == ["second", "zz-odd-body"], "its header reads; it compares"
     assert _rows_of(lab, "u") == ["second"]
     words = " ".join(_card_words(lab, "u"))
-    assert "zz-odd-body" in words and "does not load as the current Record" in words
+    assert "zz-odd-body" in words and "in a form the current Record does not read" in words
+
+
+def _beside(two_runs, name: str, edit) -> None:
+    """A file ``name`` beside the two runs: ``first``'s content changed by ``edit``, stamped
+    older than ``second``, which stays the run shown first."""
+    root, out_dir = two_runs
+    folder = Path(root) / out_dir / "wave"
+    raw = json.loads((folder / "first.json").read_text())
+    edit(raw)
+    (folder / f"{name}.json").write_text(json.dumps(raw))
+    newest = (folder / "second.json").stat().st_mtime
+    os.utime(folder / f"{name}.json", (newest - 30, newest - 30))
+
+
+def test_a_run_whose_file_holds_more_than_its_piece_reads_is_ticked_compared_and_drawn(
+        two_runs) -> None:
+    """A run saved by another bench of the piece, which kept Python's version where the run came
+    from, and by code that kept a field the piece no longer reads: its lines say how its file
+    differs, it keeps its tick box, and it is compared and drawn like any other."""
+    def edit(raw) -> None:
+        raw["provenance"]["python"] = "3.11.9"
+        raw["mood"] = [1, 2]
+    _beside(two_runs, "old", edit)
+    lab, *_ = _lab(two_runs)
+    row = next(r for r in lab.run_list.rows if r["name"] == "old")
+    assert row["stale"] == ""
+    assert row["notes"] == ["holds gone field mood", "where it came from also holds python"]
+    _tick(lab, "old")
+    assert _columns(lab) == ["second", "old"]
+    assert _rows_of(lab, "u") == ["second", "old"]
+    assert not any("old" in w for w in _card_words(lab, "u")), "nothing left out, nothing said"
+
+
+def test_a_run_whose_file_lacks_what_its_charts_read_is_compared_and_left_out_by_name(
+        two_runs) -> None:
+    """Saved before the piece kept ``y``, by a piece that declares no value for it absent: the
+    run is listed with its line, ticked and compared from its file, and each card draws the
+    other run and names this one with the field its file lacks."""
+    _beside(two_runs, "older", lambda raw: raw.pop("y"))
+    lab, *_ = _lab(two_runs)
+    row = next(r for r in lab.run_list.rows if r["name"] == "older")
+    assert row["stale"] == "" and row["notes"] == ["predates the field y"]
+    _tick(lab, "older")
+    assert _columns(lab) == ["second", "older"], "its numbers and settings are its file's"
+    assert _rows_of(lab, "u") == ["second"]
+    assert "older: the file older.json holds no 'y'" in " ".join(_card_words(lab, "u"))
 
 
 def test_the_settings_are_shown_when_asked_and_a_number_never_hidden(two_runs) -> None:

@@ -39,9 +39,10 @@ def size(n: int) -> str:
 
 
 def run_rows(runs: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """One row per run: its name, and why it cannot be read -- empty for a readable run. What sets
-    a run apart is the compare table's to say, not the row's (RCWS ``view.run_rows``)."""
-    return [{"name": r["name"], "stale": r["stale"]} for r in runs]
+    """One row per run: its name, why it cannot be read -- empty for a readable run -- and a line
+    for each way its file departs from what its piece reads now. What sets a run apart is the
+    compare table's to say, not the row's (RCWS ``view.run_rows``)."""
+    return [{"name": r["name"], "stale": r["stale"], "notes": r["notes"]} for r in runs]
 
 
 def matching(runs: list[dict[str, Any]], query: str) -> list[dict[str, Any]]:

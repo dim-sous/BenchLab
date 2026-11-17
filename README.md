@@ -95,7 +95,7 @@ added.** Everything else in RunLab is its own and may change in any version.
 | the declaration | the entry point in the group `runlab`, and the module it names, holding `NAMES`, `get_component`, `COMMAND`, `TITLE`, `ROOT` and `LIBRARIES`, and `WORDS` if it changes a word |
 | the words | a words file naming the words of the page the project changes, by the slots of `runlab/lab/words.toml`. A slot's name is not promised: an entry RunLab cannot use is left out and said, never refused |
 | the two commands | `runlab.cli:main` and `runlab.lab:main`, as the project's `pyproject.toml` names them; its tests may call `main` of either |
-| the run file | a run saved by an earlier version is still listed and drawn |
+| the run file | a run saved by an earlier version, or before its piece's `Record` changed, is still listed, compared and drawn (from 0.11; "When a piece's `Record` changes", below) |
 | a run's files, **not yet promised** | from 0.8, and still open to change until a project has used them: inside `run`, `run_files()` gives the folder of the run in progress, where the piece writes what it likes (a trained network, a checkpoint), kept as `<name>.files/` beside the run file, which lists each file's name and size; `files_of(path)` gives the folder of a saved run, for a later run that a setting (`record_of`) points at it |
 | the check | `runlab.testing`, holding `check_project` |
 
@@ -118,6 +118,23 @@ does not load, declares a chart that does not draw, or a figure of its own plotl
 or lists a file its run wrote that is not in its folder at the size listed;
 and a Python file of the project that
 imports more of RunLab than this list.
+
+### When a piece's `Record` changes
+
+Runs saved before the change stay listed, compared and drawn; under each, the list says how its
+file differs.
+
+- A field the piece stops reading stays in the file. The run is shown whole.
+- A field added later is given a default in the `Record` (`limits: np.ndarray | None = None`),
+  and `series()` says what it draws without it. The older runs then draw everything else, and a
+  chart they do not declare names them as left out.
+- With no default, the field is no value for an older run: the first chart that reads it
+  stops, and the page leaves that run out of the piece's charts, naming the field. No run is
+  made again: add the default and the older runs draw.
+- A setting added later is read as its default for an older run, and the list says so.
+
+`tests/runs/` holds a run of the made-up project from every release, made by that release's own
+code, and `tests/test_old_runs.py` lists, reads and draws each.
 
 ## Working on RunLab
 

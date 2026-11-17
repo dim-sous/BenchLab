@@ -2,10 +2,33 @@
 
 Start here in a new session. Updated 2026-11-17: **R1, R2, R3 and R4 are merged** (`v0.5.0`,
 `v0.6.0`, `v0.7.0`, `v0.8.0`); each `docs/plan-branch-R*.md`, "As built", holds what was built
-and measured. **Next: R5, settings beyond the six kinds**, on the developer's go; it needs a
-first user or the developer's word to go without one, as R4 did. The direction since 2026-11-15
+and measured. **R5, settings beyond the six kinds, is built and committed on the session's
+branch** (below); its merge and its tag are written here once they are done. The direction since 2026-11-15
 (`docs/design.md` §10): Benchlab, to be renamed RunLab, is used like numpy. 2d and 2e are on
 hold. VS Code on the developer's computer, WSL2, 12 CPUs.
+
+## R5, built 2026-11-17 in the same cloud session
+
+- **The developer's choices (2026-11-17):** "Propose R5", then "Made-up project now": no
+  project has a matrix or a date among its settings (DeePC's are lists, numbers and text), so
+  R5 has no first user either. They approved the plan (`docs/plan-branch-R5.md`, "As built").
+- **Built:** a setting may be of any kind `param` offers. The six are read and written as
+  before; any other (a matrix, a date, a pair, a table) is typed as the text `param` reads,
+  saved as `param` writes it, loaded as the real thing, and shown as that text in a plain box
+  (`benchlab/record/config.py`, `other_kind`). No new name for a project. The made-up `fit`
+  has a matrix (`scale`) and a calendar date (`day`). Version `0.9.0`.
+- **Checked (cloud machine):** Benchlab 355 passed in 112.4 s (344 in 99.5 s before), ruff
+  clean. Runs of the six kinds save what they saved. DeePC on this working copy: the same seven
+  failures as on 0.7.0, its System run unchanged. The Lab driven in headless Chromium,
+  screenshots looked at.
+- **For the developer:** `docs/for-review.md`, "R5", seven points.
+- **Git:** the developer saw the screenshots and chose "All the way: merge" (2026-11-17).
+  Committed on `ccr-ea61ca3b-35fv7x`; the merge is written here once done. The tag `v0.9.0`
+  is theirs to make (a cloud session cannot push a tag): check
+  `git ls-remote --tags origin v0.9.0`.
+- **After it:** R6, the rename to RunLab as 1.0 (`docs/design.md` §10), which the developer
+  placed last, "once the shore is proven"; R4's two names and R5 have no real user yet. Then
+  2d and 2e.
 
 ## R4, merged 2026-11-17 (built in a cloud session)
 
@@ -37,7 +60,7 @@ hold. VS Code on the developer's computer, WSL2, 12 CPUs.
   #10 corrected them. Write a git step into the notes only after it is done.
 - **Still to do:** a toy project that writes files, to try the two names before they are
   promised; the eight points of `docs/for-review.md`, "R4", are the developer's to judge.
-- **After it:** R5, settings beyond the six kinds; it has the same first-user question.
+- **After it:** R5 (above).
 
 ## For a session that starts from GitHub alone (2026-11-17)
 

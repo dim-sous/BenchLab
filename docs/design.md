@@ -346,6 +346,11 @@ resets. One branch each, in this order:
    project writes files yet, so it is built on the made-up project alone, against decision 8's
    rule, and its two names are held but not yet promised until a project has used them.
 5. **R5, settings beyond the six kinds** (a matrix, a date).
+   **Built** (2026-11-17, `docs/plan-branch-R5.md`, `v0.9.0`): a setting of any kind `param`
+   offers. Benchlab reads and writes the six as before; any other is typed as the text `param`
+   reads, saved as `param` writes it, loaded as the real thing, and shown as that text in a
+   plain box. No kind is named in Benchlab. **Without a first user** (the developer,
+   2026-11-17, as for R4): built on the made-up project's `fit`, a matrix and a date.
 6. **R6, the rename to RunLab, as 1.0** (the developer, 2026-11-15: last, once the shore is
    proven; after R1 it touches about five import lines in DeePC).
 

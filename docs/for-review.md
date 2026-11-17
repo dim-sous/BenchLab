@@ -141,3 +141,24 @@ What is left for you to judge:
    the word: the form words an empty default this way for a setting naming a saved run. Left
    as it is; no real project has such a setting with an empty default.
 8. **The two names (`run_files`, `files_of`) are not promised** until a project has used them.
+
+## R5: settings beyond the six kinds (2026-11-17, not yet merged)
+
+Built from `docs/plan-branch-R5.md`, on the made-up project alone (your choice of 2026-11-17).
+What is left for you to judge:
+
+1. **A plain text box** for a matrix and for a date: `[[1, 0], [0, 0.5]]`, `2026-02-03`. No
+   grid of boxes, no calendar.
+2. **How the compare table words a matrix**: as that text, `[[1.0, 0.0], [0.0, 0.5]]`, wrapped
+   inside its column. A large matrix would be a tall cell.
+3. **The words under a setting**: "Scale cannot read [[1, 0], [0". They do not say what would
+   be read; the placeholder in the empty box shows the default as an example.
+4. **The command line's refusal carries the settings library's own reason**, which for a matrix
+   reads oddly: a text that is not a matrix is taken as the name of a file holding one, so the
+   reason is "does not exist or is not a file".
+5. **The Lab checks only that such a value can be read.** One that reads and is then not taken
+   (a pair of three numbers, a date outside its bounds) is refused by the run, in the strip,
+   not under the setting.
+6. **Such a setting cannot be swept** from the sweep row.
+7. **A typed matrix equal to the default counts as set** when written differently
+   (`[[1, 0], [0, 1]]` against `[[1.0, 0.0], [0.0, 1.0]]`): the form compares the text.

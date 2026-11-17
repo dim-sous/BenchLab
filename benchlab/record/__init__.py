@@ -31,7 +31,7 @@ from typing import Any, ClassVar
 import numpy as np
 
 from benchlab.project import declared
-from benchlab.record.config import Settings, from_dict, to_dict
+from benchlab.record.config import Settings, from_dict, saved
 from benchlab.record.files import files_of, listed, run_files
 
 __all__ = ["Provenance", "stamp", "Series", "Figure", "bound_refs", "Number", "Record", "read_header", "capital",
@@ -179,7 +179,7 @@ class Number:
 def _jsonable(value: Any) -> Any:
     if isinstance(value, Settings):
         # a setting may hold ±inf (an actuator bound with no limit): the same tokens as an array
-        return _jsonable(to_dict(value))
+        return _jsonable(saved(value))
     if dataclasses.is_dataclass(value) and not isinstance(value, type):
         return {f.name: _jsonable(getattr(value, f.name)) for f in dataclasses.fields(value)}
     if isinstance(value, np.ndarray):

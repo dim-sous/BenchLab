@@ -112,7 +112,8 @@ bringing its own box for the form; R6 (the rename); 2d and 2e.
 
 Built in a cloud session and committed on the branch `ccr-ea61ca3b-35fv7x`, on the
 developer's word ("All the way: merge") after they saw the screenshots: BenchLab #12 merged
-(`0b679e4`). The tag `v0.9.0` is the developer's to make, on that commit.
+(`0b679e4`). The tag `v0.9.0` the developer made themselves, from GitHub's release page, on `c010581`
+(that merge and a notes-only one, #13).
 
 ### What was built
 
@@ -171,5 +172,4 @@ Looked up in `param` 2.4.2: none of the six, nor `Magnitude`, defines `serialize
 ### Still to do
 
 - The developer's judgement of `docs/for-review.md`, "R5".
-- The tag `v0.9.0`, which is the developer's to make.
 - A project with a matrix or a date among its settings, to try it.

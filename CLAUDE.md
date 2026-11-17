@@ -45,8 +45,8 @@ new session starts from `.claude/memory/MEMORY.md`: keep it current and commit i
   and promised it until 1.0; R2 to R6 follow, and 2d and 2e wait for them (`docs/design.md` §10).
   R2 (`v0.6.0`) put the page's words here; R3 (`v0.7.0`) lets a piece hand the page a figure
   it draws itself; R4 (`v0.8.0`) gives each run a folder for the files it writes, built on
-  the made-up project alone and so not yet promised. A setting beyond the six kinds still
-  needs a change here.
+  the made-up project alone and so not yet promised; R5 (`v0.9.0`) takes a setting of any
+  kind `param` offers, written and read by `param` itself, built on the made-up project too.
   ([L2]; RCWS `[A9]`)
 - **Benchlab names no project.** Its code and the words its page shows reach a project only
   through the project's declaration (`benchlab/project.py`); what a test can hold of this,

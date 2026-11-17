@@ -25,6 +25,11 @@ and saves what it resolved. A list setting holds numbers (the Q and R weights; J
 the command line) or, declared ``item_type=str``, expressions (JSON on the command line).
 ``none`` on the command line sets a setting that allows it back to ``None``.
 
+A setting may be of any other kind param offers -- a matrix (``param.Array``), a date, a pair, a
+table: param writes it as plain text and reads it back (:func:`other_kind`), so it is typed as
+that text (``[[1, 2], [3, 4]]``, ``2026-02-03``), saved as it (:func:`saved`) and loaded as the
+real thing. Nothing here names such a kind.
+
 A built Config is immutable; a changed one is a new Config (:func:`with_overrides`).
 """
 
@@ -35,8 +40,11 @@ from typing import Any, Mapping, Sequence
 
 import param
 
-__all__ = ["Settings", "fields_of", "gated", "with_overrides", "to_dict", "from_dict",
-           "coerce_value", "parse_override"]
+__all__ = ["Settings", "fields_of", "gated", "with_overrides", "to_dict", "saved", "from_dict",
+           "coerce_value", "parse_override", "other_kind"]
+
+#: The six kinds read and written here; a setting of any other is read and written by param.
+_SIX = (param.Integer, param.Number, param.Boolean, param.String, param.Selector, param.List)
 
 
 class Settings(param.Parameterized):
@@ -61,6 +69,20 @@ def _parameters(cls: type) -> dict[str, param.Parameter]:
     return {n: p for n, p in cls.param.objects(instance=False).items() if n != "name"}
 
 
+def other_kind(p: param.Parameter) -> bool:
+    """Whether ``p`` is of another kind than the six: not built on one of them, or built on one
+    and bringing its own writing or reading (a date is built on param's number)."""
+    if not isinstance(p, _SIX):
+        return True
+    definer = next(c for c in type(p).__mro__ if "serialize" in vars(c) or "deserialize" in vars(c))
+    return definer is not param.Parameter
+
+
+def _written(p: param.Parameter, value: Any) -> Any:
+    """``value`` as the run file holds it: param's own writing for another kind."""
+    return p.serialize(value) if other_kind(p) and value is not None else value
+
+
 def _gate_holds(gate: Mapping[str, Any], value: Any) -> bool:
     if set(gate) != {"in"}:
         raise ValueError(f"a gate is {{'in': [named values]}}, got {gate!r}")
@@ -75,7 +97,8 @@ def gated(cfg: Settings) -> None:
             continue
         closed = [(other, gate) for other, gate in needs.items()
                   if not _gate_holds(gate, getattr(cfg, other))]
-        if closed and getattr(cfg, name) != p.default:
+        # compared as written: a matrix has no single answer to "is it its default"
+        if closed and _written(p, getattr(cfg, name)) != _written(p, p.default):
             gates = "; ".join(f"{other} is one of {gate['in']!r} (it is {getattr(cfg, other)!r})"
                               for other, gate in closed)
             raise ValueError(f"{name}={getattr(cfg, name)!r} is set, but {name} applies only "
@@ -94,11 +117,14 @@ def fields_of(cls: type) -> list[dict[str, Any]]:
     out = []
     for name, p in _parameters(cls).items():
         meta = p.metadata or {}
-        numeric = isinstance(p, param.Number)
+        other = other_kind(p)
+        numeric = isinstance(p, param.Number) and not other
         bounds = (getattr(p, "bounds", None) if numeric else None) or (None, None)
         incl = (getattr(p, "inclusive_bounds", None) if numeric else None) or (True, True)
         out.append({
-            "name": name, "type": _type_text(p), "default": p.default,
+            # another kind's default as the text it is typed as; its bounds are param's to hold
+            "name": name, "type": _type_text(p), "default": _written(p, p.default),
+            "other": other,
             "label": p.label or name, "unit": meta.get("unit", ""), "group": meta["group"],
             "doc": (p.doc or "").strip(), "lines": meta.get("lines"),
             "choices": list(p.objects) if isinstance(p, param.Selector) else None,
@@ -126,7 +152,11 @@ def _texts(p: param.Parameter, value: Any) -> list[str]:
 def coerce_value(p: param.Parameter, value: Any) -> Any:
     """A command-line text as the setting's own type; a typed value passes through, but a list
     setting's numbers become floats (a config file may write the weight 10 as an integer). A list
-    of texts (``item_type=str``) is JSON on the command line."""
+    of texts (``item_type=str``) is JSON on the command line. A setting of another kind
+    (:func:`other_kind`) takes the text param reads, as JSON when it is JSON, or the value a run
+    file holds; a value already of its own type passes through."""
+    if other_kind(p):
+        return _read(p, value)
     if isinstance(p, param.List) and p.item_type is str:
         if isinstance(value, str):
             try:
@@ -173,9 +203,34 @@ def coerce_value(p: param.Parameter, value: Any) -> Any:
     return text
 
 
+def _read(p: param.Parameter, value: Any) -> Any:
+    """A setting of another kind from its text or its saved form, through param's reading."""
+    if isinstance(value, str):
+        text = value.strip()
+        if text.lower() == "none" and p.allow_None:
+            return None
+        try:
+            value = json.loads(text)
+        except json.JSONDecodeError:
+            value = text
+    if not isinstance(value, (str, list, dict, int, float)):
+        return value
+    try:
+        return p.deserialize(value)
+    except Exception as exc:        # whatever param's reading raises, raised again naming the setting
+        raise ValueError(f"{p.name}: {value!r} is not what a {type(p).__name__} setting reads "
+                         f"({type(exc).__name__}: {exc})") from exc
+
+
 def to_dict(cfg: Settings) -> dict[str, Any]:
-    """The settings, in declaration order, as plain values."""
+    """The settings, in declaration order, as the values the piece reads."""
     return {n: getattr(cfg, n) for n in _parameters(type(cfg))}
+
+
+def saved(cfg: Settings) -> dict[str, Any]:
+    """The settings, in declaration order, as a run file holds them: one of another kind as
+    param writes it (a matrix as nested lists, a date as text)."""
+    return {n: _written(p, getattr(cfg, n)) for n, p in _parameters(type(cfg)).items()}
 
 
 def from_dict(cls: type, raw: Mapping[str, Any], where: str = "") -> Settings:

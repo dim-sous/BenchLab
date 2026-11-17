@@ -23,6 +23,8 @@ def as_text(value: Any) -> str:
         return ""
     if isinstance(value, (list, tuple)):
         return json.dumps(list(value), ensure_ascii=False)
+    if isinstance(value, dict):
+        return json.dumps(value, ensure_ascii=False)
     if isinstance(value, bool):
         return "true" if value else "false"
     if isinstance(value, float) and value.is_integer() and abs(value) < 1e15:
@@ -105,11 +107,11 @@ class Form:
         return self.sweep_field if self.sweep_field and self.sweep_values.strip() else ""
 
     def axes(self) -> list[tuple[str, str]]:
-        """What the sweep row can vary: every setting but a list of numbers, whose own commas
-        the runner would split as the sweep's, and but a saved run's path, which the name of
-        the record each rung writes cannot hold."""
+        """What the sweep row can vary: every setting but a list of numbers and one of another
+        kind (a matrix), whose own commas the runner would split as the sweep's, and but a saved
+        run's path, which the name of the record each rung writes cannot hold."""
         return [(f["name"], term(f)) for f in self.fields
-                if f["type"] != "list" and not f.get("record_of")]
+                if f["type"] != "list" and not f.get("other") and not f.get("record_of")]
 
     # -- gates
     @staticmethod

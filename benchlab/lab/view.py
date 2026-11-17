@@ -206,7 +206,10 @@ def _settings_rows(add, runs: list[dict[str, Any]], fields: list[dict[str, Any]]
             continue
         add("head", group, "", group, [])
         for f in in_group:
-            add("setting", group, f["name"], term(f), [r["config"].get(f["name"]) for r in runs])
+            held = [r["config"].get(f["name"]) for r in runs]
+            # one of another kind (a matrix) as the text it is typed as, its shape kept
+            add("setting", group, f["name"], term(f),
+                [None if v is None else as_text(v) for v in held] if f.get("other") else held)
 
     flat = [_flat(c) for c in (constants or [])]
     if any(flat):

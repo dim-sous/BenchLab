@@ -424,3 +424,46 @@ def test_a_runs_files_show_in_the_compare_table_and_go_with_the_run(tmp_path, to
         _shows(page, "1 on disk")
         assert sorted(p.name for p in folder.iterdir()) == ["fit-2.files", "fit-2.json"]
         assert run.state == "stopped" and not errors[switched:], errors[switched:]
+
+
+def test_a_matrix_and_a_date_are_typed_refused_run_compared_and_loaded_back(tmp_path,
+                                                                           toy_installed) -> None:
+    """Branch R5: the fit's Scale (a matrix) and Day (a calendar date), settings of other kinds
+    than the six. A text neither reads is refused under each when Run is pressed and nothing is
+    queued; ones they read run, and the run file holds them; the compare table words the matrix
+    as typed, its shape kept; a run's settings loaded back into the form are that text."""
+    scale, day = 'input[placeholder="[[1.0, 0.0], [0.0, 1.0]]"]', 'input[placeholder="2026-01-01"]'
+    with _served(tmp_path) as (page, errors, root, out_dir):
+        page.locator("select").first.select_option(label="Fit")
+        _shows(page, "0 on disk")
+        page.wait_for_timeout(1500)
+        switched = len(errors)
+        page.locator("button", has_text="New run").click()
+        page.wait_for_timeout(800)
+        page.get_by_role("button", name="Run", exact=True).click()
+        _shows(page, "1 done", "1 on disk")
+        page.locator("button", has_text="New run").click()
+        page.wait_for_timeout(800)
+        page.locator(scale).fill("[[1, 0], [0")
+        page.locator(day).fill("tomorrow")
+        page.wait_for_timeout(500)
+        page.get_by_role("button", name="Run", exact=True).click()
+        _shows(page, "Scale cannot read [[1, 0], [0", "Day cannot read tomorrow")
+        assert [r.name for r in jobs.QUEUE.runs()] == ["fit-1"], "nothing more queued"
+        page.locator(scale).fill("[[1, 0], [0, 0.5]]")
+        page.locator(day).fill("2026-02-03")
+        page.wait_for_timeout(500)
+        page.get_by_role("button", name="Run", exact=True).click()
+        _shows(page, "2 done", "2 on disk")
+        held = json.loads((Path(root) / out_dir / "fit" / "fit-2.json").read_text())["config"]
+        assert (held["scale"], held["day"]) == ([[1.0, 0.0], [0.0, 0.5]], "2026-02-03")
+        page.locator("button", has_text="All").first.click()
+        _shows(page, "2 shown")
+        page.locator("button", has_text="Differing").first.click()
+        _shows(page, "[[1.0, 0.0], [0.0, 1.0]]", "[[1.0, 0.0], [0.0, 0.5]]", "2026-02-03")
+        page.locator(".run", has_text="fit-2").first.hover()
+        page.get_by_role("button", name="Use", exact=True).first.click()
+        page.wait_for_timeout(1200)
+        assert page.locator(scale).input_value() == "[[1.0, 0.0], [0.0, 0.5]]"
+        assert page.locator(day).input_value() == "2026-02-03"
+        assert not errors[switched:], errors[switched:]

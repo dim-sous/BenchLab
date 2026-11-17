@@ -83,6 +83,7 @@ SLOTS: dict[str, tuple[str, ...]] = {
     # what Run refuses in a setting (``lab.jobs.refusals``)
     "refuse.whole": ("setting", "text"), "refuse.number": ("setting", "text"),
     "refuse.yes_no": ("setting", "text"), "refuse.choice": ("setting", "choices", "text"),
+    "refuse.unread": ("setting", "text"),
     "refuse.texts": ("setting", "text"), "refuse.numbers": ("setting", "text"),
     "refuse.at_least": ("setting", "bound", "text"), "refuse.above": ("setting", "bound", "text"),
     "refuse.at_most": ("setting", "bound", "text"), "refuse.below": ("setting", "bound", "text"),

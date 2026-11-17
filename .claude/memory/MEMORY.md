@@ -1,7 +1,7 @@
 # Benchlab: where the work stands
 
 Start here in a new session. Updated 2026-11-17: **R1 to R5 are merged** (`v0.5.0`, `v0.6.0`,
-`v0.7.0`, `v0.8.0`; R5 is version `0.9.0`, **its tag the developer's to make**, below); each
+`v0.7.0`, `v0.8.0`, `v0.9.0`); each
 `docs/plan-branch-R*.md`, "As built", holds what was built and measured. **Next: R6, the
 rename to RunLab as 1.0**, on the developer's go; neither R4's two names nor R5 has had a real
 user yet, and the developer placed R6 "once the shore is proven". The direction since 2026-11-15
@@ -25,8 +25,11 @@ hold. VS Code on the developer's computer, WSL2, 12 CPUs.
 - **For the developer:** `docs/for-review.md`, "R5", seven points.
 - **Git:** the developer saw the screenshots and chose "All the way: merge" (2026-11-17).
   One commit (`3129983`) on `ccr-ea61ca3b-35fv7x`, BenchLab #12 merged (`0b679e4`). **The tag
-  `v0.9.0` is not made**: it is the developer's to make, on `0b679e4` (a cloud session cannot
-  push a tag); check `git ls-remote --tags origin v0.9.0` and strike this once it is there.
+  `v0.9.0` was made by the developer** (2026-11-17, GitHub's release page), on `c010581`:
+  `main`'s head then, R5's merge plus a notes-only merge (#13). A plain tag, as `v0.8.0`. A
+  cloud session cannot push a tag: the developer makes it from
+  `github.com/dim-sous/BenchLab/releases/new` in a phone's browser (the phone app has no such
+  page), and the session then checks it with `git ls-remote --tags origin`.
   DeePC is untouched and stays on Benchlab `5023526` (`v0.7.0`) in its lock.
 - **After it:** R6, the rename to RunLab as 1.0 (`docs/design.md` §10), which the developer
   placed last, "once the shore is proven"; R4's two names and R5 have no real user yet. Then

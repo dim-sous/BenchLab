@@ -1,9 +1,38 @@
 # Benchlab: where the work stands
 
-Start here in a new session. Updated 2026-11-17: **R1, R2 and R3 are merged** (`v0.5.0`,
-`v0.6.0`, `v0.7.0`); each `docs/plan-branch-R*.md`, "As built", holds what was built and
-measured. **Next: R4, files a run writes**, on the developer's go. The direction since 2026-11-15 (`docs/design.md` §10): Benchlab, to be renamed RunLab,
-is used like numpy. 2d and 2e are on hold. VS Code on the developer's computer, WSL2, 12 CPUs.
+Start here in a new session. Updated 2026-11-17: **R1, R2, R3 and R4 are merged** (`v0.5.0`,
+`v0.6.0`, `v0.7.0`, `v0.8.0`); each `docs/plan-branch-R*.md`, "As built", holds what was built
+and measured. **Next: R5, settings beyond the six kinds**, on the developer's go; it needs a
+first user or the developer's word to go without one, as R4 did. The direction since 2026-11-15
+(`docs/design.md` §10): Benchlab, to be renamed RunLab, is used like numpy. 2d and 2e are on
+hold. VS Code on the developer's computer, WSL2, 12 CPUs.
+
+## R4, merged 2026-11-17 (built in a cloud session)
+
+- **The developer's choices (2026-11-16, from a phone):** "Propose R4", then "Made-up project
+  now" over waiting for a toy project: no project writes files yet (DeePC `c7f4569`: none of its
+  four pieces does), so R4 has no first user, against decision 8's rule. They approved the plan
+  (`docs/plan-branch-R4.md`, with its "As built").
+- **Built:** a folder per run beside its run file (`<name>.files/`); the piece asks for it while
+  it runs (`benchlab.run_files()`); the run file lists each file's name and size (`files`, left
+  out when the run wrote none); a later run reads an earlier run's folder
+  (`benchlab.files_of(path)`); a failed or stopped run leaves the earlier run whole; deleting a
+  run takes its folder; the compare table's "Files" rows. The made-up project has a third
+  piece, `fit`. Version `0.8.0`. **The two names are held, not yet promised**
+  (`tests/test_shore.py`, `README.md`) until a project has used them.
+- **Checked (cloud machine, 4 CPUs):** Benchlab 344 passed in 99.5 s (328 in 90.9 s before),
+  ruff clean. A run that writes no file saves the same file as before. DeePC on this working
+  copy: 125 passed, 7 failed, and the same 7 fail there on Benchlab 0.7.0: the frozen arrays of
+  its `coupled_masses` cases, on that machine (132 pass on the developer's computer). The Lab
+  driven in headless Chromium on the made-up project, screenshots looked at.
+- **For the developer:** `docs/for-review.md`, "R4", eight points.
+- **The developer looked at the screenshots and said "Figs look good, proceed"**, then "All
+  the way: merge and tag" (2026-11-17). Git, on those words: one commit (`0d80852`) and this
+  one for the notes on `ccr-ea61ca3b-35fv7x`, BenchLab #9 merged, tagged `v0.8.0` on the merge.
+  DeePC is untouched and stays on Benchlab `5023526` (`v0.7.0`) in its lock until it wants more.
+- **Still to do:** a toy project that writes files, to try the two names before they are
+  promised; the eight points of `docs/for-review.md`, "R4", are the developer's to judge.
+- **After it:** R5, settings beyond the six kinds; it has the same first-user question.
 
 ## For a session that starts from GitHub alone (2026-11-17)
 
@@ -13,7 +42,10 @@ this repository and nothing of the laptop the work was done on:
 - **DeePC is another repository**, `dim-sous/DeePC-Sandbox` (default branch `master`). A change
   here that a project is to use is checked against it: clone it beside this one and point it at
   this working copy (`README.md`, "How a project declares itself"; that line is never committed).
-  Its whole suite takes about two minutes; R2 showed a change may need none of it.
+  Its whole suite takes about two minutes; R2 showed a change may need none of it. In a cloud
+  session it is cloned read-only (`add_repo`, then `uv pip install -e` of this copy into its
+  environment, `uv sync` to put its own back); seven of its frozen-array tests fail on the
+  cloud machine on any Benchlab (measured 2026-11-17), so compare failures before and after.
 - **The scripts used to check that DeePC's numbers do not move are not kept.** The method is
   written out: `docs/plan-branch-1.md`, "Verification" (which piece is run with which settings,
   then drawn), and `docs/plan-branch-R1.md` and `docs/plan-branch-R3.md`, "Measured" (what two
@@ -52,8 +84,7 @@ this repository and nothing of the laptop the work was done on:
   before the PR had one).
 - **Open after R3** (`docs/for-review.md`, "R3"): the colour of a stacked figure (the piece's
   own, not the run's); figures built on opening, when a piece has heavy ones; saved pictures.
-- **After it:** R4, files a run writes (trained networks, checkpoints). It needs a first
-  user, as R3 did; the developer's toy projects were all not started on 2026-11-17.
+- **After it:** R4, files a run writes (above).
 
 ## R2, merged 2026-11-16
 

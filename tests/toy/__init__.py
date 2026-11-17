@@ -1,6 +1,6 @@
 """The made-up project Benchlab's own tests run on: its registry and its declaration, as a project
-writes them (``README.md``), and two pieces: ``wave``, and ``lag``, which a saved wave run
-drives. It uses of Benchlab only what a project may (``tests/test_testing.py`` holds that), and
+writes them (``README.md``), and three pieces: ``wave``; ``lag``, which a saved wave run
+drives; and ``fit``, which writes files beside its run file. It uses of Benchlab only what a project may (``tests/test_testing.py`` holds that), and
 names no words file: its page keeps Benchlab's own words. It is not installed:
 ``tests/conftest.py`` stands in for the entry point an installed project's ``pyproject.toml``
 gives.
@@ -13,7 +13,7 @@ from pathlib import Path
 from types import ModuleType
 
 #: The pieces, in the order every surface shows them.
-NAMES: tuple[str, ...] = ("wave", "lag")
+NAMES: tuple[str, ...] = ("wave", "lag", "fit")
 #: The command a project's ``pyproject.toml`` would install; the tests call ``benchlab.cli.main``.
 COMMAND = "toy"
 TITLE = "Toy Lab"

@@ -30,8 +30,9 @@ from benchlab.figure.twin import figure_of
 from benchlab.lab import state, words
 from benchlab.lab.form import Form
 from benchlab.project import declared, get_component, piece_names
-from benchlab.record import COMPONENT_KEY, Record, read_header
+from benchlab.record import COMPONENT_KEY, FILES_KEY, Record, read_header
 from benchlab.record.config import Settings
+from benchlab.record.files import kept
 
 __all__ = ["check_project"]
 
@@ -56,7 +57,8 @@ def check_project(runs: Sequence[str | os.PathLike[str]] = (), *,
     - a piece's settings do not build the Lab's form;
     - one of ``runs``, record files the project made, is of no registered piece, does not load
       through its piece's ``Record``, declares a chart that does not draw, as a still or on
-      the page, or a figure of its own that plotly does not take;
+      the page, or a figure of its own that plotly does not take, or lists a file its run
+      wrote that is not in its folder at the size listed;
     - a Python file under ``sources`` (the declared ``ROOT`` when ``None``; folders whose name
       starts with a dot are skipped) imports more of Benchlab than a project may use.
 
@@ -102,7 +104,8 @@ def _check_form(piece: dict) -> None:
 
 
 def _check_run(path: Path, names: Sequence[str], out: Path) -> None:
-    piece = read_header(path)[COMPONENT_KEY]
+    header = read_header(path)
+    piece = header[COMPONENT_KEY]
     assert piece in names, f"{path} is a run of {piece!r}; the registered pieces are {list(names)}"
     record = get_component(piece).Record.load(path)
     pairs = [(record.name, record)]
@@ -113,6 +116,12 @@ def _check_run(path: Path, names: Sequence[str], out: Path) -> None:
         except Exception as exc:        # whatever stops a chart, raised again naming its run
             raise AssertionError(f"{path}: the chart {series.name!r} does not draw "
                                  f"({type(exc).__name__}: {exc})") from exc
+    for held in header.get(FILES_KEY, []):
+        file = kept(path) / held["name"]
+        assert file.is_file(), f"{path} lists the file {held['name']!r}; there is no {file}"
+        assert file.stat().st_size == held["bytes"], \
+            (f"{path} lists {held['name']!r} at {held['bytes']} bytes; {file} holds "
+             f"{file.stat().st_size}")
     for figure in record.figures():
         try:
             go.Figure(own_figure(record, figure.name))

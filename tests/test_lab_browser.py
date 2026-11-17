@@ -38,6 +38,7 @@ from benchlab import cli
 from benchlab.lab import jobs
 from benchlab.lab.app import serve
 from benchlab.runner import planned
+from tests.stand_ins import settled
 from tests.toy import wave
 
 #: The words the page shows, leaf by leaf, through its shadow roots (DeePC's ``_TEXT``).
@@ -380,3 +381,46 @@ def test_a_figure_the_piece_draws_itself_is_drawn_in_the_browser_as_the_piece_dr
         assert trace["x"] == [-20] and trace["y"] == [0], "the pole of the default τ = 0.05"
         assert "Pole" in page.evaluate(_TEXT), "the card's title"
         assert not errors[switched:], errors[switched:]
+
+
+def test_a_runs_files_show_in_the_compare_table_and_go_with_the_run(tmp_path, toy_installed) -> None:
+    """Branch R4: a fit run started from the form lists the files it wrote, by size; a second,
+    started from the first through the form's pick of a saved run, ran on its weights; a run
+    stopped from its row leaves no folder; a run deleted from the list takes its folder, the
+    question naming it."""
+    with _served(tmp_path) as (page, errors, root, out_dir):
+        folder = Path(root) / out_dir / "fit"
+        page.locator("select").first.select_option(label="Fit")
+        _shows(page, "0 on disk")
+        page.wait_for_timeout(1500)
+        switched = len(errors)
+        page.locator("button", has_text="New run").click()
+        page.wait_for_timeout(800)
+        page.get_by_role("button", name="Run", exact=True).click()
+        _shows(page, "1 done", "1 on disk", "FILES", "weights.npy", "144 B")
+        page.locator("button", has_text="New run").click()
+        page.wait_for_timeout(800)
+        page.locator("select").nth(1).select_option(label="fit-1")   # Start from
+        page.wait_for_timeout(500)
+        page.get_by_role("button", name="Run", exact=True).click()
+        _shows(page, "2 done", "2 on disk")
+        second = json.loads((folder / "fit-2.json").read_text())
+        assert second["config"]["start_from"] == "results/fit/fit-1.json"
+        assert second["loss"][0] < 0.01, "it started from the first run's weights, not from zero"
+        page.locator("button", has_text="All").first.click()
+        _shows(page, "2 shown")
+        assert page.evaluate(_TEXT).count("144 B") == 4, "two files, under each of two runs"
+        [run] = jobs.QUEUE.submit("fit", planned("long", ["delay=60"]), root=root, out_dir=out_dir)
+        _shows(page, "1 running")
+        settled((folder / "long.files.partial" / "weights.npy").is_file, lambda: "no weights yet")
+        page.get_by_role("button", name="Stop long", exact=True).click()
+        _shows(page, "1 stopped")
+        settled(lambda: not (folder / "long.files.partial").exists(), lambda: "its folder is left")
+        page.locator(".run", has_text="fit-1").first.hover()
+        page.get_by_role("button", name="Delete fit-1", exact=True).click()
+        page.get_by_text("Delete results/fit/fit-1.json and results/fit/fit-1.files/, the 2 files "
+                         "its run wrote?").wait_for()
+        page.get_by_role("button", name="Delete", exact=True).click()
+        _shows(page, "1 on disk")
+        assert sorted(p.name for p in folder.iterdir()) == ["fit-2.files", "fit-2.json"]
+        assert run.state == "stopped" and not errors[switched:], errors[switched:]

@@ -8,11 +8,13 @@ What a project may use is what this module holds, :mod:`benchlab.testing`, and t
 its ``pyproject.toml`` names (``benchlab.cli:main``, ``benchlab.lab:main``). Nothing here is
 removed, renamed or changed in meaning before 1.0 (``README.md``, "What a project may use";
 ``tests/test_shore.py`` holds the list). Everything deeper is Benchlab's own and may change in
-any version.
+any version. ``run_files`` and ``files_of`` (from 0.8) are held and not yet promised: no project
+has used them yet.
 """
 
-from benchlab.record import Figure, Number, Provenance, Record, Series, bound_refs, stamp
+from benchlab.record import (Figure, Number, Provenance, Record, Series, bound_refs, files_of,
+                             run_files, stamp)
 from benchlab.record.config import Settings, with_overrides
 
 __all__ = ["Settings", "with_overrides", "Record", "Series", "Figure", "Number", "Provenance",
-           "stamp", "bound_refs"]
+           "stamp", "bound_refs", "run_files", "files_of"]

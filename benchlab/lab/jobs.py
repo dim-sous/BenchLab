@@ -26,6 +26,7 @@ import json
 import os
 import re
 import shlex
+import shutil
 import signal
 import subprocess
 import sys
@@ -39,6 +40,7 @@ import param
 from benchlab.cli import DEFAULT_OUT_DIR
 from benchlab.project import command, get_component, piece_names
 from benchlab.record.config import coerce_value, fields_of
+from benchlab.record.files import discard, kept
 
 from .form import as_text
 from .words import say, say_n
@@ -159,9 +161,10 @@ def run_argv(piece: str, overrides: Sequence[str] = (), name: str = "",
 
 def delete(piece: str, records: Sequence[str] = (), *,
            root: str, out_dir: str = DEFAULT_OUT_DIR) -> list[str]:
-    """Delete the named records (``<out_dir>/<piece>/<name>.json``) and return what went, as
-    paths under ``root``. Anything else is refused in words and nothing is deleted: a name that
-    is not a record's, a path outside the out-dir."""
+    """Delete the named records (``<out_dir>/<piece>/<name>.json``), each with the folder of
+    files its run wrote (``<name>.files/``), and return what went, as paths under ``root``.
+    Anything else is refused in words and nothing is deleted: a name that is not a record's, a
+    path outside the out-dir."""
     piece = _piece(piece)
     base = os.path.realpath(os.path.join(root, out_dir, piece))
     targets: list[str] = []
@@ -173,9 +176,16 @@ def delete(piece: str, records: Sequence[str] = (), *,
         if not os.path.realpath(path).startswith(base + os.sep):
             raise ValueError(say("messages.delete_outside", path=path, folder=f"{out_dir}/{piece}/"))
         targets.append(path)
+    gone: list[str] = []
     for path in targets:
         os.remove(path)
-    return [os.path.relpath(path, root) for path in targets]
+        gone.append(path)
+        discard(path)
+        if kept(path).is_dir():
+            shutil.rmtree(kept(path))
+            gone.append(str(kept(path)) + os.sep)
+    return [os.path.relpath(path, root) + (os.sep if path.endswith(os.sep) else "")
+            for path in gone]
 
 
 @dataclass
@@ -378,6 +388,8 @@ class Queue:
             run.state = FAILED
             run.error = (_ended_by(code) if code is not None and code < 0
                          else _last_line(err) or _ended_by(code))
+        if run.state != DONE:            # a run ended by a signal removes nothing itself
+            discard(os.path.join(run.root, run.out_dir, run.piece, f"{run.name}.json"))
 
 
 #: The Lab's queue: one per process, shared by every browser tab.

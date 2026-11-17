@@ -339,6 +339,12 @@ resets. One branch each, in this order:
    run file and the piece draws the figure when shown, so the file's only change is two
    lists gaining the figures' names, and a run saved before a figure existed gains it.
 4. **R4, files a run writes** (trained networks, checkpoints).
+   **Built** (2026-11-17, `docs/plan-branch-R4.md`, `v0.8.0`): a folder per run beside its run
+   file (`<name>.files/`), which the piece asks for while it runs (`run_files()`); the run file
+   lists each file's name and size; a later run reads an earlier run's folder (`files_of`).
+   **Without a first user** (the developer, 2026-11-16, over waiting for a toy project): no
+   project writes files yet, so it is built on the made-up project alone, against decision 8's
+   rule, and its two names are held but not yet promised until a project has used them.
 5. **R5, settings beyond the six kinds** (a matrix, a date).
 6. **R6, the rename to RunLab, as 1.0** (the developer, 2026-11-15: last, once the shore is
    proven; after R1 it touches about five import lines in DeePC).

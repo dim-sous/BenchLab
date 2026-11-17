@@ -560,7 +560,11 @@ class Lab:
 
     # ------------------------------------------------------------------ deleting
     def _ask_delete_run(self, name: str) -> None:
-        self._ask(say("messages.delete_ask", path=f"{self.out_dir}/{self.piece['name']}/{name}.json"),
+        path = f"{self.out_dir}/{self.piece['name']}/{name}"
+        files = next((len(r["files"]) for r in self.runs() if r["name"] == name), 0)
+        self._ask(say_n("messages.delete_ask_files", files, path=f"{path}.json",
+                        folder=f"{path}.files/") if files
+                  else say("messages.delete_ask", path=f"{path}.json"),
                   functools.partial(self._delete, records=[name]))
 
     def _ask(self, question: str, then: Callable[[], None]) -> None:

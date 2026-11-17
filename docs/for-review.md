@@ -121,3 +121,23 @@ map. What is left for you to judge after driving it:
 5. **Every figure of a shown run is built when the run loads**, open or not. Nothing for a pole
    map; a piece with heavy figures would want them built on opening.
 6. **No saved picture of such a figure** (your choice); `draw` names what it left out.
+
+## R4: files a run writes (2026-11-17, merged as #9)
+
+Built from `docs/plan-branch-R4.md`, on the made-up project alone (your choice of 2026-11-16).
+What is left for you to judge:
+
+1. **Where a run's files show**: last in the compare table, under "Files", one row per file,
+   each run's cell its size. Nothing else on the page speaks of them.
+2. **The words**: "Files"; "144 B, no longer there" for a file the run file lists that is gone
+   from the folder; "Delete <run file> and <folder>, the 2 files its run wrote?".
+3. **The folder's name**, `<name>.files/`, beside `<name>.json`.
+4. **A file cannot be opened or downloaded from the page** (not in R4).
+5. **Sizes only**: the Lab does not notice a file whose content changed and whose size did not.
+6. **A piece that writes files cannot be run by calling its `run` directly**: it is refused in
+   words, and runs through the command or the Lab. A project's test of such a piece does the
+   same.
+7. **The "Start from" pick on the made-up piece reads " (default)"** when empty, a blank before
+   the word: the form words an empty default this way for a setting naming a saved run. Left
+   as it is; no real project has such a setting with an empty default.
+8. **The two names (`run_files`, `files_of`) are not promised** until a project has used them.

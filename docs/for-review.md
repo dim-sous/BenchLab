@@ -122,7 +122,7 @@ map. What is left for you to judge after driving it:
    map; a piece with heavy figures would want them built on opening.
 6. **No saved picture of such a figure** (your choice); `draw` names what it left out.
 
-## R4: files a run writes (2026-11-17, not yet merged)
+## R4: files a run writes (2026-11-17, merged as #9)
 
 Built from `docs/plan-branch-R4.md`, on the made-up project alone (your choice of 2026-11-16).
 What is left for you to judge:

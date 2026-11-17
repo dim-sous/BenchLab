@@ -1,14 +1,13 @@
 # Benchlab: where the work stands
 
-Start here in a new session. Updated 2026-11-17: **R1, R2 and R3 are merged** (`v0.5.0`,
-`v0.6.0`, `v0.7.0`); each `docs/plan-branch-R*.md`, "As built", holds what was built and
-measured. **R4, files a run writes, is built, committed and pushed on the branch
-`ccr-ea61ca3b-35fv7x`, with no PR** (below): it waits for the developer's look and their word
-for each further git step. The direction since 2026-11-15
+Start here in a new session. Updated 2026-11-17: **R1, R2, R3 and R4 are merged** (`v0.5.0`,
+`v0.6.0`, `v0.7.0`, `v0.8.0`); each `docs/plan-branch-R*.md`, "As built", holds what was built
+and measured. **Next: R5, settings beyond the six kinds**, on the developer's go; it needs a
+first user or the developer's word to go without one, as R4 did. The direction since 2026-11-15
 (`docs/design.md` §10): Benchlab, to be renamed RunLab, is used like numpy. 2d and 2e are on
 hold. VS Code on the developer's computer, WSL2, 12 CPUs.
 
-## R4, built 2026-11-17 in a cloud session, pushed on its branch, not merged
+## R4, merged 2026-11-17 (built in a cloud session)
 
 - **The developer's choices (2026-11-16, from a phone):** "Propose R4", then "Made-up project
   now" over waiting for a toy project: no project writes files yet (DeePC `c7f4569`: none of its
@@ -27,9 +26,12 @@ hold. VS Code on the developer's computer, WSL2, 12 CPUs.
   its `coupled_masses` cases, on that machine (132 pass on the developer's computer). The Lab
   driven in headless Chromium on the made-up project, screenshots looked at.
 - **For the developer:** `docs/for-review.md`, "R4", eight points.
-- **Git, on the developer's word** (2026-11-17: "Commit and push"): one commit on
-  `ccr-ea61ca3b-35fv7x`, pushed; `main` untouched. **Still to do**, each on their word: a PR,
-  the merge, the tag `v0.8.0`; then a toy project to try the two names.
+- **The developer looked at the screenshots and said "Figs look good, proceed"**, then "All
+  the way: merge and tag" (2026-11-17). Git, on those words: one commit (`0d80852`) and this
+  one for the notes on `ccr-ea61ca3b-35fv7x`, BenchLab #9 merged, tagged `v0.8.0` on the merge.
+  DeePC is untouched and stays on Benchlab `5023526` (`v0.7.0`) in its lock until it wants more.
+- **Still to do:** a toy project that writes files, to try the two names before they are
+  promised; the eight points of `docs/for-review.md`, "R4", are the developer's to judge.
 - **After it:** R5, settings beyond the six kinds; it has the same first-user question.
 
 ## For a session that starts from GitHub alone (2026-11-17)

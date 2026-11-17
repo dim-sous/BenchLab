@@ -112,10 +112,11 @@ old files by age or size; files shared between runs (a dataset); progress; R5; R
 
 ---
 
-## As built (2026-11-17; pushed on its branch, not merged)
+## As built (2026-11-17; merged)
 
 Built in a cloud session and, on the developer's word ("Commit and push"), committed and
-pushed on the branch `ccr-ea61ca3b-35fv7x`. No PR; `main` untouched.
+pushed on the branch `ccr-ea61ca3b-35fv7x`. After they saw the screenshots ("Figs look good,
+proceed"; "All the way: merge and tag"): BenchLab #9 merged, tagged `v0.8.0`.
 
 ### What was built
 
@@ -170,6 +171,5 @@ pushed on the branch `ccr-ea61ca3b-35fv7x`. No PR; `main` untouched.
 
 ### Still to do
 
-- The developer's look at the screenshots, and `docs/for-review.md`, "R4".
-- Git, each step on the developer's word: a PR, the merge, the tag `v0.8.0`.
+- The developer's judgement of `docs/for-review.md`, "R4".
 - A toy project that writes files, to try the two names before they are promised.

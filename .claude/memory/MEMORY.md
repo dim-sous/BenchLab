@@ -33,7 +33,8 @@ is next", the section below is later.
   answered. Claude's proposal of a line is in the findings, "A line, proposed by Claude, not
   decided": how a run is asked for, run, saved, listed, compared and drawn is RunLab's, what
   it means is the project's; a matter of taste is the project's switch with RunLab's default;
-  RunLab grows only from a real project. **Settle it with them before anything is built.**
+  RunLab grows only from a real project. The developer on it, asked the same day:
+  "Close, discuss later". **Settle it with them before anything is built.**
 - **Next, in this order, none of it started:** the line; what Hydrofoil's move needs of RunLab
   (the `settings` command, a dash per reference line in a still of one run, runs saved before a
   move, the help line as the line decides); Hydrofoil-Flight-Control moved, as the trial did it

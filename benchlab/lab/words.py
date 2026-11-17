@@ -50,6 +50,7 @@ SLOTS: dict[str, tuple[str, ...]] = {
     "compare.settings_none": (), "compare.settings_differing": (), "compare.settings_all": (),
     "compare.empty": (), "compare.corner": (), "compare.no_value": (),
     "compare.numbers_group": (), "compare.constants": (),
+    "compare.files": (), "compare.file_gone": ("size",),
     "compare.alone.one": ("n",), "compare.alone.many": ("n",),
     "compare.same.one": ("n",), "compare.same.many": ("n",),
     "compare.differ_settings.one": ("n",), "compare.differ_settings.many": ("n",),
@@ -99,7 +100,9 @@ SLOTS: dict[str, tuple[str, ...]] = {
     "messages.stopping": (), "messages.loaded.one": ("n", "run"), "messages.loaded.many": ("n", "run"),
     "messages.no_longer_declared": ("settings",), "messages.taken_back": ("n",),
     "messages.no_record": ("name",), "messages.reading_failed": ("words",),
-    "messages.delete_ask": ("path",), "messages.delete_yes": (), "messages.delete_no": (),
+    "messages.delete_ask": ("path",),
+    "messages.delete_ask_files.one": ("path", "folder", "n"),
+    "messages.delete_ask_files.many": ("path", "folder", "n"), "messages.delete_yes": (), "messages.delete_no": (),
     "messages.deleted": ("paths",), "messages.not_deleted": ("words",),
     "messages.delete_no_record": ("name", "folder"), "messages.delete_outside": ("path", "folder"),
 }

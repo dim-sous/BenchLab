@@ -37,11 +37,12 @@ _ALLOWED = {# the declared project: its pieces, and its command and title -- wor
                                  "words_path"},
             # a record's header keys, and how every word the page shows begins (the developer's
             # rule, 2026-10-27)
-            "benchlab.record": {"read_header", "COMPONENT_KEY", "PANELS_KEY", "NUMBER_SPECS_KEY",
+            "benchlab.record": {"read_header", "FILES_KEY", "COMPONENT_KEY", "PANELS_KEY", "NUMBER_SPECS_KEY",
                                 "PANEL_GROUPS_KEY", "HEADER_KEYS", "capital"},
             # the settings' declarations; and a typed value read as the run will read it, so
             # Run refuses what the run would refuse before queueing it (decision 5)
             "benchlab.record.config": {"fields_of", "coerce_value"},
+            "benchlab.record.files": {"kept", "discard"},
             # the one constant saying where records live
             "benchlab.cli": {"DEFAULT_OUT_DIR"},
             # how a record name and the form's words become runs, the command line's own rule
@@ -223,7 +224,7 @@ def test_the_page_wears_the_projects_title_and_lists_its_pieces(two_runs) -> Non
     lab = Lab(root, out_dir, every=lambda cb, ms: None, toast=lambda _w: None)
     header = lab.page().objects[0]
     assert ">Toy Lab</b>" in header.objects[0].object
-    assert lab.piece_select.options == {"Wave": "wave", "Lag": "lag"}
+    assert lab.piece_select.options == {"Wave": "wave", "Lag": "lag", "Fit": "fit"}
     assert [r["name"] for r in state.records(root, out_dir)] == ["second", "first"]
 
 
@@ -242,7 +243,7 @@ def test_the_line_the_lab_prints_is_the_side_door_command() -> None:
     assert jobs.run_argv("wave", [], "p", "elsewhere")[-2:] == ["--out-dir", "elsewhere"]
     line = jobs.line_of(jobs.run_argv("wave", ["amplitude=2"], "a.b-c_1"))
     assert shlex.split(line) == jobs.run_argv("wave", ["amplitude=2"], "a.b-c_1"), "it reads back"
-    with pytest.raises(ValueError, match=r"unknown piece 'bogus'; registered: \['wave', 'lag'\]"):
+    with pytest.raises(ValueError, match=r"unknown piece 'bogus'; registered: \['wave', 'lag', 'fit'\]"):
         jobs.run_argv("bogus", [], "probe")
 
 

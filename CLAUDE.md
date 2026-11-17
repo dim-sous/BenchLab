@@ -13,7 +13,7 @@ new session starts from `.claude/memory/MEMORY.md`: keep it current and commit i
 ## Commands
 
 - Python through uv only, 3.13 as pinned: `uv sync`, `uv run pytest`, `uv run ruff check .`.
-  The suite runs on a made-up project of two pieces (`tests/toy/`); `tests/conftest.py` declares
+  The suite runs on a made-up project of three pieces (`tests/toy/`); `tests/conftest.py` declares
   it for every test.
 - Benchlab is tested here, on the made-up project, which uses of Benchlab only what a project
   may (`README.md`, "What a project may use"; `tests/test_shore.py` holds the list). A project's
@@ -44,8 +44,9 @@ new session starts from `.claude/memory/MEMORY.md`: keep it current and commit i
   in a project that does not want what is new. Branch R1 (`v0.5.0`) named what a project may use
   and promised it until 1.0; R2 to R6 follow, and 2d and 2e wait for them (`docs/design.md` §10).
   R2 (`v0.6.0`) put the page's words here; R3 (`v0.7.0`) lets a piece hand the page a figure
-  it draws itself. A file a run writes, and a setting beyond the six kinds, still need a
-  change here.
+  it draws itself; R4 (`v0.8.0`) gives each run a folder for the files it writes, built on
+  the made-up project alone and so not yet promised. A setting beyond the six kinds still
+  needs a change here.
   ([L2]; RCWS `[A9]`)
 - **Benchlab names no project.** Its code and the words its page shows reach a project only
   through the project's declaration (`benchlab/project.py`); what a test can hold of this,

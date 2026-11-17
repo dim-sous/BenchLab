@@ -28,6 +28,7 @@ from pathlib import Path
 
 from benchlab.project import get_component
 from benchlab.record.config import Settings, parse_override, with_overrides
+from benchlab.record.files import keep, writing
 
 __all__ = ["planned", "run_once", "main"]
 
@@ -65,12 +66,15 @@ def planned(name: str, overrides: Sequence[str] = (), sweeps: Sequence[str] = ()
 def run_once(piece: str, pairs: Sequence[tuple[str, str]], name: str, out_dir: str,
              config: Settings | None = None):
     """Run ``piece`` once on its Config (``config``, else the defaults) with ``pairs`` applied,
-    name the record ``name`` and save it as ``<out_dir>/<piece>/<name>.json``. Returns the path
-    and the record."""
+    name the record ``name`` and save it as ``<out_dir>/<piece>/<name>.json``, the files it wrote
+    (``benchlab.run_files``) in ``<name>.files/`` beside it. Returns the path and the record."""
     component = get_component(piece)
     cfg = with_overrides(config if config is not None else component.Config(), list(pairs))
-    rec = dataclasses.replace(component.run(cfg), name=name)
-    return rec.save(os.path.join(out_dir, piece, f"{name}.json")), rec
+    path = os.path.join(out_dir, piece, f"{name}.json")
+    with writing(path):
+        rec = dataclasses.replace(component.run(cfg), name=name)
+        keep(path)
+        return rec.save(path), rec
 
 
 def main(argv: Sequence[str] | None = None) -> int:

@@ -30,6 +30,14 @@ def when(run: dict[str, Any]) -> str:
     return " \u00b7 ".join(p for p in (date, sha) if p)
 
 
+def size(n: int) -> str:
+    """A file's size in bytes as words: ``512 B``, ``1.44 kB``, ``3.2 MB``, in thousands."""
+    for unit in ("B", "kB", "MB", "GB"):
+        if n < 1000 or unit == "GB":
+            return f"{n:.3g} {unit}" if unit != "B" else f"{n} B"
+        n /= 1000
+
+
 def run_rows(runs: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """One row per run: its name, and why it cannot be read -- empty for a readable run. What sets
     a run apart is the compare table's to say, not the row's (RCWS ``view.run_rows``)."""
@@ -132,6 +140,11 @@ def compare_rows(runs: list[dict[str, Any]], fields: list[dict[str, Any]], *,
     page reads off the loaded record so that a file written before its numbers were grouped is
     compared in its class's groups; ``None`` reads each file's own header.
 
+    Last, whatever ``settings`` asks, the FILES the runs wrote (``files``, as
+    :func:`state.records` lists them): a row per file name, each run's cell its size, an em
+    dash for a run that wrote no such file, and the words for one its run file lists that is
+    no longer in its folder. The sizes differ as saved, in bytes.
+
     Whether a row differs is decided on the SAVED values, never on the words they are shown by:
     0.00267124 and 0.00267139 both read ``0.002671`` at four digits, and a table that called
     those equal would certify a refactor that moved the numbers (CLAUDE.md ``[B4]``).
@@ -165,9 +178,26 @@ def compare_rows(runs: list[dict[str, Any]], fields: list[dict[str, Any]], *,
             unit = spec.get("unit") or ""
             add("number", group, name, f"{spec['label']} [{unit}]" if unit else spec["label"],
                 [r["numbers"].get(name) for r in runs])
-    if settings == "none":
-        return rows
+    if settings != "none":
+        _settings_rows(add, runs, fields, settings, constants)
+    wrote = [{"files": r.get("files") or []} for r in runs]
+    names = _in_declared_order(wrote, "files", lambda f: f["name"])
+    if names:
+        files = say("compare.files")
+        add("head", files, "", files, [])
+        for name in names:
+            held = [next((f for f in r["files"] if f["name"] == name), None) for r in wrote]
+            rows.append({"kind": "file", "group": files, "key": name, "term": name,
+                         "values": [text(None) if f is None else size(f["bytes"]) if f["there"]
+                                    else say("compare.file_gone", size=size(f["bytes"]))
+                                    for f in held],
+                         "differs": len({f and f["bytes"] for f in held}) > 1})
+    return rows
 
+
+def _settings_rows(add, runs: list[dict[str, Any]], fields: list[dict[str, Any]], settings: str,
+                   constants: list[Any] | None) -> None:
+    """The settings group by group, then the constants: :func:`compare_rows`' middle part."""
     differ = set(varying(runs, fields))
     for group in dict.fromkeys(f["group"] for f in fields):
         in_group = [f for f in fields if f["group"] == group
@@ -190,7 +220,6 @@ def compare_rows(runs: list[dict[str, Any]], fields: list[dict[str, Any]], *,
             add("head", constants, "", constants, [])
             for key in kept:
                 add("constant", constants, key, key, [h.get(key) for h in flat])
-    return rows
 
 
 def compare_count(rows: list[dict[str, Any]], runs: list[dict[str, Any]],

@@ -11,7 +11,7 @@ import param
 
 import benchlab
 from benchlab import cli, lab, project, record, testing
-from benchlab.record import config
+from benchlab.record import config, files
 
 README = (Path(__file__).resolve().parent.parent / "README.md").read_text()
 #: The names ``benchlab`` holds for a project's pieces, promised from 0.5, each with the inner
@@ -20,6 +20,9 @@ NAMES = {"Settings": config, "with_overrides": config, "Record": record, "Series
          "Number": record, "Provenance": record, "stamp": record, "bound_refs": record,
          # from 0.7: a figure a piece draws itself
          "Figure": record}
+#: Held from 0.8 and not yet promised: built on the made-up project alone, no project having
+#: used them (``docs/plan-branch-R4.md``). They may still change; the README says so.
+HELD = {"run_files": files, "files_of": files}
 #: The names a project's declared module holds; ``WORDS`` it may leave out (from 0.6).
 DECLARED = {"NAMES", "get_component", "COMMAND", "TITLE", "ROOT", "LIBRARIES", "WORDS"}
 #: What a setting's ``metadata`` may carry.
@@ -34,6 +37,14 @@ def test_benchlab_holds_every_name_it_promised() -> None:
 def test_the_inner_paths_a_project_used_before_0_5_hold_the_same_things() -> None:
     for name, module in NAMES.items():
         assert getattr(module, name) is getattr(benchlab, name), name
+
+
+def test_benchlab_holds_nothing_beyond_what_is_promised_or_named_as_not_yet() -> None:
+    assert set(benchlab.__all__) == {*NAMES, *HELD}
+    for name, module in HELD.items():
+        assert getattr(module, name) is getattr(benchlab, name), name
+    shore = README.split("## What a project may use")[1].split("\n## ")[0]
+    assert "not yet promised" in shore and all(f"`{name}(" in shore for name in HELD)
 
 
 def test_the_declaration_requires_no_name_beyond_those_promised() -> None:

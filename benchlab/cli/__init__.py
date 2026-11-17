@@ -30,6 +30,7 @@ from typing import Optional, Sequence
 from benchlab.project import command, get_component, piece_names
 from benchlab.record import read_header
 from benchlab.record.config import from_dict
+from benchlab.record.files import kept
 from benchlab.runner import planned, run_once
 
 DEFAULT_OUT_DIR = "results"
@@ -89,6 +90,8 @@ def run_command(args: argparse.Namespace) -> int:
     for run_name, pairs in planned(name, args.overrides, args.sweeps):
         path, rec = run_once(args.piece, pairs, run_name, args.out_dir, config=cfg)
         print(path)
+        if kept(path).is_dir():
+            print(f"  files in {kept(path)}")
         for key, value in rec.numbers.items():
             print(f"  {key} = {value:.6g}")
     return 0

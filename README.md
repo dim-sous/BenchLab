@@ -91,6 +91,7 @@ added.** Everything else in Benchlab is its own and may change in any version.
 | the words | a words file naming the words of the page the project changes, by the slots of `benchlab/lab/words.toml`. A slot's name is not promised: an entry Benchlab cannot use is left out and said, never refused |
 | the two commands | `benchlab.cli:main` and `benchlab.lab:main`, as the project's `pyproject.toml` names them; its tests may call `main` of either |
 | the run file | a run saved by an earlier version is still listed and drawn |
+| a run's files, **not yet promised** | from 0.8, and still open to change until a project has used them: inside `run`, `run_files()` gives the folder of the run in progress, where the piece writes what it likes (a trained network, a checkpoint), kept as `<name>.files/` beside the run file, which lists each file's name and size; `files_of(path)` gives the folder of a saved run, for a later run that a setting (`record_of`) points at it |
 | the check | `benchlab.testing`, holding `check_project` |
 
 A project checks that it plugs in from one test of its own, on runs it made through its own
@@ -108,7 +109,8 @@ def test_the_pieces_plug_into_the_bench(tmp_path):
 `check_project` refuses, naming the piece or the file and the cause: an incomplete declaration; a
 piece that does not hold `Config`, `run` and `Record`, or whose defaults do not build; settings
 that do not build the Lab's form; a run that
-does not load, declares a chart that does not draw, or a figure of its own plotly does not take;
+does not load, declares a chart that does not draw, or a figure of its own plotly does not take,
+or lists a file its run wrote that is not in its folder at the size listed;
 and a Python file of the project that
 imports more of Benchlab than this list.
 
@@ -117,7 +119,7 @@ imports more of Benchlab than this list.
 ```
 uv sync
 uv run playwright install chromium     # once per computer, for the browser test
-uv run pytest                          # the suite, on a made-up project of two pieces (tests/toy/)
+uv run pytest                          # the suite, on a made-up project of three pieces (tests/toy/)
 uv run ruff check .
 ```
 

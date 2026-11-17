@@ -6,7 +6,8 @@ which carries ``config`` (the Config the run used), ``provenance`` and ``numbers
 float]``, plus the arrays its figures will draw. It declares, from its own fields, the panels a
 figure layer may draw (``series()``), the figures it draws itself (``figures()``: what lines
 against an abscissa cannot say) and the words and units of its numbers (``number_specs()``), so a
-drawing and a listing cannot drift from the data.
+drawing and a listing cannot drift from the data. What a run writes beyond its run file, a
+trained network or a checkpoint, is kept in a folder beside it (:mod:`benchlab.record.files`).
 
 A number with no answer is left out of ``numbers``, never saved as NaN. Non-finite values inside
 an array ride as the tokens ``"nan"``, ``"inf"``, ``"-inf"`` and load back as floats. A float is
@@ -31,14 +32,19 @@ import numpy as np
 
 from benchlab.project import declared
 from benchlab.record.config import Settings, from_dict, to_dict
+from benchlab.record.files import files_of, listed, run_files
 
 __all__ = ["Provenance", "stamp", "Series", "Figure", "bound_refs", "Number", "Record", "read_header", "capital",
-           "COMPONENT_KEY", "PANELS_KEY", "NUMBER_SPECS_KEY", "PANEL_GROUPS_KEY", "HEADER_KEYS"]
+           "run_files", "files_of",
+           "COMPONENT_KEY", "PANELS_KEY", "NUMBER_SPECS_KEY", "PANEL_GROUPS_KEY", "FILES_KEY",
+           "HEADER_KEYS"]
 
 COMPONENT_KEY, PANELS_KEY, NUMBER_SPECS_KEY = "component", "panels", "number_specs"
 #: Each panel's group, ``{panel: group}``.
 PANEL_GROUPS_KEY = "panel_groups"
-HEADER_KEYS = (COMPONENT_KEY, PANELS_KEY, NUMBER_SPECS_KEY, PANEL_GROUPS_KEY)
+#: The files the run wrote beside its run file, ``[{name, bytes}]``; left out when it wrote none.
+FILES_KEY = "files"
+HEADER_KEYS = (COMPONENT_KEY, PANELS_KEY, NUMBER_SPECS_KEY, PANEL_GROUPS_KEY, FILES_KEY)
 _NONFINITE = {"nan": math.nan, "inf": math.inf, "-inf": -math.inf}
 
 
@@ -255,7 +261,9 @@ class Record:
                 PANEL_GROUPS_KEY: {p.name: p.group for p in panels}}
 
     def save(self, path: str | os.PathLike[str]) -> Path:
-        """Write header then fields, atomically. Refuses a non-finite or undeclared number."""
+        """Write header then fields, atomically; with them, the files the folder beside
+        ``path`` holds (:mod:`benchlab.record.files`), when it holds one. Refuses a non-finite
+        or undeclared number."""
         numbers = getattr(self, "numbers", {})
         bad = sorted(k for k, v in numbers.items() if not math.isfinite(float(v)))
         if bad:
@@ -265,10 +273,13 @@ class Record:
         if undeclared:
             raise ValueError(f"{type(self).component} numbers {undeclared} carry no words "
                              f"(number_specs); every number a listing shows is declared")
+        path = Path(path)
         payload = dict(self.header())
+        files = listed(path)
+        if files:
+            payload[FILES_KEY] = files
         payload.update((f.name, _jsonable(getattr(self, f.name)))
                        for f in dataclasses.fields(self))
-        path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
         tmp = path.with_suffix(path.suffix + ".partial")
         with open(tmp, "w") as fh:

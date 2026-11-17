@@ -15,16 +15,17 @@ from pathlib import Path
 from typing import Any
 
 from benchlab.project import get_component, piece_names
-from benchlab.record import (COMPONENT_KEY, HEADER_KEYS, NUMBER_SPECS_KEY, PANEL_GROUPS_KEY, PANELS_KEY,
-                    read_header)
+from benchlab.record import (COMPONENT_KEY, FILES_KEY, HEADER_KEYS, NUMBER_SPECS_KEY,
+                             PANEL_GROUPS_KEY, PANELS_KEY, read_header)
 from benchlab.record.config import fields_of
+from benchlab.record.files import kept
 
 from .words import say, say_n
 
 _HEADER = HEADER_KEYS
 #: The keys every listed record carries, and nothing else.
 RECORD_KEYS = ("piece", "name", "path", "mtime", "panels", "panel_groups", "number_specs",
-               "numbers", "config", "provenance", "stale")
+               "numbers", "config", "provenance", "stale", "files")
 _CACHE: dict[str, tuple[tuple[float, int], dict[str, Any]]] = {}
 
 
@@ -42,7 +43,9 @@ def pieces() -> list[dict[str, Any]]:
 
 def records(root: str, out_dir: str) -> list[dict[str, Any]]:
     """Every ``<root>/<out_dir>/<piece>/*.json``, newest first. An absent folder is an empty
-    list; a file that is not a record is listed carrying the refusal as its ``stale`` words."""
+    list; a file that is not a record is listed carrying the refusal as its ``stale`` words.
+    Each file its run file lists (``files``: ``name``, ``bytes``) carries ``there``, whether
+    it is in the run's folder now, read at every listing."""
     rows = []
     for name in piece_names():
         folder = Path(root) / out_dir / name
@@ -50,7 +53,10 @@ def records(root: str, out_dir: str) -> list[dict[str, Any]]:
             continue
         for path in folder.iterdir():
             if path.suffix == ".json" and path.is_file():
-                rows.append(_record(path, name))
+                row = _record(path, name)
+                rows.append({**row, "files": [
+                    {**f, "there": (kept(path) / f["name"]).is_file()} for f in row["files"]]}
+                            if row["files"] else row)
     rows.sort(key=lambda r: r["mtime"], reverse=True)
     return rows
 
@@ -73,7 +79,7 @@ def _read(path: Path, piece: str, mtime: float) -> dict[str, Any]:
     not take the page down with it."""
     row = {"piece": piece, "name": path.stem, "path": str(path), "mtime": mtime,
            "panels": [], "panel_groups": {}, "number_specs": [], "numbers": {}, "config": {},
-           "provenance": {}, "stale": ""}
+           "provenance": {}, "stale": "", "files": []}
     try:
         header = read_header(path)                    # the authority on what a record is
     except ValueError as exc:
@@ -91,6 +97,7 @@ def _read(path: Path, piece: str, mtime: float) -> dict[str, Any]:
         "numbers": dict(raw.get("numbers", {})),
         "config": dict(raw.get("config", {})),
         "provenance": dict(raw.get("provenance", {})),
+        "files": _files(header.get(FILES_KEY)),
         "stale": "; ".join(w for w in (_stale(piece, raw), panel_words, spec_words) if w),
     })
     return row
@@ -104,6 +111,16 @@ def _panels(held: Any) -> tuple[list[str], str]:
     if not isinstance(held, list) or not all(isinstance(p, str) for p in held):
         return [], say("runs.stale.panels", key=repr(PANELS_KEY))
     return list(held), ""
+
+
+def _files(held: Any) -> list[dict[str, Any]]:
+    """The files the run file lists, each a name and a size in bytes; none for a run that wrote
+    none, a file written before runs wrote files, or a list of another shape."""
+    if not isinstance(held, list) or not all(
+            isinstance(f, dict) and isinstance(f.get("name"), str)
+            and isinstance(f.get("bytes"), int) for f in held):
+        return []
+    return [{"name": f["name"], "bytes": f["bytes"]} for f in held]
 
 
 def _groups(held: Any, panels: list[str]) -> dict[str, str]:

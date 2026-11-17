@@ -105,10 +105,11 @@ notes only after it is done.
 
 ---
 
-## As built (2026-11-17)
+## As built (2026-11-17; merged)
 
 Built in a cloud session and committed on the branch `ccr-ea61ca3b-35fv7x`, on the
-developer's word ("All the way: merge").
+developer's word ("All the way: merge"): BenchLab #15 merged (`a133ef2`). The tag `v0.10.0`
+is the developer's to make, on that commit.
 
 ### What was built
 
@@ -166,5 +167,5 @@ developer's word ("All the way: merge").
 
 ### Still to do
 
-- The merge, and the tag `v0.10.0`, which is the developer's to make.
+- The tag `v0.10.0`, which is the developer's to make.
 - 1.0, a branch of its own ("What waits for 1.0").

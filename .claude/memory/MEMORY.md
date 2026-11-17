@@ -14,9 +14,10 @@ built and measured. **The route is done and the work is stopped on the developer
   dropped or kept, and the repository's name on GitHub (the developer's to change).
 - **2d and 2e** (the tree, the cards' full controls) are free to resume, and change what the
   page shows, which the developer settles only after driving it at their computer.
-- **Theirs to read:** `docs/for-review.md`, "R4" (eight points), "R5" (seven), "R6" (six). The direction since 2026-11-15
-(`docs/design.md` §10): RunLab is used like numpy. 2d and 2e are on hold. VS Code on the
-developer's computer, WSL2, 12 CPUs. Sections below this one's R6 part are dated records and
+- **Theirs to read:** `docs/for-review.md`, "R4" (eight points), "R5" (seven), "R6" (six).
+
+The direction since 2026-11-15 (`docs/design.md` §10): RunLab is used like numpy. VS Code on
+the developer's computer, WSL2, 12 CPUs. The sections below the R6 part are dated records and
 keep the name of their day.
 
 ## R6, merged 2026-11-17 (built in the same cloud session)

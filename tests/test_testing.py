@@ -1,4 +1,4 @@
-"""The check a project calls from one test (``benchlab.testing``): it passes on the made-up
+"""The check a project calls from one test (``runlab.testing``): it passes on the made-up
 project and a run of it, and refuses each way of not plugging in, naming the piece or the file.
 """
 
@@ -9,10 +9,10 @@ from pathlib import Path
 
 import pytest
 
-import benchlab
+import runlab
 import tests.toy as toy
-from benchlab import cli, project, testing
-from benchlab.testing import check_project
+from runlab import cli, project, testing
+from runlab.testing import check_project
 from tests.toy import lag, wave
 
 TOY = Path(toy.__file__).parent
@@ -57,7 +57,7 @@ def test_the_made_up_project_and_its_runs_plug_in(run, lag_run) -> None:
 
 
 def test_a_figure_plotly_does_not_take_is_refused_naming_its_run(lag_run, monkeypatch) -> None:
-    bad = benchlab.Figure(name="pole", figure={"data": [{"type": "scatter", "no_such": 1}]})
+    bad = runlab.Figure(name="pole", figure={"data": [{"type": "scatter", "no_such": 1}]})
     monkeypatch.setattr(lag.Record, "figures", lambda self: (bad,))
     with pytest.raises(AssertionError, match=r"one\.json: the figure 'pole' is not one plotly takes"):
         check_project(runs=[lag_run], sources=[TOY])
@@ -78,13 +78,13 @@ def test_a_record_registered_under_another_name_is_refused(monkeypatch) -> None:
         check_project(sources=[TOY])
 
 
-def test_an_entry_of_the_words_file_benchlab_leaves_out_is_a_warning_not_a_refusal(
+def test_an_entry_of_the_words_file_runlab_leaves_out_is_a_warning_not_a_refusal(
         tmp_path, monkeypatch) -> None:
-    """A slot renamed in a later Benchlab must not fail a project's suite."""
+    """A slot renamed in a later RunLab must not fail a project's suite."""
     named = tmp_path / "words.toml"
     named.write_text('[strip]\ntoggel = "Runs under way"\n', encoding="utf-8")
     monkeypatch.setattr(toy, "WORDS", named, raising=False)
-    with pytest.warns(UserWarning, match=r"strip.toggel \(Benchlab names no such slot\)"):
+    with pytest.warns(UserWarning, match=r"strip.toggel \(RunLab names no such slot\)"):
         check_project(sources=[TOY])
 
 
@@ -105,14 +105,14 @@ def test_a_chart_that_does_not_draw_is_refused_naming_its_run(run, monkeypatch) 
 
 
 _MAY = """\
-import benchlab
-import benchlab.testing
+import runlab
+import runlab.testing
 import numpy
-from benchlab import Record as _Record
-from benchlab import Settings, stamp, testing
-from benchlab.cli import main
-from benchlab.lab import main as lab
-from benchlab.testing import check_project
+from runlab import Record as _Record
+from runlab import Settings, stamp, testing
+from runlab.cli import main
+from runlab.lab import main as lab
+from runlab.testing import check_project
 from . import sibling
 """
 
@@ -120,18 +120,18 @@ from . import sibling
 def test_a_file_importing_only_what_a_project_may_use_passes(tmp_path) -> None:
     (tmp_path / "piece.py").write_text(_MAY)
     (tmp_path / ".venv").mkdir()
-    (tmp_path / ".venv" / "installed.py").write_text("from benchlab.lab.app import Lab\n")
+    (tmp_path / ".venv" / "installed.py").write_text("from runlab.lab.app import Lab\n")
     check_project(sources=[tmp_path])
 
 
 @pytest.mark.parametrize("line,named", [
-    ("from benchlab.lab.app import Lab", "benchlab.lab.app.Lab"),
-    ("from benchlab.record import Record", "benchlab.record.Record"),
-    ("from benchlab import cli", "benchlab.cli"),
-    ("from benchlab.cli import folder_of", "benchlab.cli.folder_of"),
-    ("import benchlab.record", "benchlab.record"),
+    ("from runlab.lab.app import Lab", "runlab.lab.app.Lab"),
+    ("from runlab.record import Record", "runlab.record.Record"),
+    ("from runlab import cli", "runlab.cli"),
+    ("from runlab.cli import folder_of", "runlab.cli.folder_of"),
+    ("import runlab.record", "runlab.record"),
 ])
-def test_a_file_importing_benchlabs_own_is_refused_naming_the_line(tmp_path, line, named) -> None:
+def test_a_file_importing_runlabs_own_is_refused_naming_the_line(tmp_path, line, named) -> None:
     (tmp_path / "deep").mkdir()
     (tmp_path / "deep" / "piece.py").write_text(f"import numpy\n{line}\n")
     with pytest.raises(AssertionError) as refusal:

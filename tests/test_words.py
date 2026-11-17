@@ -1,6 +1,6 @@
-"""The page's words (``docs/design.md`` §10): Benchlab names every slot and holds a word for each
-(``benchlab/lab/words.toml``); a project's words file lists only the words it changes. Nothing in
-that file stops the Lab: an entry Benchlab cannot use is left out, the page keeps Benchlab's own
+"""The page's words (``docs/design.md`` §10): RunLab names every slot and holds a word for each
+(``runlab/lab/words.toml``); a project's words file lists only the words it changes. Nothing in
+that file stops the Lab: an entry RunLab cannot use is left out, the page keeps RunLab's own
 word, and the Lab says so in its terminal. Read off the Lab's own sources: every slot named is
 said, and every slot said is named."""
 
@@ -11,12 +11,12 @@ from pathlib import Path
 
 import pytest
 
-from benchlab import project
-from benchlab.lab import cli, words
-from benchlab.lab.app import Lab
+from runlab import project
+from runlab.lab import cli, words
+from runlab.lab.app import Lab
 from tests import toy
 
-LAB = Path(__file__).resolve().parent.parent / "benchlab" / "lab"
+LAB = Path(__file__).resolve().parent.parent / "runlab" / "lab"
 
 
 @pytest.fixture
@@ -35,12 +35,12 @@ def words_file(tmp_path, monkeypatch):
     words.words.cache_clear()
 
 
-def test_benchlabs_own_words_fill_every_slot_and_no_other() -> None:
+def test_runlabs_own_words_fill_every_slot_and_no_other() -> None:
     own = words.load()
     assert list(own) == list(words.SLOTS) and all(isinstance(w, str) and w for w in own.values())
 
 
-def test_benchlabs_own_file_leaving_a_slot_empty_is_refused(tmp_path, monkeypatch) -> None:
+def test_runlabs_own_file_leaving_a_slot_empty_is_refused(tmp_path, monkeypatch) -> None:
     short = tmp_path / "words.toml"
     short.write_text(words.OWN.read_text(encoding="utf-8").replace('refresh = "Refresh"\n', ""),
                      encoding="utf-8")
@@ -49,7 +49,7 @@ def test_benchlabs_own_file_leaving_a_slot_empty_is_refused(tmp_path, monkeypatc
         words.load()
 
 
-def test_a_project_that_names_no_words_file_keeps_benchlabs_own() -> None:
+def test_a_project_that_names_no_words_file_keeps_runlabs_own() -> None:
     words.words.cache_clear()
     assert project.words_path() is None and words.words() == words.load()
 
@@ -63,17 +63,17 @@ def test_a_projects_file_changes_the_words_it_lists_and_no_other(words_file) -> 
 
 
 @pytest.mark.parametrize("text, slot, why", [
-    ('[extra]\nnew = "New"\n', "extra.new", "extra.new (Benchlab names no such slot)"),
+    ('[extra]\nnew = "New"\n', "extra.new", "extra.new (RunLab names no such slot)"),
     ('[strip]\ncap = "up to {count} side by side"\n', "strip.cap",
      "strip.cap (it writes {count}, which the slot does not offer (it offers: n))"),
     ('[runs]\nheading = "Runs {"\n', "runs.heading", "runs.heading (it holds a brace that is no field"),
     ('[header]\nrefresh = 3\n', "header.refresh", "header.refresh (it is not text)"),
 ])
-def test_an_entry_benchlab_cannot_use_is_left_out_and_said(words_file, text, slot, why) -> None:
+def test_an_entry_runlab_cannot_use_is_left_out_and_said(words_file, text, slot, why) -> None:
     path = words_file(text + '\n[form]\nrun = "Go"\n')
     own, got = words.load(), words.words()
     assert list(got) == list(words.SLOTS) and got.get(slot) == own.get(slot), "its own word kept"
-    assert got["form.run"] == "Go", "the entry beside it, which Benchlab can use, is used"
+    assert got["form.run"] == "Go", "the entry beside it, which RunLab can use, is used"
     said = words.left_out()
     assert said.startswith(f"the words file {path}: left out") and why in said
     assert "form.run" not in said
@@ -91,7 +91,7 @@ def test_a_words_file_that_cannot_be_read_is_left_out_whole_and_said(words_file,
         and ": the file (" in words.left_out()
 
 
-def test_a_words_file_benchlab_can_use_whole_says_nothing(words_file) -> None:
+def test_a_words_file_runlab_can_use_whole_says_nothing(words_file) -> None:
     words_file('[header]\nrefresh = "Reload"\n')
     assert words.left_out() == ""
 
@@ -106,7 +106,7 @@ def test_the_lab_starts_on_a_words_file_it_cannot_use_and_says_what_it_left_out(
     monkeypatch.setattr(cli, "stop_runs_on_sigterm", lambda: None)
     assert cli.main(["--no-open", "--port", "0"]) == 0 and len(served) == 1
     out = capsys.readouterr().out
-    assert "lab: the words file" in out and "strip.toggel (Benchlab names no such slot)" in out
+    assert "lab: the words file" in out and "strip.toggel (RunLab names no such slot)" in out
 
 
 def test_a_word_a_project_changes_is_the_word_on_the_page(words_file, two_runs) -> None:

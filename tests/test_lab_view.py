@@ -26,9 +26,9 @@ from pathlib import Path
 import panel as pn
 import pytest
 
-from benchlab import cli
-from benchlab.lab import jobs, skin, state
-from benchlab.lab.app import Lab, page, serve
+from runlab import cli
+from runlab.lab import jobs, skin, state
+from runlab.lab.app import Lab, page, serve
 
 
 def _wave(root: str, out_dir: str, name: str, *sets: str) -> str:
@@ -327,7 +327,7 @@ def test_a_page_that_cannot_be_built_shows_why_instead_of_nothing(tmp_path: Path
     def raises(*_a, **_k):
         raise ValueError("the registry would not read")
 
-    import benchlab.lab.app as app_module
+    import runlab.lab.app as app_module
     original = app_module.Lab
     app_module.Lab = raises
     try:

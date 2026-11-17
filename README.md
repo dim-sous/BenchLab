@@ -1,17 +1,24 @@
-# Benchlab
+# RunLab
+
+**Named Benchlab until 0.10.** The package a project imports is `runlab`. Until 1.0 two things
+keep the old name, so that a project written for Benchlab needs no change: the name it is
+installed by (`benchlab`, in a project's `dependencies` and its `uv` source), and `benchlab`
+itself, which still imports and hands over to `runlab` (`from benchlab import Settings`,
+`benchlab.cli:main`, `benchlab.lab:main`, `benchlab.testing`), as does a declaration made in the
+entry-point group `benchlab`.
 
 The bench every project shares. A project brings its pieces: for each one its settings, its
-`run(settings) -> record`, and what the record keeps and can draw. Benchlab brings the rest:
+`run(settings) -> record`, and what the record keeps and can draw. RunLab brings the rest:
 
 | package | holds |
 |---|---|
-| `benchlab/record/` | the settings layer (`Settings` on `param`: every setting with a group, refused in words when wrong, `needs` for a setting that applies only while another holds a named value, `None` for the code's own default, `record_of` for a setting naming another piece's saved run) and the run file (`Record`, saved as one JSON and loaded back bit for bit; `Series` and `Number`, the charts and numbers a record declares; `Figure`, a plotly figure the record draws itself from its own fields, for what lines against an axis cannot say; `Provenance`, what produced it) |
-| `benchlab/figure/` | one panel spec built from what the records declare, drawn two ways: a PNG still with a JSON sidecar, and the Lab's live chart. Runs overlaid, a row each, or pooled by their mean or RMS; a summary number against a setting. A figure a piece draws itself is passed through to the page as the piece drew it, on the card's paper |
-| `benchlab/runner.py` | one run of a piece: its Config (the one given, else the defaults) with the settings given, run, named and saved; what a sweep makes. The side door and the Lab both run it, so the same settings make the same file |
-| `benchlab/cli/` | the project's command, the side door: `<command> run <piece>` (settings from a file, `--set`, `--sweep`; one record per run) and `<command> draw <record>…` (the panels as stills, or `--number N --vs SETTING`) |
-| `benchlab/lab/` | the Lab: one local page on Panel over the records -- the runs to tick, filter and compare, their charts as cards, the form that starts runs. Each run is its own process (`python -m benchlab.runner`), never more at once than the machine has cores, shown in the runs in progress along the bottom with a Stop each; the Lab never goes through the command line and computes nothing itself |
-| `benchlab/project.py` | the one door to the project: the declaration below, found once and checked |
-| `benchlab/testing.py` | the check a project calls from one test of its own: that what it declares is what Benchlab reads |
+| `runlab/record/` | the settings layer (`Settings` on `param`: every setting with a group, refused in words when wrong, `needs` for a setting that applies only while another holds a named value, `None` for the code's own default, `record_of` for a setting naming another piece's saved run) and the run file (`Record`, saved as one JSON and loaded back bit for bit; `Series` and `Number`, the charts and numbers a record declares; `Figure`, a plotly figure the record draws itself from its own fields, for what lines against an axis cannot say; `Provenance`, what produced it) |
+| `runlab/figure/` | one panel spec built from what the records declare, drawn two ways: a PNG still with a JSON sidecar, and the Lab's live chart. Runs overlaid, a row each, or pooled by their mean or RMS; a summary number against a setting. A figure a piece draws itself is passed through to the page as the piece drew it, on the card's paper |
+| `runlab/runner.py` | one run of a piece: its Config (the one given, else the defaults) with the settings given, run, named and saved; what a sweep makes. The side door and the Lab both run it, so the same settings make the same file |
+| `runlab/cli/` | the project's command, the side door: `<command> run <piece>` (settings from a file, `--set`, `--sweep`; one record per run) and `<command> draw <record>…` (the panels as stills, or `--number N --vs SETTING`) |
+| `runlab/lab/` | the Lab: one local page on Panel over the records -- the runs to tick, filter and compare, their charts as cards, the form that starts runs. Each run is its own process (`python -m runlab.runner`), never more at once than the machine has cores, shown in the runs in progress along the bottom with a Stop each; the Lab never goes through the command line and computes nothing itself |
+| `runlab/project.py` | the one door to the project: the declaration below, found once and checked |
+| `runlab/testing.py` | the check a project calls from one test of its own: that what it declares is what RunLab reads |
 
 It began as DeePC's bench, moved here unchanged but for what tied it to DeePC
 (`docs/plan-branch-1.md`, v0.1.0); the page its developer designed is being built on it, a branch at a time
@@ -35,18 +42,18 @@ LIBRARIES = ("numpy", "scipy", "cvxpy", "osqp", "scs")  # the libraries whose ve
 WORDS = Path(__file__).with_name("words.toml")          # only if it changes a word of the Lab's page
 ```
 
-and in its `pyproject.toml`, Benchlab by a range, the two commands, and the entry point that
+and in its `pyproject.toml`, RunLab by a range, the two commands, and the entry point that
 names that module:
 
 ```toml
 [project]
-dependencies = ["benchlab>=0.5,<1", ...]
+dependencies = ["benchlab>=0.5,<1", ...]      # the install name, until 1.0
 
 [project.scripts]
-deepc = "benchlab.cli:main"
-lab = "benchlab.lab:main"
+deepc = "runlab.cli:main"
+lab = "runlab.lab:main"
 
-[project.entry-points.benchlab]
+[project.entry-points.runlab]
 project = "harness"
 
 [tool.uv.sources]
@@ -56,50 +63,50 @@ benchlab = { git = "https://github.com/dim-sous/BenchLab", branch = "main" }
 then `uv sync`. The project's `uv.lock` holds the exact commit, and `uv lock --upgrade-package
 benchlab` raises it, as for any other library. The range is the promise of "What a project may
 use", written down: uv 0.10.10 does not hold a git source to it (measured 2026-11-16: a commit at
-version 0.4.0 resolved under `>=0.5,<1`), so the lock file does the pinning. Benchlab refuses, in words, an environment where no project
+version 0.4.0 resolved under `>=0.5,<1`), so the lock file does the pinning. RunLab refuses, in words, an environment where no project
 declares itself, where two do, or where the module lacks one of these names (`WORDS` it may
 leave out). A record's provenance keeps the commit of `ROOT`, the versions of `LIBRARIES`, then
-Benchlab's own version.
+RunLab's own version.
 
-Benchlab holds every word its page writes itself (`benchlab/lab/words.toml`, a word for each slot
-`benchlab/lab/words.py` names). A project that wants a word different lists it, and only it, in a
+RunLab holds every word its page writes itself (`runlab/lab/words.toml`, a word for each slot
+`runlab/lab/words.py` names). A project that wants a word different lists it, and only it, in a
 words file of its own and names that file as `WORDS`: TOML, one table per part of the page,
 `[strip] cap = "up to {n} side by side"`; a word that counts has a `.one` and a `.many`. Every
-slot it leaves out keeps Benchlab's word, and a project with no words file gets them all.
-Nothing in that file stops the Lab: an entry Benchlab cannot use (it names no slot, or writes a
-field its slot does not offer) is left out, the page keeps Benchlab's word, and the Lab says so
+slot it leaves out keeps RunLab's word, and a project with no words file gets them all.
+Nothing in that file stops the Lab: an entry RunLab cannot use (it names no slot, or writes a
+field its slot does not offer) is left out, the page keeps RunLab's word, and the Lab says so
 once in its terminal.
 
-While Benchlab and a project are worked on together on one computer, the project points at the
-local copy instead, `benchlab = { path = "../BenchLab", editable = true }`, and that line is never
+While RunLab and a project are worked on together on one computer, the project points at the
+local copy instead, `runlab = { path = "../BenchLab", editable = true }`, and that line is never
 committed. `uv` writes the path into the project's `uv.lock` as well: after switching back to the
 git source, run `uv lock` before committing, and `git diff uv.lock` holds no `../BenchLab`.
 
 ## What a project may use
 
-A project uses Benchlab the way it uses numpy: it touches what is listed here and nothing deeper.
+A project uses RunLab the way it uses numpy: it touches what is listed here and nothing deeper.
 **From 0.5 until 1.0 nothing on this list is removed, renamed or changed in meaning; things may be
-added.** Everything else in Benchlab is its own and may change in any version.
+added.** Everything else in RunLab is its own and may change in any version.
 `tests/test_shore.py` holds the list, and the made-up project the suite runs on uses nothing else.
 
 | | what a project may use |
 |---|---|
-| the names `benchlab` holds | `Settings`, `with_overrides`, `Record`, `Series`, `Figure`, `Number`, `Provenance`, `stamp`, `bound_refs`, as `from benchlab import Settings, Record` |
-| a setting | a `param` parameter on a `Settings`, of any kind `param` offers: a whole number, a number, yes/no, text, a choice and a list are read and written by Benchlab; any other (a matrix, a date, a pair, a table) is typed as the text `param` reads (`[[1, 2], [3, 4]]`, `2026-02-03`), saved as `param` writes it and loaded as the real thing (from 0.9). Its `metadata` carries `group` (required) and any of `unit`, `lines`, `needs`, `replicate`, `draws`, `record_of`, `folded`, `rows` (`benchlab/record/config.py` says what each is) |
-| a piece | a module holding `Config` (a `Settings`), `run` (`run(config) -> record`) and `Record` (a frozen dataclass on Benchlab's `Record`, its `component` the piece's registered name). The record declares what it can draw: `series()`, its charts, lines against an axis; and `figures()`, the plotly figures it draws itself, each a `Figure` |
-| the declaration | the entry point in the group `benchlab`, and the module it names, holding `NAMES`, `get_component`, `COMMAND`, `TITLE`, `ROOT` and `LIBRARIES`, and `WORDS` if it changes a word |
-| the words | a words file naming the words of the page the project changes, by the slots of `benchlab/lab/words.toml`. A slot's name is not promised: an entry Benchlab cannot use is left out and said, never refused |
-| the two commands | `benchlab.cli:main` and `benchlab.lab:main`, as the project's `pyproject.toml` names them; its tests may call `main` of either |
+| the names `runlab` holds | `Settings`, `with_overrides`, `Record`, `Series`, `Figure`, `Number`, `Provenance`, `stamp`, `bound_refs`, as `from runlab import Settings, Record` |
+| a setting | a `param` parameter on a `Settings`, of any kind `param` offers: a whole number, a number, yes/no, text, a choice and a list are read and written by RunLab; any other (a matrix, a date, a pair, a table) is typed as the text `param` reads (`[[1, 2], [3, 4]]`, `2026-02-03`), saved as `param` writes it and loaded as the real thing (from 0.9). Its `metadata` carries `group` (required) and any of `unit`, `lines`, `needs`, `replicate`, `draws`, `record_of`, `folded`, `rows` (`runlab/record/config.py` says what each is) |
+| a piece | a module holding `Config` (a `Settings`), `run` (`run(config) -> record`) and `Record` (a frozen dataclass on RunLab's `Record`, its `component` the piece's registered name). The record declares what it can draw: `series()`, its charts, lines against an axis; and `figures()`, the plotly figures it draws itself, each a `Figure` |
+| the declaration | the entry point in the group `runlab`, and the module it names, holding `NAMES`, `get_component`, `COMMAND`, `TITLE`, `ROOT` and `LIBRARIES`, and `WORDS` if it changes a word |
+| the words | a words file naming the words of the page the project changes, by the slots of `runlab/lab/words.toml`. A slot's name is not promised: an entry RunLab cannot use is left out and said, never refused |
+| the two commands | `runlab.cli:main` and `runlab.lab:main`, as the project's `pyproject.toml` names them; its tests may call `main` of either |
 | the run file | a run saved by an earlier version is still listed and drawn |
 | a run's files, **not yet promised** | from 0.8, and still open to change until a project has used them: inside `run`, `run_files()` gives the folder of the run in progress, where the piece writes what it likes (a trained network, a checkpoint), kept as `<name>.files/` beside the run file, which lists each file's name and size; `files_of(path)` gives the folder of a saved run, for a later run that a setting (`record_of`) points at it |
-| the check | `benchlab.testing`, holding `check_project` |
+| the check | `runlab.testing`, holding `check_project` |
 
 A project checks that it plugs in from one test of its own, on runs it made through its own
-command (Benchlab runs no piece itself: only the project knows settings that run quickly):
+command (RunLab runs no piece itself: only the project knows settings that run quickly):
 
 ```python
-from benchlab.cli import main
-from benchlab.testing import check_project
+from runlab.cli import main
+from runlab.testing import check_project
 
 def test_the_pieces_plug_into_the_bench(tmp_path):
     main(["run", "wave", "--name", "one", "--out-dir", str(tmp_path)])
@@ -112,9 +119,9 @@ that do not build the Lab's form; a run that
 does not load, declares a chart that does not draw, or a figure of its own plotly does not take,
 or lists a file its run wrote that is not in its folder at the size listed;
 and a Python file of the project that
-imports more of Benchlab than this list.
+imports more of RunLab than this list.
 
-## Working on Benchlab
+## Working on RunLab
 
 ```
 uv sync
@@ -125,8 +132,8 @@ uv run ruff check .
 
 The suite builds the Lab's page and drives it without a browser (`tests/test_lab.py`,
 `tests/test_lab_view.py`) and in one (`tests/test_lab_browser.py`), on the made-up project, which
-uses of Benchlab only what a project may. A project's own suite checks one thing, that its
-pieces plug in (`benchlab.testing`, above), and reads nothing deeper.
+uses of RunLab only what a project may. A project's own suite checks one thing, that its
+pieces plug in (`runlab.testing`, above), and reads nothing deeper.
 
 ## Licence
 

@@ -16,7 +16,7 @@ from typing import Any
 
 import numpy as np
 
-from benchlab.figure.style import INK_SECONDARY, LINE_WIDTH, REF_WIDTH, apply_style, save_figure
+from runlab.figure.style import INK_SECONDARY, LINE_WIDTH, REF_WIDTH, apply_style, save_figure
 
 __all__ = ["Line", "Band", "Ref", "Axes", "Panel", "DASHES", "BAND_ALPHA", "SHORT", "broken",
            "has_legend", "render"]

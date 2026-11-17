@@ -162,3 +162,22 @@ What is left for you to judge:
 6. **Such a setting cannot be swept** from the sweep row.
 7. **A typed matrix equal to the default counts as set** when written differently
    (`[[1, 0], [0, 1]]` against `[[1.0, 0.0], [0.0, 1.0]]`): the form compares the text.
+
+## R6: the rename to RunLab (2026-11-17, not yet merged)
+
+Built from `docs/plan-branch-R6.md`, on your three choices of that day (0.10.0 now and 1.0
+later; the old name keeps working; the install name stays until 1.0). What is left for you:
+
+1. **The repository's own name on GitHub** is still BenchLab. Renaming it is yours, in the
+   repository's settings on the website; GitHub forwards the old address. Best done with 1.0,
+   when DeePC's install lines are edited anyway.
+2. **What stays `benchlab` until 1.0**: the name a project installs, the key of the version
+   stamp in every run file, and the stand-in a project still imports.
+3. **The stand-in holds only what a project may use** (the names, `cli`, `lab`, `testing`).
+   `benchlab.record`, which a project used before 0.5, no longer imports; DeePC has used none
+   of it since R1.
+4. **Past plans, the incident log and the dated parts of the design and the notes keep the old
+   name**, as records of what was done then.
+5. **DeePC can switch to the new name** (`from runlab import ...`, the group `runlab`) whenever
+   you like, in a branch of its own; nothing asks for it before 1.0.
+6. **Whether the stand-in is dropped at 1.0 or kept** is yours to say then.

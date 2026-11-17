@@ -1,4 +1,4 @@
-"""The one door to the project (``benchlab/project.py``): the declared module found once and kept,
+"""The one door to the project (``runlab/project.py``): the declared module found once and kept,
 refused in words when no project is declared, when two are, or when the module lacks a name; and
 what a record's provenance takes from it."""
 
@@ -14,8 +14,8 @@ from pathlib import Path
 import pytest
 
 import tests.toy as toy
-from benchlab import project
-from benchlab.record import stamp
+from runlab import project
+from runlab.record import stamp
 
 
 def _declare(monkeypatch, *modules: str) -> list[str]:
@@ -32,11 +32,12 @@ def _declare(monkeypatch, *modules: str) -> list[str]:
     return asked
 
 
-def test_benchlab_itself_declares_no_project() -> None:
-    """Benchlab is installed beside every project it serves: a declaration of its own would make
+def test_runlab_itself_declares_no_project() -> None:
+    """RunLab is installed beside every project it serves: a declaration of its own would make
     every project's environment declare two, which is refused. Read off the installed metadata,
     not the stand-in ``tests/conftest.py`` puts in its place."""
-    assert list(importlib.metadata.entry_points(group=project.GROUP)) == []
+    for group in project.GROUPS:
+        assert list(importlib.metadata.entry_points(group=group)) == []
 
 
 def test_the_declared_module_is_found_once_and_kept(monkeypatch) -> None:
@@ -44,19 +45,19 @@ def test_the_declared_module_is_found_once_and_kept(monkeypatch) -> None:
     assert project.declared() is toy
     assert project.piece_names() == ("wave", "lag", "fit")
     assert project.get_component("wave") is sys.modules["tests.toy.wave"]
-    assert asked == [project.GROUP], "looked up once, in its own group"
+    assert asked == list(project.GROUPS), "looked up once, in its group and its old one"
 
 
 def test_no_project_declared_is_refused_naming_what_to_declare(monkeypatch) -> None:
     _declare(monkeypatch)
-    with pytest.raises(LookupError, match=r"no project declares itself to Benchlab: .*"
-                                          r"\[project\.entry-points\.benchlab\]"):
+    with pytest.raises(LookupError, match=r"no project declares itself to RunLab: .*"
+                                          r"\[project\.entry-points\.runlab\]"):
         project.declared()
 
 
 def test_two_projects_declared_are_refused_naming_both(monkeypatch) -> None:
     _declare(monkeypatch, "tests.toy", "other.registry")
-    with pytest.raises(LookupError, match=r"2 projects declare themselves to Benchlab "
+    with pytest.raises(LookupError, match=r"2 projects declare themselves to RunLab "
                                           r"\(other\.registry, tests\.toy\)"):
         project.declared()
 
@@ -81,14 +82,14 @@ def test_a_module_lacking_a_declared_name_is_refused_naming_each(monkeypatch) ->
     lacking.NAMES, lacking.get_component, lacking.TITLE = ("a",), (lambda name: None), "A Lab"
     monkeypatch.setitem(sys.modules, "lacking", lacking)
     _declare(monkeypatch, "lacking")
-    with pytest.raises(LookupError, match=r"^lacking, the module declared to Benchlab, does not "
+    with pytest.raises(LookupError, match=r"^lacking, the module declared to RunLab, does not "
                                           r"hold COMMAND, ROOT, LIBRARIES$"):
         project.declared()
 
 
-def test_a_record_is_stamped_from_the_projects_root_and_libraries_then_benchlab() -> None:
+def test_a_record_is_stamped_from_the_projects_root_and_libraries_then_runlab() -> None:
     prov = stamp(0.5)
-    assert list(prov.versions) == [*toy.LIBRARIES, "benchlab"]
+    assert list(prov.versions) == [*toy.LIBRARIES, "benchlab"]      # its install name until 1.0
     assert prov.versions["benchlab"] == importlib.metadata.version("benchlab")
     head = subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=toy.ROOT, check=True,
                           capture_output=True, text=True).stdout.strip()
@@ -96,7 +97,7 @@ def test_a_record_is_stamped_from_the_projects_root_and_libraries_then_benchlab(
 
 
 def test_the_commit_is_read_in_the_declared_root_and_nowhere_else(monkeypatch, tmp_path) -> None:
-    """The toy's ROOT is Benchlab's own repository, which is also where the record layer's own
+    """The toy's ROOT is RunLab's own repository, which is also where the record layer's own
     folder and the tests' working directory lead: pointed at a repository with no commit, the
     stamp must fail there, as a record stamped from nowhere would read as one from nowhere."""
     subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)

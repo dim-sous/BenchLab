@@ -1,20 +1,8 @@
-"""Benchlab: the bench every project shares. A project brings its pieces; Benchlab brings their
-settings and run files (:mod:`benchlab.record`), the charts drawn from them
-(:mod:`benchlab.figure`), the command line that runs and draws them (:mod:`benchlab.cli`) and the
-Lab's page over them (:mod:`benchlab.lab`). It reaches the project only through the declaration
-the project makes (:mod:`benchlab.project`; ``README.md`` says how).
-
-What a project may use is what this module holds, :mod:`benchlab.testing`, and the two commands
-its ``pyproject.toml`` names (``benchlab.cli:main``, ``benchlab.lab:main``). Nothing here is
-removed, renamed or changed in meaning before 1.0 (``README.md``, "What a project may use";
-``tests/test_shore.py`` holds the list). Everything deeper is Benchlab's own and may change in
-any version. ``run_files`` and ``files_of`` (from 0.8) are held and not yet promised: no project
-has used them yet.
+"""The name RunLab had until 0.10, kept so that a project written for it needs no change: what a
+project may use (``README.md``, "What a project may use"), handed over from :mod:`runlab`, with
+:mod:`benchlab.cli`, :mod:`benchlab.lab` and :mod:`benchlab.testing` beside it. Nothing deeper
+is here: the rest of RunLab was never a project's to use.
 """
 
-from benchlab.record import (Figure, Number, Provenance, Record, Series, bound_refs, files_of,
-                             run_files, stamp)
-from benchlab.record.config import Settings, with_overrides
-
-__all__ = ["Settings", "with_overrides", "Record", "Series", "Figure", "Number", "Provenance",
-           "stamp", "bound_refs", "run_files", "files_of"]
+from runlab import *            # noqa: F403 -- every name runlab holds for a project
+from runlab import __all__      # noqa: F401 -- and the list of them

@@ -1,4 +1,4 @@
-"""The files a run writes beside its run file (``benchlab/record/files.py``), on the made-up
+"""The files a run writes beside its run file (``runlab/record/files.py``), on the made-up
 ``fit``: they are kept in the run's folder and listed in its run file, a later run reads them,
 they go with the run, and a run that writes none saves what it saved before."""
 
@@ -11,11 +11,11 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-import benchlab
-from benchlab import cli
-from benchlab.lab import jobs, state, view
-from benchlab.runner import planned
-from benchlab.testing import check_project
+import runlab
+from runlab import cli
+from runlab.lab import jobs, state, view
+from runlab.runner import planned
+from runlab.testing import check_project
 from tests.stand_ins import settled
 from tests.test_runner import _ended, _real
 from tests.toy import fit
@@ -54,7 +54,7 @@ def test_a_later_run_starts_from_an_earlier_runs_file(tmp_path) -> None:
     second = fit.Record.load(_fit(tmp_path, "second", "steps=6", f"start_from={first}"))
     whole = fit.Record.load(_fit(tmp_path, "whole", "steps=12"))
     assert second.numbers == pytest.approx(whole.numbers, rel=1e-12)
-    assert benchlab.files_of(first) == tmp_path / "fit" / "first.files"
+    assert runlab.files_of(first) == tmp_path / "fit" / "first.files"
 
 
 def test_a_run_that_fails_leaves_the_earlier_run_of_its_name_whole(tmp_path) -> None:
@@ -77,14 +77,14 @@ def test_a_run_again_under_one_name_replaces_the_folder(tmp_path) -> None:
 
 def test_the_folder_is_refused_in_words_where_there_is_none(tmp_path) -> None:
     with pytest.raises(LookupError, match="no run is in progress"):
-        benchlab.run_files()
+        runlab.run_files()
     with pytest.raises(LookupError, match="no run is in progress"):
         fit.run(fit.Config())
     with pytest.raises(FileNotFoundError, match="no run file at"):
-        benchlab.files_of(tmp_path / "absent.json")
+        runlab.files_of(tmp_path / "absent.json")
     cli.main(["run", "wave", "--out-dir", str(tmp_path)])
     with pytest.raises(FileNotFoundError, match="wrote no file"):
-        benchlab.files_of(tmp_path / "wave" / "default.json")
+        runlab.files_of(tmp_path / "wave" / "default.json")
 
 
 def test_the_lab_and_the_side_door_keep_the_same_files(tmp_path, toy_installed) -> None:

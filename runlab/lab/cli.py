@@ -11,7 +11,7 @@ import argparse
 import os
 import signal
 
-from benchlab.cli import DEFAULT_OUT_DIR
+from runlab.cli import DEFAULT_OUT_DIR
 
 from . import jobs, words
 from .app import serve

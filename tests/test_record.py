@@ -10,8 +10,8 @@ import numpy as np
 import param
 import pytest
 
-from benchlab.record import Number, Provenance, Record, Series, read_header, stamp
-from benchlab.record.config import Settings, from_dict, with_overrides
+from runlab.record import Number, Provenance, Record, Series, read_header, stamp
+from runlab.record.config import Settings, from_dict, with_overrides
 
 
 class _Config(Settings):

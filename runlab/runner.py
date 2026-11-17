@@ -1,4 +1,4 @@
-"""One run of a piece: what the side door (:mod:`benchlab.cli`) and the Lab both run.
+"""One run of a piece: what the side door (:mod:`runlab.cli`) and the Lab both run.
 
 ``planned`` turns a record name, the ``SETTING=VALUE`` texts and the ``--sweep`` texts into the
 runs they make, one per sweep combination, each with its record name and its setting pairs;
@@ -6,7 +6,7 @@ runs they make, one per sweep combination, each with its record name and its set
 else the defaults), applies those pairs once (so a gate a sweep opens is open when the setting
 behind it is checked), runs it, names the record and saves it. So the same settings make the same file whichever way they come in (``docs/design.md`` §4).
 
-Run as a program, ``python -m benchlab.runner <piece> <name> <out_dir> <pairs as JSON>``, it is
+Run as a program, ``python -m runlab.runner <piece> <name> <out_dir> <pairs as JSON>``, it is
 one run started by the Lab (decision 3: each run its own process, never the command line). Its
 answer is one JSON line on the stdout it was started with: ``{"saved": "<path>"}``, written
 once the record is whole on disk. Everything else it or its piece writes goes to stderr, a line at
@@ -26,9 +26,9 @@ import sys
 from collections.abc import Sequence
 from pathlib import Path
 
-from benchlab.project import get_component
-from benchlab.record.config import Settings, parse_override, with_overrides
-from benchlab.record.files import keep, writing
+from runlab.project import get_component
+from runlab.record.config import Settings, parse_override, with_overrides
+from runlab.record.files import keep, writing
 
 __all__ = ["planned", "run_once", "main"]
 
@@ -67,7 +67,7 @@ def run_once(piece: str, pairs: Sequence[tuple[str, str]], name: str, out_dir: s
              config: Settings | None = None):
     """Run ``piece`` once on its Config (``config``, else the defaults) with ``pairs`` applied,
     name the record ``name`` and save it as ``<out_dir>/<piece>/<name>.json``, the files it wrote
-    (``benchlab.run_files``) in ``<name>.files/`` beside it. Returns the path and the record."""
+    (``runlab.run_files``) in ``<name>.files/`` beside it. Returns the path and the record."""
     component = get_component(piece)
     cfg = with_overrides(config if config is not None else component.Config(), list(pairs))
     path = os.path.join(out_dir, piece, f"{name}.json")

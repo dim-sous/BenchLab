@@ -353,6 +353,14 @@ resets. One branch each, in this order:
    2026-11-17, as for R4): built on the made-up project's `fit`, a matrix and a date.
 6. **R6, the rename to RunLab, as 1.0** (the developer, 2026-11-15: last, once the shore is
    proven; after R1 it touches about five import lines in DeePC).
+   **Built, as 0.10.0 and not 1.0** (2026-11-17, `docs/plan-branch-R6.md`; the developer's three
+   choices of that day): the package is `runlab`; `benchlab` stays as a stand-in handing over
+   to it, and a project declared in the entry-point group `benchlab` is still found, so DeePC
+   needs no change; the name a project installs, and the key a run file's version stamp is
+   under, stay `benchlab` until 1.0. **1.0 is a branch of its own**, once a project has used
+   R4's run folder and R5's settings: it changes the install name, the stamp's key and DeePC's
+   install lines (its `<1` shuts 1.0 out until then), and promises R4's two names. Measured
+   that day: 26 import lines in DeePC, not five.
 
 **R1 is built** (2026-11-16, `docs/plan-branch-R1.md` with its "As built", `v0.5.0`; the developer
 chose it over figures first). What a project may use is listed in `README.md` and held by

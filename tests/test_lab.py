@@ -20,48 +20,48 @@ from typing import Any
 
 import pytest
 
-from benchlab import project, record
-from benchlab.lab import jobs, state
-from benchlab.lab.app import Lab
-from benchlab.runner import planned
+from runlab import project, record
+from runlab.lab import jobs, state
+from runlab.lab.app import Lab
+from runlab.runner import planned
 from tests.stand_ins import Process, settled
 
 ROOT = Path(__file__).resolve().parent.parent
-LAB = ROOT / "benchlab" / "lab"
+LAB = ROOT / "runlab" / "lab"
 SOURCES = sorted(p for p in LAB.glob("*.py"))
-#: Exactly what the Lab may take from the rest of Benchlab, by module and name.
+#: Exactly what the Lab may take from the rest of RunLab, by module and name.
 _ALLOWED = {# the declared project: its pieces, and its command and title -- words, never the
             # project's module, which holds every piece (before the move: NAMES, get_component)
-            "benchlab.project": {"piece_names", "get_component", "command", "title",
+            "runlab.project": {"piece_names", "get_component", "command", "title",
                                  # and the file of the page's own words (lab.words)
                                  "words_path"},
             # a record's header keys, and how every word the page shows begins (the developer's
             # rule, 2026-10-27)
-            "benchlab.record": {"read_header", "FILES_KEY", "COMPONENT_KEY", "PANELS_KEY", "NUMBER_SPECS_KEY",
+            "runlab.record": {"read_header", "FILES_KEY", "COMPONENT_KEY", "PANELS_KEY", "NUMBER_SPECS_KEY",
                                 "PANEL_GROUPS_KEY", "HEADER_KEYS", "capital"},
             # the settings' declarations; and a typed value read as the run will read it, so
             # Run refuses what the run would refuse before queueing it (decision 5)
-            "benchlab.record.config": {"fields_of", "coerce_value"},
-            "benchlab.record.files": {"kept", "discard"},
+            "runlab.record.config": {"fields_of", "coerce_value"},
+            "runlab.record.files": {"kept", "discard"},
             # the one constant saying where records live
-            "benchlab.cli": {"DEFAULT_OUT_DIR"},
+            "runlab.cli": {"DEFAULT_OUT_DIR"},
             # how a record name and the form's words become runs, the command line's own rule
-            "benchlab.runner": {"planned"},
+            "runlab.runner": {"planned"},
             # what a card draws is the figure layer's own: the panel built from what the records
             # declare and the card's controls hold, the refusal a control is greyed with, and the
             # twin of it the page shows; the colour a run wears is the figure layer's slot, so
             # its dot in the list matches its lines; the page's paper, inks, rules and type are
             # the figure layer's, so a chart sits on its card's paper
-            "benchlab.figure.chart": {"chart_of", "sweep_of", "pool_refusal", "distinct"},
-            "benchlab.figure.twin": {"figure_of"},
+            "runlab.figure.chart": {"chart_of", "sweep_of", "pool_refusal", "distinct"},
+            "runlab.figure.twin": {"figure_of"},
             # a figure the piece draws itself, as the page's pane takes it: passed through
-            "benchlab.figure.own": {"own_figure"},
-            "benchlab.figure.style": {"series_color", "FONT", "MONO", "SURFACE", "INK",
+            "runlab.figure.own": {"own_figure"},
+            "runlab.figure.style": {"series_color", "FONT", "MONO", "SURFACE", "INK",
                                       "INK_SECONDARY", "GRID"}}
 _THIRD_PARTY = {"panel", "param"}
-_OWN = {"benchlab"}
+_OWN = {"runlab"}
 #: The Lab's own package: what a Lab file takes from another Lab file is not checked here.
-_LAB = "benchlab.lab"
+_LAB = "runlab.lab"
 #: Call names that would make the Lab compute instead of read. Cheap to check and easy to
 #: dodge by renaming, which is why the capability itself is held by the tripwire test below.
 #: Loading a record through its class is READING (every rule of it the class's own), so
@@ -189,7 +189,7 @@ def test_every_chart_on_the_page_is_the_figure_layers(monkeypatch, two_runs) -> 
     the shown runs' records in the order they were ticked."""
     import panel as pn
 
-    import benchlab.lab.app as app_module
+    import runlab.lab.app as app_module
     built: list[tuple[str, list[str]]] = []
     real_chart = app_module.chart_of
 
@@ -229,7 +229,7 @@ def test_the_page_wears_the_projects_title_and_lists_its_pieces(two_runs) -> Non
 
 
 def test_the_labs_own_command_line_says_what_the_lab_does() -> None:
-    from benchlab.lab import cli as lab_cli
+    from runlab.lab import cli as lab_cli
     parser = lab_cli.build_parser()
     assert parser.prog == "lab" and "the runs in progress along the bottom" in parser.description
     [out_dir] = [a for a in parser._actions if a.dest == "out_dir"]
@@ -408,7 +408,7 @@ def test_the_strip_shows_how_long_each_run_has_run(two_runs) -> None:
 def test_the_form_ends_where_the_strip_begins(two_runs) -> None:
     """A run can be stopped while the next is set up: the drawer never covers the strip, whose
     Stop replaced the header's (2a review)."""
-    from benchlab.lab import skin
+    from runlab.lab import skin
     root, out_dir = two_runs
     lab = _lab(root, out_dir, jobs.Queue(at_once=1, start=lambda run: Process()))
     assert lab.drawer.styles["height"] == f"calc(100vh - {skin.HEADER_PX + skin.STRIP_PX}px)"
@@ -430,10 +430,10 @@ def _drawn(lab: Lab) -> list[Any]:
 def test_no_setting_number_chart_or_plain_button_wears_a_hover(two_runs) -> None:
     """The mockup's round 2: no hover on a setting, a compare row, a card's title or foot, a
     button of the list or the index, or a card's close. A greyed card control keeps its reason
-    on its hover: those words are Benchlab's own."""
+    on its hover: those words are RunLab's own."""
     import panel as pn
 
-    from benchlab.lab import skin
+    from runlab.lab import skin
     root, out_dir = two_runs
     lab = _lab(root, out_dir, jobs.Queue(at_once=1, start=lambda run: Process()))
     lab.tick_listed()
@@ -484,7 +484,7 @@ def test_a_value_its_setting_refuses_is_said_under_it_and_nothing_is_queued(
         two_runs, picks, name, text, words) -> None:
     """``docs/design.md`` decision 5, the developer's answer of 2026-11-14: refused when Run is
     pressed, under the setting; the form stays open and nothing is queued. Edited, the words go."""
-    from benchlab.lab import skin
+    from runlab.lab import skin
     root, out_dir = two_runs
     queue = jobs.Queue(at_once=1, start=lambda run: Process())
     lab = _lab(root, out_dir, queue)

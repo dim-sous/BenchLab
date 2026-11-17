@@ -15,8 +15,8 @@ from typing import Any
 
 import numpy as np
 
-from benchlab.figure.render import BAND_ALPHA, SHORT, Panel, broken, has_legend
-from benchlab.figure.style import FONT, GRID, INK, INK_SECONDARY, LINE_WIDTH, MONO, REF_WIDTH, SURFACE
+from runlab.figure.render import BAND_ALPHA, SHORT, Panel, broken, has_legend
+from runlab.figure.style import FONT, GRID, INK, INK_SECONDARY, LINE_WIDTH, MONO, REF_WIDTH, SURFACE
 
 __all__ = ["figure_of", "ONE_PX", "MORE_ROW_PX"]
 

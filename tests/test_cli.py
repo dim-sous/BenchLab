@@ -9,7 +9,7 @@ import os
 
 import pytest
 
-from benchlab import cli
+from runlab import cli
 
 
 def _run(out, *words: str) -> None:
@@ -86,7 +86,7 @@ def test_a_number_is_drawn_against_a_setting(tmp_path) -> None:
 ])
 def test_a_sweep_is_refused_in_the_projects_command_by_the_runner_s_rule(tmp_path, words,
                                                                         error) -> None:
-    """The sweep's rule is the runner's (``benchlab.runner.planned``), which the Lab uses too."""
+    """The sweep's rule is the runner's (``runlab.runner.planned``), which the Lab uses too."""
     with pytest.raises(SystemExit, match=error):
         _run(tmp_path, *words)
     assert not (tmp_path / "wave").exists()

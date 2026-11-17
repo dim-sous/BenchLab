@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from benchlab.figure.style import FONT, GRID, INK, INK_SECONDARY, MONO, NEUTRAL, SURFACE, series_color
-from benchlab.figure.twin import ONE_PX
+from runlab.figure.style import FONT, GRID, INK, INK_SECONDARY, MONO, NEUTRAL, SURFACE, series_color
+from runlab.figure.twin import ONE_PX
 
 __all__ = ["own_figure", "TEMPLATE"]
 

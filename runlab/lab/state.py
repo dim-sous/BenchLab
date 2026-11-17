@@ -14,11 +14,11 @@ import json
 from pathlib import Path
 from typing import Any
 
-from benchlab.project import get_component, piece_names
-from benchlab.record import (COMPONENT_KEY, FILES_KEY, HEADER_KEYS, NUMBER_SPECS_KEY,
+from runlab.project import get_component, piece_names
+from runlab.record import (COMPONENT_KEY, FILES_KEY, HEADER_KEYS, NUMBER_SPECS_KEY,
                              PANEL_GROUPS_KEY, PANELS_KEY, read_header)
-from benchlab.record.config import fields_of
-from benchlab.record.files import kept
+from runlab.record.config import fields_of
+from runlab.record.files import kept
 
 from .words import say, say_n
 

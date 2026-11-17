@@ -1,7 +1,7 @@
 """Runs in progress: each run its own process, queued and started by the Lab, never more at once
 than the machine has cores (``docs/design.md`` decision 3 and §4).
 
-A run is the program ``python -m benchlab.runner`` (:mod:`benchlab.runner`) under the Lab's own
+A run is the program ``python -m runlab.runner`` (:mod:`runlab.runner`) under the Lab's own
 interpreter, in the project root: the Lab never goes through the command line. A run moves
 ``queued`` -> ``running`` -> ``done`` | ``failed`` | ``stopped``; ``queued`` -> ``stopped`` (never
 started) or ``failed`` (could not start); and ``stopped`` -> ``done`` when its process had saved
@@ -11,7 +11,7 @@ refused. The queue is the Lab's, one per process: every browser tab shows the sa
 when the Lab stops, whatever still runs is stopped with it.
 
 Every word that becomes a run is checked against a declaration this module read (the registry,
-:func:`benchlab.record.config.fields_of`); what the run makes of it is the runner's, refusals
+:func:`runlab.record.config.fields_of`); what the run makes of it is the runner's, refusals
 included, and a failed run says so in the last line it wrote. One rule is restated, and held to
 its source by a test: a typed value outside the bounds its setting declares, or one its setting
 cannot read, is refused before any run is queued (:func:`refusals`, ``docs/design.md``
@@ -37,10 +37,10 @@ from typing import Any, Callable, Mapping, Optional, Sequence
 
 import param
 
-from benchlab.cli import DEFAULT_OUT_DIR
-from benchlab.project import command, get_component, piece_names
-from benchlab.record.config import coerce_value, fields_of
-from benchlab.record.files import discard, kept
+from runlab.cli import DEFAULT_OUT_DIR
+from runlab.project import command, get_component, piece_names
+from runlab.record.config import coerce_value, fields_of
+from runlab.record.files import discard, kept
 
 from .form import as_text
 from .words import say, say_n
@@ -80,7 +80,7 @@ def _name(name: str) -> str:
 
 def checked(piece: str, planned: Sequence[tuple[str, Sequence[tuple[str, str]]]]
             ) -> list[tuple[str, list[tuple[str, str]]]]:
-    """``planned`` -- ``(record name, setting pairs)`` per run, as :func:`benchlab.runner.planned`
+    """``planned`` -- ``(record name, setting pairs)`` per run, as :func:`runlab.runner.planned`
     makes them -- with every word checked against what ``piece`` declares; refused in words."""
     piece = _piece(piece)
     names = {f["name"] for f in fields_of(get_component(piece).Config)}
@@ -97,7 +97,7 @@ def refusals(piece: str, typed: Mapping[str, str], swept: str = "",
     """What ``piece``'s settings refuse before any run is queued (``docs/design.md`` decision
     5): each ``typed`` value, by setting, and the first refused rung of the ``swept`` setting, in
     words; ``({}, "")`` when they take everything. A value is read as the run will read it
-    (:func:`benchlab.record.config.coerce_value`, on the setting's declaration) and held to the
+    (:func:`runlab.record.config.coerce_value`, on the setting's declaration) and held to the
     bounds the setting declares; the piece's Config is never built."""
     cls = get_component(_piece(piece)).Config
     fields = {f["name"]: f for f in fields_of(cls)}
@@ -229,7 +229,7 @@ class Run:
 
 def start_process(run: Run) -> subprocess.Popen:
     """``run`` as its own program: the runner, under this interpreter, in the project root."""
-    argv = [sys.executable, "-m", "benchlab.runner", run.piece, run.name, run.out_dir,
+    argv = [sys.executable, "-m", "runlab.runner", run.piece, run.name, run.out_dir,
             json.dumps(run.pairs)]
     return subprocess.Popen(argv, cwd=run.root, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                             text=True, errors="replace")

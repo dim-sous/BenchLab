@@ -34,10 +34,10 @@ import panel as pn
 import pytest
 from playwright import sync_api as playwright
 
-from benchlab import cli
-from benchlab.lab import jobs
-from benchlab.lab.app import serve
-from benchlab.runner import planned
+from runlab import cli
+from runlab.lab import jobs
+from runlab.lab.app import serve
+from runlab.runner import planned
 from tests.stand_ins import settled
 from tests.toy import wave
 
@@ -159,10 +159,10 @@ def test_nothing_wears_a_hover_but_a_greyed_control_and_run_refuses_under_a_sett
         tmp_path, toy_installed) -> None:
     """``docs/design.md`` decision 5, in the browser: with both runs shown, a chart card, a
     number card, the form open and a run in the strip, the only hovers left are greyed controls'
-    reasons (their style is :data:`benchlab.lab.skin.GREYED`) and the chart toolbar's own button
+    reasons (their style is :data:`runlab.lab.skin.GREYED`) and the chart toolbar's own button
     names, which the mockup kept. Then A = -1 and Run: refused under A, the form still open,
     nothing more queued."""
-    from benchlab.lab import skin
+    from runlab.lab import skin
     with _served(tmp_path, "?shown=first,second&open=u") as (page, errors, root, out_dir):
         _shows(page, "2 on disk")
         jobs.QUEUE.submit("wave", planned("long", ["delay=60"]), root=root, out_dir=out_dir)

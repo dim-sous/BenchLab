@@ -1,17 +1,17 @@
 """The page's own words (``docs/design.md`` §10, which replaced decision 4).
 
-Benchlab names every slot and the fields its word may use, and holds a word for each: its own
+RunLab names every slot and the fields its word may use, and holds a word for each: its own
 words file, ``words.toml`` beside this module. A project may change any of them: its words file
-(``WORDS`` in its declaration, :mod:`benchlab.project`) lists only the words it wants different,
-and every other slot keeps Benchlab's. Both files are TOML, one table per part of the page --
+(``WORDS`` in its declaration, :mod:`runlab.project`) lists only the words it wants different,
+and every other slot keeps RunLab's. Both files are TOML, one table per part of the page --
 ``[strip] cap = "up to {n} side by side"`` fills ``strip.cap`` -- and a word writes a field as
 ``{n}``. A word that counts is two slots, ``….one`` and ``….many``: which reads for a count is
 the file's language (:func:`say_n`).
 
 Nothing in a project's file stops the Lab (the developer, 2026-11-15: "If a word is missing or
-wrong i will see it in the lab and make the change"). An entry Benchlab cannot use -- it names
+wrong i will see it in the lab and make the change"). An entry RunLab cannot use -- it names
 no slot, is not text, writes a field its slot does not offer, or holds a brace that is no field
--- is left out, the page keeps Benchlab's own word, and the Lab says so once, in its terminal
+-- is left out, the page keeps RunLab's own word, and the Lab says so once, in its terminal
 (:func:`left_out`, :mod:`lab.cli`); so does a file it cannot read. A slot's name is therefore
 not promised: renamed, a project's entry for it is left out and said. Not slots: words the page
 shows but does not write -- a record's, a piece's labels, param's, the runner's and the figure
@@ -27,9 +27,9 @@ import tomllib
 from pathlib import Path
 from typing import Any
 
-from benchlab.project import words_path
+from runlab.project import words_path
 
-#: Benchlab's own words, one for every slot.
+#: RunLab's own words, one for every slot.
 OWN = Path(__file__).with_name("words.toml")
 #: Every slot, by the part of the page it shows in, and the fields its word may use.
 SLOTS: dict[str, tuple[str, ...]] = {
@@ -125,12 +125,12 @@ def _fields(word: str) -> set[str]:
 
 
 def _unusable(given: dict[str, Any]) -> dict[str, str]:
-    """Why Benchlab cannot use an entry of a words file, by the slot it names; an entry that is
+    """Why RunLab cannot use an entry of a words file, by the slot it names; an entry that is
     not here, it can."""
     out = {}
     for slot, word in given.items():
         if slot not in SLOTS:
-            out[slot] = "Benchlab names no such slot"
+            out[slot] = "RunLab names no such slot"
         elif not isinstance(word, str):
             out[slot] = "it is not text"
         else:
@@ -146,8 +146,8 @@ def _unusable(given: dict[str, Any]) -> dict[str, str]:
 
 
 def _own() -> dict[str, str]:
-    """Benchlab's own words, one for every slot. Its file leaving a slot empty, or holding an
-    entry :func:`_unusable` names, is a mistake in Benchlab and is refused, naming each."""
+    """RunLab's own words, one for every slot. Its file leaving a slot empty, or holding an
+    entry :func:`_unusable` names, is a mistake in RunLab and is refused, naming each."""
     with open(OWN, "rb") as f:
         given = _flat(tomllib.load(f))
     problems = [f"{slot}: {why}" for slot, why in _unusable(given).items()]
@@ -155,12 +155,12 @@ def _own() -> dict[str, str]:
     if missing:
         problems.append(f"leaves {len(missing)} slot(s) empty: {', '.join(missing)}")
     if problems:
-        raise ValueError(f"Benchlab's own words file {OWN} " + "; ".join(problems))
+        raise ValueError(f"RunLab's own words file {OWN} " + "; ".join(problems))
     return {slot: given[slot] for slot in SLOTS}
 
 
 def read(path: Path) -> tuple[dict[str, str], list[str]]:
-    """A project's words file: the words of it Benchlab can use, by slot, and each thing it
+    """A project's words file: the words of it RunLab can use, by slot, and each thing it
     leaves out with why -- an entry :func:`_unusable` names, or the whole file when it cannot be
     read. Nothing here is refused (the module says why)."""
     try:
@@ -174,18 +174,18 @@ def read(path: Path) -> tuple[dict[str, str], list[str]]:
 
 
 def load(path: Path | None = None) -> dict[str, str]:
-    """Every slot's word: Benchlab's own, and over them the words ``path``, a project's file,
+    """Every slot's word: RunLab's own, and over them the words ``path``, a project's file,
     changes."""
     own = _own()
     return own if path is None else {**own, **read(Path(path))[0]}
 
 
 def left_out() -> str:
-    """One line naming what of the declared project's words file Benchlab leaves out, each with
+    """One line naming what of the declared project's words file RunLab leaves out, each with
     why; empty when the project names no file or every entry of it is used."""
     path = words_path()
     out = [] if path is None else read(path)[1]
-    return (f"the words file {path}: left out, the page keeping Benchlab's own words: "
+    return (f"the words file {path}: left out, the page keeping RunLab's own words: "
             + "; ".join(out)) if out else ""
 
 

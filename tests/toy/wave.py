@@ -5,7 +5,7 @@ wave and excludes both its bounds, so the form has a gate and an open interval t
 includes both of its, [0, 10]: ends a value may equal. The Run group is folded. Its Run
 group is test machinery for the runs in progress: a wait before it computes; a print to stdout,
 left in Python's buffer and holding a byte that is not UTF-8; a crash, or a refusal written over
-several lines as Benchlab's own ``Record.load`` writes one."""
+several lines as RunLab's own ``Record.load`` writes one."""
 
 from __future__ import annotations
 
@@ -16,8 +16,8 @@ import time
 import numpy as np
 import param
 
-from benchlab import Number, Provenance, Series, Settings, stamp
-from benchlab import Record as _Record
+from runlab import Number, Provenance, Series, Settings, stamp
+from runlab import Record as _Record
 
 __all__ = ["Config", "run", "Record"]
 

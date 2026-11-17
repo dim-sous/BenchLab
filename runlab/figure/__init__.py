@@ -10,6 +10,6 @@ import matplotlib
 
 matplotlib.use("Agg")  # headless; must precede any pyplot import
 
-from benchlab.figure.draw import draw, draw_one, draw_sweep
+from runlab.figure.draw import draw, draw_one, draw_sweep
 
 __all__ = ["draw", "draw_one", "draw_sweep"]

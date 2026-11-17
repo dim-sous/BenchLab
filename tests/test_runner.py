@@ -1,4 +1,4 @@
-"""Runs in progress (``benchlab/lab/jobs.py``) and the program each run is (``benchlab/runner.py``).
+"""Runs in progress (``runlab/lab/jobs.py``) and the program each run is (``runlab/runner.py``).
 
 The queue's rules are driven with stand-in processes, which end when the test says: never more at
 once than it allows, the rest started in order as runs end; Stop ends one run and nothing else;
@@ -21,9 +21,9 @@ from pathlib import Path
 
 import pytest
 
-from benchlab import cli
-from benchlab.lab import jobs
-from benchlab.runner import planned
+from runlab import cli
+from runlab.lab import jobs
+from runlab.runner import planned
 from tests.stand_ins import Process, settled
 
 SAVED = '{"saved": "results/wave/x.json"}'
@@ -192,7 +192,7 @@ def test_the_lab_refuses_a_value_exactly_when_the_settings_would(name, opened) -
     just inside and just outside each declared bound, NaN, both infinities and text that is no
     number, the Lab refuses exactly when reading the text as the run does and building the Config
     with it raises -- which only a test may do. ``opened``: the gate the setting needs, open."""
-    from benchlab.record.config import coerce_value
+    from runlab.record.config import coerce_value
     from tests.toy.wave import Config
     p = Config.param[name]
     texts = ["nan", "inf", "-inf", "2.5", "fast", "0", "-1"]
@@ -314,8 +314,8 @@ def test_a_sweep_runs_side_by_side(tmp_path, toy_installed) -> None:
 
 _LAB_WITH_A_LONG_RUN = """
 import sys, time
-from benchlab.lab import cli, jobs
-from benchlab.runner import planned
+from runlab.lab import cli, jobs
+from runlab.runner import planned
 cli.stop_runs_on_sigterm()
 [run] = jobs.QUEUE.submit("wave", planned("long", ["delay=60"]), root=sys.argv[1], out_dir="results")
 print(run.process.pid, flush=True)

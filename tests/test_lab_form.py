@@ -14,12 +14,12 @@ from pathlib import Path
 
 import pytest
 
-from benchlab.cli import folder_of
-from benchlab.lab import jobs, state, view
-from benchlab.lab.form import Form, as_text, term
-from benchlab.lab.words import say
-from benchlab.project import get_component, piece_names
-from benchlab.record.config import coerce_value, fields_of
+from runlab.cli import folder_of
+from runlab.lab import jobs, state, view
+from runlab.lab.form import Form, as_text, term
+from runlab.lab.words import say
+from runlab.project import get_component, piece_names
+from runlab.record.config import coerce_value, fields_of
 
 
 @pytest.fixture

@@ -5,7 +5,7 @@
     <command> draw <record.json> [<record.json> ...] [--panel NAME ...] [--number NAME --vs SETTING]
                   [--runs HOW] [--out-dir DIR]
 
-``<command>`` is the name the project declares (``COMMAND``, :mod:`benchlab.project`) and gives
+``<command>`` is the name the project declares (``COMMAND``, :mod:`runlab.project`) and gives
 this module's :func:`main` in its ``pyproject.toml``; ``--help`` says it in its place.
 
 ``run`` builds the piece's Config (the file's values, else the defaults), applies each
@@ -27,11 +27,11 @@ import sys
 from pathlib import Path
 from typing import Optional, Sequence
 
-from benchlab.project import command, get_component, piece_names
-from benchlab.record import read_header
-from benchlab.record.config import from_dict
-from benchlab.record.files import kept
-from benchlab.runner import planned, run_once
+from runlab.project import command, get_component, piece_names
+from runlab.record import read_header
+from runlab.record.config import from_dict
+from runlab.record.files import kept
+from runlab.runner import planned, run_once
 
 DEFAULT_OUT_DIR = "results"
 
@@ -114,7 +114,7 @@ def folder_of(names: Sequence[str]) -> str:
 
 
 def draw_command(args: argparse.Namespace) -> int:
-    from benchlab.figure import draw, draw_sweep          # matplotlib only when drawing
+    from runlab.figure import draw, draw_sweep          # matplotlib only when drawing
 
     pieces = {read_header(path)["component"] for path in args.records}
     if len(pieces) > 1:

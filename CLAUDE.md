@@ -1,4 +1,4 @@
-# Benchlab: the bench every project shares
+# RunLab: the bench every project shares
 
 One package, installed in each project the way numpy is, holding what every project's bench
 needs: the settings and run files, the charts, the command line and the Lab's page. What it is
@@ -15,10 +15,10 @@ new session starts from `.claude/memory/MEMORY.md`: keep it current and commit i
 - Python through uv only, 3.13 as pinned: `uv sync`, `uv run pytest`, `uv run ruff check .`.
   The suite runs on a made-up project of three pieces (`tests/toy/`); `tests/conftest.py` declares
   it for every test.
-- Benchlab is tested here, on the made-up project, which uses of Benchlab only what a project
+- RunLab is tested here, on the made-up project, which uses of RunLab only what a project
   may (`README.md`, "What a project may use"; `tests/test_shore.py` holds the list). A project's
-  own suite checks that its pieces plug in, with the check Benchlab ships
-  (`benchlab.testing.check_project`), and reads nothing deeper. A change to what a project may
+  own suite checks that its pieces plug in, with the check RunLab ships
+  (`runlab.testing.check_project`), and reads nothing deeper. A change to what a project may
   use is not done until the project it was made for passes its whole suite on it, through a
   local editable install that is never committed (`README.md`).
 
@@ -39,23 +39,24 @@ new session starts from `.claude/memory/MEMORY.md`: keep it current and commit i
 
 ## Rules no test can catch
 
-- **RunLab is used like numpy** (the developer, 2026-11-15; RunLab is Benchlab's coming name).
+- **RunLab is used like numpy** (the developer, 2026-11-15; it was named Benchlab until 0.10).
   A change in a project never needs a change here, and a new version here never needs a change
   in a project that does not want what is new. Branch R1 (`v0.5.0`) named what a project may use
   and promised it until 1.0; R2 to R6 follow, and 2d and 2e wait for them (`docs/design.md` §10).
   R2 (`v0.6.0`) put the page's words here; R3 (`v0.7.0`) lets a piece hand the page a figure
   it draws itself; R4 (`v0.8.0`) gives each run a folder for the files it writes, built on
   the made-up project alone and so not yet promised; R5 (`v0.9.0`) takes a setting of any
-  kind `param` offers, written and read by `param` itself, built on the made-up project too.
+  kind `param` offers, written and read by `param` itself, built on the made-up project too;
+  R6 (`v0.10.0`) is the rename, the old name still importing and installing until 1.0.
   ([L2]; RCWS `[A9]`)
-- **Benchlab names no project.** Its code and the words its page shows reach a project only
-  through the project's declaration (`benchlab/project.py`); what a test can hold of this,
-  `tests/test_layers.py` holds. Benchlab holds the page's own words (`benchlab/lab/words.toml`),
+- **RunLab names no project.** Its code and the words its page shows reach a project only
+  through the project's declaration (`runlab/project.py`); what a test can hold of this,
+  `tests/test_layers.py` holds. RunLab holds the page's own words (`runlab/lab/words.toml`),
   none of them a project's: a word only one project needs is written in that project's words
-  file, over the slot Benchlab names for it (`docs/design.md` §10, R2).
+  file, over the slot RunLab names for it (`docs/design.md` §10, R2).
 - **The run file is a contract with every project.** A change to what a record saves, or how it
-  loads, is a new Benchlab version, and every project takes it by raising its lock
-  (`uv lock --upgrade-package benchlab`) and running its own suite. A run saved before the
+  loads, is a new RunLab version, and every project takes it by raising its lock
+  (`uv lock --upgrade-package benchlab`: the install name until 1.0) and running its own suite. A run saved before the
   change is still listed and drawn (`docs/design.md` §4).
 - **Evidence over judgement.** A claim about the code, in a comment, a README or a PR, is checked
   against the code the day it is written; never assert why a number moved, measure it.
@@ -70,5 +71,5 @@ new session starts from `.claude/memory/MEMORY.md`: keep it current and commit i
 - **Figures describe, they never conclude:** no title, axis labels that name the quantity, a
   legend only when there is more than one label, a bound named by the quantity it bounds (DeePC
   `[D7]`). The checklist is DeePC's skill `figure-conventions` (its `.claude/skills/`); it holds
-  for `benchlab/figure/` and `benchlab/lab/`, and DeePC's `tests/test_figure.py` checks part of it.
+  for `runlab/figure/` and `runlab/lab/`, and DeePC's `tests/test_figure.py` checks part of it.
 - The repository is public: no papers, no private data, no credentials.

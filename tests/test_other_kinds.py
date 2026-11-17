@@ -1,4 +1,4 @@
-"""Settings of other kinds than the six (``benchlab/record/config.py``, ``other_kind``): a
+"""Settings of other kinds than the six (``runlab/record/config.py``, ``other_kind``): a
 matrix, a date, a pair, a table. Each is typed as the text param reads, saved as param writes it
 and loaded as the real thing; the six kinds are read and written as before. On a Config of its
 own, then on the made-up ``fit``, whose ``scale`` is a matrix and whose ``day`` a calendar date."""
@@ -13,11 +13,11 @@ import numpy as np
 import param
 import pytest
 
-from benchlab import Provenance, Record, Settings, cli, with_overrides
-from benchlab.lab import jobs, state, view
-from benchlab.lab.form import Form, as_text
-from benchlab.record.config import fields_of, other_kind, saved
-from benchlab.runner import planned
+from runlab import Provenance, Record, Settings, cli, with_overrides
+from runlab.lab import jobs, state, view
+from runlab.lab.form import Form, as_text
+from runlab.record.config import fields_of, other_kind, saved
+from runlab.runner import planned
 from tests.test_runner import _ended, _real
 from tests.toy import fit
 

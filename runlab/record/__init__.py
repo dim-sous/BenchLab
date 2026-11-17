@@ -7,7 +7,7 @@ float]``, plus the arrays its figures will draw. It declares, from its own field
 figure layer may draw (``series()``), the figures it draws itself (``figures()``: what lines
 against an abscissa cannot say) and the words and units of its numbers (``number_specs()``), so a
 drawing and a listing cannot drift from the data. What a run writes beyond its run file, a
-trained network or a checkpoint, is kept in a folder beside it (:mod:`benchlab.record.files`).
+trained network or a checkpoint, is kept in a folder beside it (:mod:`runlab.record.files`).
 
 A number with no answer is left out of ``numbers``, never saved as NaN. Non-finite values inside
 an array ride as the tokens ``"nan"``, ``"inf"``, ``"-inf"`` and load back as floats. A float is
@@ -30,9 +30,9 @@ from typing import Any, ClassVar
 
 import numpy as np
 
-from benchlab.project import declared
-from benchlab.record.config import Settings, from_dict, saved
-from benchlab.record.files import files_of, listed, run_files
+from runlab.project import declared
+from runlab.record.config import Settings, from_dict, saved
+from runlab.record.files import files_of, listed, run_files
 
 __all__ = ["Provenance", "stamp", "Series", "Figure", "bound_refs", "Number", "Record", "read_header", "capital",
            "run_files", "files_of",
@@ -45,6 +45,8 @@ PANEL_GROUPS_KEY = "panel_groups"
 #: The files the run wrote beside its run file, ``[{name, bytes}]``; left out when it wrote none.
 FILES_KEY = "files"
 HEADER_KEYS = (COMPONENT_KEY, PANELS_KEY, NUMBER_SPECS_KEY, PANEL_GROUPS_KEY, FILES_KEY)
+#: The name RunLab is installed by, and so stamped under, until 1.0 (``pyproject.toml``).
+INSTALLED = "benchlab"
 _NONFINITE = {"nan": math.nan, "inf": math.inf, "-inf": -math.inf}
 
 
@@ -60,7 +62,7 @@ class Provenance:
     git_dirty: bool
     date: str              # UTC, ISO 8601
     duration_s: float
-    versions: dict         # {library: version}: the project's LIBRARIES, then benchlab
+    versions: dict         # {library: version}: the project's LIBRARIES, then RunLab's own
 
 
 def _git(*args: str) -> str:
@@ -75,7 +77,7 @@ def stamp(duration_s: float) -> Provenance:
                       date=datetime.now(timezone.utc).isoformat(timespec="seconds"),
                       duration_s=float(duration_s),
                       versions={lib: version(lib)
-                                for lib in (*declared().LIBRARIES, "benchlab")})
+                                for lib in (*declared().LIBRARIES, INSTALLED)})
 
 
 # ---------------------------------------------------------------------------
@@ -262,7 +264,7 @@ class Record:
 
     def save(self, path: str | os.PathLike[str]) -> Path:
         """Write header then fields, atomically; with them, the files the folder beside
-        ``path`` holds (:mod:`benchlab.record.files`), when it holds one. Refuses a non-finite
+        ``path`` holds (:mod:`runlab.record.files`), when it holds one. Refuses a non-finite
         or undeclared number."""
         numbers = getattr(self, "numbers", {})
         bad = sorted(k for k, v in numbers.items() if not math.isfinite(float(v)))

@@ -7,9 +7,9 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
-from benchlab.figure.chart import chart_of, series_of, sweep_of
-from benchlab.figure.render import render
-from benchlab.record import Record, stamp
+from runlab.figure.chart import chart_of, series_of, sweep_of
+from runlab.figure.render import render
+from runlab.record import Record, stamp
 
 __all__ = ["draw_one", "draw", "draw_sweep"]
 

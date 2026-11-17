@@ -9,7 +9,7 @@ bottom.
 thing it is supposed to show, and then the two disagree. So it does mechanical things only:
 
 * **serves a page** on Panel (:mod:`lab.app`), on 127.0.0.1;
-* **starts runs**, each its own process (:mod:`benchlab.runner`), never more at once than the
+* **starts runs**, each its own process (:mod:`runlab.runner`), never more at once than the
   machine has cores, and stops one when asked; beside each it prints, as ``lab: <line>``, the
   side-door command that makes the same record;
 * **reads** the registered Configs (their field declarations, through

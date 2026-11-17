@@ -17,8 +17,8 @@ import time
 import numpy as np
 import param
 
-from benchlab import Figure, Number, Provenance, Series, Settings, bound_refs, stamp
-from benchlab import Record as _Record
+from runlab import Figure, Number, Provenance, Series, Settings, bound_refs, stamp
+from runlab import Record as _Record
 
 from . import wave
 

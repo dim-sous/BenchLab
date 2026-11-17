@@ -10,8 +10,8 @@ its card, unframed, and the two cannot drift apart. The look is RCWS's ``lab/ski
 
 from __future__ import annotations
 
-from benchlab.figure.style import FONT as SANS
-from benchlab.figure.style import GRID, INK, INK_SECONDARY, MONO, SURFACE
+from runlab.figure.style import FONT as SANS
+from runlab.figure.style import GRID, INK, INK_SECONDARY, MONO, SURFACE
 
 FONTS = ('@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500'
          '&family=IBM+Plex+Sans:wght@400;500;600&display=swap");')

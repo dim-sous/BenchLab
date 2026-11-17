@@ -16,8 +16,8 @@ import time
 import numpy as np
 import param
 
-from benchlab import Number, Provenance, Series, Settings, files_of, run_files, stamp
-from benchlab import Record as _Record
+from runlab import Number, Provenance, Series, Settings, files_of, run_files, stamp
+from runlab import Record as _Record
 
 __all__ = ["Config", "run", "Record"]
 

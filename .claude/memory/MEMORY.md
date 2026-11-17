@@ -1,12 +1,36 @@
-# Benchlab: where the work stands
+# RunLab (named Benchlab until 0.10): where the work stands
 
 Start here in a new session. Updated 2026-11-17: **R1 to R5 are merged** (`v0.5.0`, `v0.6.0`,
-`v0.7.0`, `v0.8.0`, `v0.9.0`); each
-`docs/plan-branch-R*.md`, "As built", holds what was built and measured. **Next: R6, the
-rename to RunLab as 1.0**, on the developer's go; neither R4's two names nor R5 has had a real
-user yet, and the developer placed R6 "once the shore is proven". The direction since 2026-11-15
-(`docs/design.md` §10): Benchlab, to be renamed RunLab, is used like numpy. 2d and 2e are on
-hold. VS Code on the developer's computer, WSL2, 12 CPUs.
+`v0.7.0`, `v0.8.0`, `v0.9.0`); each `docs/plan-branch-R*.md`, "As built", holds what was built
+and measured. **R6, the rename to RunLab, is built as 0.10.0 and committed on the session's
+branch** (below); its merge and its tag are written here once they are done. The direction since 2026-11-15
+(`docs/design.md` §10): RunLab is used like numpy. 2d and 2e are on hold. VS Code on the
+developer's computer, WSL2, 12 CPUs. Sections below this one's R6 part are dated records and
+keep the name of their day.
+
+## R6, built 2026-11-17 in the same cloud session
+
+- **The developer's choices (2026-11-17):** "Go" on R6; then **0.10.0 now and 1.0 later** (over
+  the route's "as 1.0": R4's two names are not promised and neither R4 nor R5 has had a real
+  user); **the old name keeps working**; **the install name stays `benchlab` until 1.0**, when
+  DeePC's install lines are edited anyway (its `<1` shuts 1.0 out). They approved the plan
+  (`docs/plan-branch-R6.md`, "As built").
+- **Built:** the package is `runlab` (the folder, every import, `python -m runlab.runner`);
+  `benchlab/` is a stand-in of four files handing over to it; a project declared in the
+  entry-point group `runlab` or `benchlab` is found; `pyproject.toml`'s `name` and the run
+  file's version stamp stay `benchlab`. Past plans and dated notes keep the old name.
+- **Checked (cloud machine):** 363 passed in 110.7 s (355 in 112.4 s before), ruff clean. The
+  made-up project's runs, stills and files equal before and after but provenance. DeePC,
+  unedited, on this working copy: the same seven failures as before, its System run equal, its
+  Lab served through `benchlab.lab:main` and loaded in a browser.
+- **For the developer:** `docs/for-review.md`, "R6", six points; the first is the repository's
+  own name on GitHub, theirs to change.
+- **Git:** the developer chose "All the way: merge" (2026-11-17). Committed on
+  `ccr-ea61ca3b-35fv7x`; the merge is written here once done. The tag `v0.10.0` is theirs to
+  make: check `git ls-remote --tags origin v0.10.0`.
+- **After it: 1.0, a branch of its own**, once a project has used R4's run folder and R5's
+  settings: the install name `runlab`, the stamp's key, DeePC's two install lines and its `<1`,
+  R4's two names promised, the stand-in dropped or kept (the developer's). Then 2d and 2e.
 
 ## R5, merged 2026-11-17 (built in the same cloud session)
 

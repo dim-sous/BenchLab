@@ -1,7 +1,7 @@
-"""The made-up project Benchlab's own tests run on: its registry and its declaration, as a project
+"""The made-up project RunLab's own tests run on: its registry and its declaration, as a project
 writes them (``README.md``), and three pieces: ``wave``; ``lag``, which a saved wave run
-drives; and ``fit``, which writes files beside its run file. It uses of Benchlab only what a project may (``tests/test_testing.py`` holds that), and
-names no words file: its page keeps Benchlab's own words. It is not installed:
+drives; and ``fit``, which writes files beside its run file. It uses of RunLab only what a project may (``tests/test_testing.py`` holds that), and
+names no words file: its page keeps RunLab's own words. It is not installed:
 ``tests/conftest.py`` stands in for the entry point an installed project's ``pyproject.toml``
 gives.
 """
@@ -14,10 +14,10 @@ from types import ModuleType
 
 #: The pieces, in the order every surface shows them.
 NAMES: tuple[str, ...] = ("wave", "lag", "fit")
-#: The command a project's ``pyproject.toml`` would install; the tests call ``benchlab.cli.main``.
+#: The command a project's ``pyproject.toml`` would install; the tests call ``runlab.cli.main``.
 COMMAND = "toy"
 TITLE = "Toy Lab"
-#: The repository whose commit stamps a record: Benchlab's own, which holds this file.
+#: The repository whose commit stamps a record: RunLab's own, which holds this file.
 ROOT = Path(__file__).resolve().parents[2]
 #: Not in alphabetical order, so a record's versions can only have taken theirs from here.
 LIBRARIES: tuple[str, ...] = ("param", "numpy")

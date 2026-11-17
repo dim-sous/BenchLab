@@ -11,16 +11,16 @@ import re
 import plotly.graph_objects as go
 import pytest
 
-import benchlab.figure.render as render_module
-from benchlab import Figure, cli
-from benchlab.figure import draw
-from benchlab.figure.chart import chart_of, sweep_of
-from benchlab.figure.own import TEMPLATE, own_figure
-from benchlab.figure.render import has_legend, render
-from benchlab.figure.twin import figure_of
-from benchlab.figure.style import GRID, SURFACE
-from benchlab.figure.twin import ONE_PX
-from benchlab.record import stamp
+import runlab.figure.render as render_module
+from runlab import Figure, cli
+from runlab.figure import draw
+from runlab.figure.chart import chart_of, sweep_of
+from runlab.figure.own import TEMPLATE, own_figure
+from runlab.figure.render import has_legend, render
+from runlab.figure.twin import figure_of
+from runlab.figure.style import GRID, SURFACE
+from runlab.figure.twin import ONE_PX
+from runlab.record import stamp
 from tests.toy import lag, wave
 
 
@@ -202,7 +202,7 @@ def test_a_pieces_own_figure_reaches_the_page_as_it_drew_it_on_the_cards_paper(r
     [trace] = drawn["data"]
     assert trace["x"] == [-1.0 / rec.config.tau] and trace["y"] == [0.0] and trace["mode"] == "markers"
     assert drawn["layout"]["xaxis"]["title"]["text"] == "Re [rad/s]", "the piece's own words"
-    assert "title" not in drawn["layout"], "Benchlab titles no figure"
+    assert "title" not in drawn["layout"], "RunLab titles no figure"
     under = drawn["layout"]["template"]["layout"]
     assert under["paper_bgcolor"] == under["plot_bgcolor"] == SURFACE, "the card's paper, under it"
     assert under["xaxis"]["gridcolor"] == under["yaxis"]["gridcolor"] == GRID, "a grid that shows on it"

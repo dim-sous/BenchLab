@@ -34,13 +34,13 @@ from typing import Any, Callable, Optional
 
 import panel as pn
 
-from benchlab.figure.chart import chart_of, distinct, pool_refusal, sweep_of
-from benchlab.figure.own import own_figure
-from benchlab.figure.style import series_color
-from benchlab.figure.twin import figure_of
-from benchlab.project import title
-from benchlab.record import capital
-from benchlab.runner import planned
+from runlab.figure.chart import chart_of, distinct, pool_refusal, sweep_of
+from runlab.figure.own import own_figure
+from runlab.figure.style import series_color
+from runlab.figure.twin import figure_of
+from runlab.project import title
+from runlab.record import capital
+from runlab.runner import planned
 
 from . import jobs, shaping, skin, state, view
 from .compare import CompareTable

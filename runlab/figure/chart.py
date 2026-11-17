@@ -28,10 +28,10 @@ from typing import Any
 
 import numpy as np
 
-from benchlab.figure.render import DASHES, Axes, Band, Line, Panel, Ref
-from benchlab.figure.style import INK_SECONDARY, NEUTRAL, series_color, shade
-from benchlab.record import Series, capital
-from benchlab.record.config import fields_of, to_dict
+from runlab.figure.render import DASHES, Axes, Band, Line, Panel, Ref
+from runlab.figure.style import INK_SECONDARY, NEUTRAL, series_color, shade
+from runlab.record import Series, capital
+from runlab.record.config import fields_of, to_dict
 
 __all__ = ["RUNS", "chart_of", "pool_refusal", "sweep_of", "distinct", "telling", "series_of"]
 

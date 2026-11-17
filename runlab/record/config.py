@@ -25,8 +25,14 @@ and saves what it resolved. A list setting holds numbers (the Q and R weights; J
 the command line) or, declared ``item_type=str``, expressions (JSON on the command line).
 ``none`` on the command line sets a setting that allows it back to ``None``.
 
+A setting may hold a LIST OF ROWS, a table: a ``param.List`` whose ``item_type`` is a Settings
+class (the row), each row a set of settings of its own -- how an ordered list of steps is set
+(BESS's ``devkit/record/config.py``; BESS's battery segments). It is a list of
+dicts in a run file and as JSON on the command line (``segments=[{...}, ...]``), and one cell of
+one row is reached by a dotted path, the row numbered from 0 (``segments.1.power_kw=-30``).
+
 A setting may be of any other kind param offers -- a matrix (``param.Array``), a date, a pair, a
-table: param writes it as plain text and reads it back (:func:`other_kind`), so it is typed as
+table of param's: param writes it as plain text and reads it back (:func:`other_kind`), so it is typed as
 that text (``[[1, 2], [3, 4]]``, ``2026-02-03``), saved as it (:func:`saved`) and loaded as the
 real thing. Nothing here names such a kind.
 
@@ -78,8 +84,17 @@ def other_kind(p: param.Parameter) -> bool:
     return definer is not param.Parameter
 
 
+def _rows_of(p: param.Parameter) -> type | None:
+    """The row class of a list of rows, ``None`` for any other setting."""
+    item = getattr(p, "item_type", None) if isinstance(p, param.List) else None
+    return item if isinstance(item, type) and issubclass(item, Settings) else None
+
+
 def _written(p: param.Parameter, value: Any) -> Any:
-    """``value`` as the run file holds it: param's own writing for another kind."""
+    """``value`` as the run file holds it: param's own writing for another kind, each row of a
+    list of rows as its own settings."""
+    if _rows_of(p) and value is not None:
+        return [saved(row) for row in value]
     return p.serialize(value) if other_kind(p) and value is not None else value
 
 
@@ -106,6 +121,8 @@ def gated(cfg: Settings) -> None:
 
 
 def _type_text(p: param.Parameter) -> str:
+    if _rows_of(p):
+        return "rows"
     return {param.Integer: "int", param.Number: "float", param.Boolean: "bool",
             param.String: "str", param.Selector: "choice", param.List: "list"}.get(
         type(p), type(p).__name__)
@@ -113,11 +130,14 @@ def _type_text(p: param.Parameter) -> str:
 
 def fields_of(cls: type) -> list[dict[str, Any]]:
     """One dict per setting -- the one reader every surface (the command line, tests, a form)
-    uses."""
+    uses. A list of rows carries its row's own settings (``element_fields``, read the same way)
+    and what a row added to it starts as (``element_default``); both are ``None`` for any other
+    setting."""
     out = []
     for name, p in _parameters(cls).items():
         meta = p.metadata or {}
         other = other_kind(p)
+        row = _rows_of(p)
         numeric = isinstance(p, param.Number) and not other
         bounds = (getattr(p, "bounds", None) if numeric else None) or (None, None)
         incl = (getattr(p, "inclusive_bounds", None) if numeric else None) or (True, True)
@@ -125,6 +145,8 @@ def fields_of(cls: type) -> list[dict[str, Any]]:
             # another kind's default as the text it is typed as; its bounds are param's to hold
             "name": name, "type": _type_text(p), "default": _written(p, p.default),
             "other": other,
+            "element_fields": fields_of(row) if row else None,
+            "element_default": saved(row()) if row else None,
             "label": p.label or name, "unit": meta.get("unit", ""), "group": meta["group"],
             "doc": (p.doc or "").strip(), "lines": meta.get("lines"),
             "choices": list(p.objects) if isinstance(p, param.Selector) else None,
@@ -142,6 +164,13 @@ def fields_of(cls: type) -> list[dict[str, Any]]:
 _TRUE, _FALSE = {"true", "1", "yes", "on"}, {"false", "0", "no", "off"}
 
 
+def _a_row(p: param.Parameter, held: Any, i: int) -> Mapping[str, Any]:
+    """Row ``i`` of a list of rows as the mapping it is, or a refusal naming the setting."""
+    if not isinstance(held, Mapping):
+        raise ValueError(f"{p.name}: row {i} is {held!r}, not a row {{setting: value, ...}}")
+    return held
+
+
 def _texts(p: param.Parameter, value: Any) -> list[str]:
     """A list of expressions, or a refusal naming the setting."""
     if not isinstance(value, (list, tuple)) or not all(isinstance(v, str) for v in value):
@@ -154,7 +183,29 @@ def coerce_value(p: param.Parameter, value: Any) -> Any:
     setting's numbers become floats (a config file may write the weight 10 as an integer). A list
     of texts (``item_type=str``) is JSON on the command line. A setting of another kind
     (:func:`other_kind`) takes the text param reads, as JSON when it is JSON, or the value a run
-    file holds; a value already of its own type passes through."""
+    file holds; a value already of its own type passes through. A list of rows takes its JSON
+    text or a list of dicts, each dict a row (:func:`from_dict`); a row already built passes
+    through."""
+    row = _rows_of(p)
+    if row is not None:
+        if isinstance(value, str):
+            try:
+                value = json.loads(value)
+            except json.JSONDecodeError:
+                raise ValueError(f"{p.name}: {value!r} is not a list of rows as JSON, "
+                                 f"[{{...}}, ...]") from None
+        if not isinstance(value, (list, tuple)):
+            raise ValueError(f"{p.name}: {value!r} is not a list of rows, [{{...}}, ...]")
+        rows = []
+        for i, r in enumerate(value):
+            try:
+                rows.append(r if isinstance(r, row)
+                            else from_dict(row, _a_row(p, r, i), where=f"{p.name} row {i}"))
+            except ValueError as exc:       # a cell's own refusal, with the row it is in
+                if str(exc).startswith(f"{p.name}:") or f"{p.name} row {i}" in str(exc):
+                    raise
+                raise ValueError(f"{p.name} row {i}: {exc}") from exc
+        return rows
     if other_kind(p):
         return _read(p, value)
     if isinstance(p, param.List) and p.item_type is str:
@@ -223,13 +274,16 @@ def _read(p: param.Parameter, value: Any) -> Any:
 
 
 def to_dict(cfg: Settings) -> dict[str, Any]:
-    """The settings, in declaration order, as the values the piece reads."""
-    return {n: getattr(cfg, n) for n in _parameters(type(cfg))}
+    """The settings, in declaration order, as the values the piece reads; a list of rows as a
+    list of dicts, the rows' own settings as plain values."""
+    return {n: [to_dict(r) for r in getattr(cfg, n)] if _rows_of(p) else getattr(cfg, n)
+            for n, p in _parameters(type(cfg)).items()}
 
 
 def saved(cfg: Settings) -> dict[str, Any]:
     """The settings, in declaration order, as a run file holds them: one of another kind as
-    param writes it (a matrix as nested lists, a date as text)."""
+    param writes it (a matrix as nested lists, a date as text), a list of rows as a list of
+    dicts."""
     return {n: _written(p, getattr(cfg, n)) for n, p in _parameters(type(cfg)).items()}
 
 
@@ -252,22 +306,49 @@ def from_saved(cls: type, raw: Mapping[str, Any]) -> Settings:
     """A Config from the settings a run file holds. An entry ``cls`` has no setting for is left
     out, where :func:`from_dict` refuses it: a settings file is written by hand and a stray key
     in it is a slip, a run file was written by the code of its day and is read as it was saved.
-    A setting the file lacks takes its default, as in :func:`from_dict`."""
+    A setting the file lacks takes its default, as in :func:`from_dict`. The rows of a list of
+    rows are read the same way, each by its row class."""
     params = _parameters(cls)
-    return from_dict(cls, {k: v for k, v in raw.items() if k in params}, where="config")
+    held = {k: v for k, v in raw.items() if k in params}
+    for name, value in held.items():
+        row = _rows_of(params[name])
+        if row is not None and isinstance(value, list):
+            held[name] = [from_saved(row, _a_row(params[name], r, i)) for i, r in enumerate(value)]
+    return from_dict(cls, held, where="config")
 
 
 def with_overrides(cfg: Settings, pairs: Sequence[tuple[str, Any]]) -> Settings:
     """``cfg`` with each ``(setting, value)`` applied, rebuilt ONCE so a gate is checked on the
-    final state, not on an intermediate one."""
+    final state, not on an intermediate one. A dotted ``setting.row.cell`` sets one cell of one
+    row of a list of rows, the rows numbered from 0."""
     cls = type(cfg)
     params = _parameters(cls)
     values = to_dict(cfg)
     for name, value in pairs:
-        if name not in params:
-            raise ValueError(f"unknown setting {name!r} on {cls.__name__}; valid: {sorted(params)}")
-        values[name] = coerce_value(params[name], value)
-    return cls(**values)
+        head, _, rest = name.partition(".")
+        if head not in params:
+            raise ValueError(f"unknown setting {head!r} on {cls.__name__}; valid: {sorted(params)}")
+        if not rest:
+            held = coerce_value(params[head], value)
+            # a list of rows stays plain until the rebuild, so a cell set after it lands on a dict
+            # (BESS, code review 2026-10-27: a row there was spread as if it were a mapping)
+            values[head] = [to_dict(r) for r in held] if _rows_of(params[head]) else held
+            continue
+        row = _rows_of(params[head])
+        if row is None:
+            raise ValueError(f"{name!r}: {head!r} holds no rows, so nothing is inside it")
+        index, _, cell = rest.partition(".")
+        rows = values[head]
+        if not index.isdigit() or int(index) >= len(rows):
+            raise ValueError(f"{name!r}: {head} holds {len(rows)} row(s), numbered from 0; "
+                             f"{index!r} is not one of them")
+        cells = _parameters(row)
+        if cell not in cells:
+            raise ValueError(f"{name!r}: a row of {head} holds no {cell!r}; it holds "
+                             f"{sorted(cells)}")
+        rows[int(index)] = {**rows[int(index)], cell: coerce_value(cells[cell], value)}
+    return cls(**{n: coerce_value(params[n], v) if _rows_of(params[n]) else v
+                  for n, v in values.items()})
 
 
 def parse_override(item: str) -> tuple[str, str]:

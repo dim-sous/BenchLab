@@ -23,6 +23,7 @@ page.
 
 from __future__ import annotations
 
+import copy
 import dataclasses
 import functools
 import html
@@ -44,7 +45,7 @@ from runlab.runner import planned
 
 from . import jobs, shaping, skin, state, view
 from .compare import CompareTable
-from .form import Form, as_text
+from .form import Form, as_text, term
 from .runlist import RunList
 from .strip import RunsInProgress
 from .words import say, say_n, word
@@ -208,6 +209,140 @@ class _Rows:
         self._items.append("")
         self._draw()
         self._on_edit(self._text())
+
+
+class _Table:
+    """A list of rows drawn as a table (BESS's ``lab/app.py``, ``_draw_rows``): a line of its
+    columns' words, then a line per row -- its number, as a path names it
+    (``segments.1.power_kw``), a box or a pick per cell, ✕ to take the row out -- and a button
+    that adds a row, a copy of the last. It holds the rows as the form holds every setting, as
+    the text ``--set`` takes (JSON); ``""`` is the declared default. Every edit by hand calls
+    ``on_edit`` with that text; a value written to it does not. Typing in a cell changes the
+    text and not the table, so the box keeps its cursor; adding or taking out a row draws the
+    table again."""
+
+    #: A box's and a pick's width: a pick shows its options' own lines (BESS, 2026-10-27: at a
+    #: box's width "time in the segment [min]" was cut to "time in the").
+    BOX, PICK = 110, 250
+
+    def __init__(self, f: dict[str, Any], on_edit: Callable[[str], None]) -> None:
+        self.f, self._on_edit = f, on_edit
+        self.view = pn.Column(sizing_mode="stretch_width", margin=0)
+        self._disabled, self._stylesheets = False, [skin.WIDGET]
+        self._cells: list[Any] = []
+        self._buttons: list[Any] = []
+        self._rows: list[dict[str, Any]] = copy.deepcopy(f["default"] or [])
+        self._draw()
+
+    @property
+    def value(self) -> str:
+        return as_text(self._rows)
+
+    @value.setter
+    def value(self, text: str) -> None:
+        self._rows = json.loads(text) if text else copy.deepcopy(self.f["default"] or [])
+        self._draw()
+
+    @property
+    def disabled(self) -> bool:
+        return self._disabled
+
+    @disabled.setter
+    def disabled(self, off: bool) -> None:
+        self._disabled = off
+        for widget in self._cells + self._buttons:
+            widget.disabled = off
+
+    @property
+    def stylesheets(self) -> list[Any]:
+        return self._stylesheets
+
+    @stylesheets.setter
+    def stylesheets(self, sheets: list[Any]) -> None:
+        self._stylesheets = list(sheets)
+        for cell in self._cells:
+            cell.stylesheets = self._stylesheets
+
+    def _row_default(self, i: int) -> dict[str, Any]:
+        """What row ``i`` runs as when a cell of it is emptied: the declared list's own row
+        ``i``, else what a row added to the list starts as (BESS, code review 2026-10-27: the
+        second default leg, a charge, emptied to the added row's discharge)."""
+        default = self.f["default"] or []
+        return default[i] if i < len(default) else self.f["element_default"]
+
+    def _width(self, sub: dict[str, Any]) -> int:
+        return self.PICK if sub.get("choices") else self.BOX
+
+    def _draw(self) -> None:
+        subs = self.f["element_fields"]
+        head = pn.Row(_html("", width=28, margin=(0, 4)),
+                      *[_html(html.escape(term(s)), width=self._width(s), margin=(0, 4),
+                              style=f"{_DIM};font-size:12px") for s in subs], margin=0)
+        lines: list[Any] = [head]
+        self._cells, self._buttons = [], []
+        for i, row in enumerate(self._rows):
+            cells = []
+            for sub in subs:
+                held = as_text(row.get(sub["name"]))
+                if sub.get("choices"):
+                    words = sub.get("lines") or {}
+                    cell = pn.widgets.Select(
+                        width=self._width(sub), margin=(2, 4), value=held,
+                        options={words.get(c, as_text(c)): as_text(c) for c in sub["choices"]},
+                        disabled=self._disabled, stylesheets=self._stylesheets)
+                    cell.param.watch(lambda e, i=i, sub=sub: self._typed(i, sub, e.new), "value")
+                else:
+                    cell = pn.widgets.TextInput(
+                        width=self._width(sub), margin=(2, 4), value=held,
+                        placeholder=as_text(self._row_default(i)[sub["name"]]),
+                        disabled=self._disabled, stylesheets=self._stylesheets)
+                    cell.param.watch(lambda e, i=i, sub=sub: self._typed(i, sub, e.new),
+                                     "value_input")
+                cells.append(cell)
+            drop = _widget(pn.widgets.Button, label="✕", width=30, margin=(2, 0, 0, 6),
+                           disabled=self._disabled)
+            drop.on_click(lambda _e, i=i: self._drop(i))
+            self._cells += cells
+            self._buttons.append(drop)
+            lines.append(pn.Row(_html(str(i), width=28, margin=(0, 4),
+                                      style=f"{_MONO};{_DIM};font-size:12.5px;"
+                                            f"line-height:{skin.BOX_PX}px"),
+                                *cells, drop, margin=0))
+        add = say("form.add_row", name=self.f["label"])
+        more = _widget(pn.widgets.Button, label=add, width=_width(add), margin=(4, 0, 0, 36),
+                       disabled=self._disabled)
+        more.on_click(lambda _e: self._add())
+        self._buttons.append(more)
+        self.view.objects = lines + [more]
+
+    def _typed(self, i: int, sub: dict[str, Any], text: str) -> None:
+        """One cell of row ``i``: a choice as picked, a number as typed (any other text is kept
+        as typed, and Run refuses it under the setting), an emptied cell back at its row's
+        default."""
+        name, text = sub["name"], (text or "").strip()
+        if text == "":
+            self._rows[i][name] = self._row_default(i)[name]
+        elif sub.get("choices"):
+            self._rows[i][name] = next((c for c in sub["choices"] if as_text(c) == text), text)
+        elif sub["type"] in ("float", "int"):
+            try:
+                self._rows[i][name] = float(text) if sub["type"] == "float" else int(text)
+            except ValueError:
+                self._rows[i][name] = text
+        else:
+            self._rows[i][name] = text
+        self._on_edit(self.value)
+
+    def _drop(self, i: int) -> None:
+        del self._rows[i]
+        self._draw()
+        self._on_edit(self.value)
+
+    def _add(self) -> None:
+        self._rows.append(copy.deepcopy(self._rows[-1] if self._rows
+                                        else self.f["element_default"]))
+        self._draw()
+        self._on_edit(self.value)
 
 
 def _width(words: str) -> int:
@@ -1066,7 +1201,7 @@ class Lab:
         blocks: dict[str, list[Any]] = {}       # the row fields, full width under the grid
         for f in self.form.fields:
             cells = groups.setdefault(f["group"], [])
-            if f.get("rows"):
+            if f.get("rows") or f.get("element_fields"):
                 blocks.setdefault(f["group"], []).append(self._rows_block(f))
             else:
                 cells.extend(self._field_cells(f))
@@ -1121,11 +1256,13 @@ class Lab:
                 self._filling = False
 
     def _rows_block(self, f: dict[str, Any]) -> Any:
-        """A row field: its label, then its rows (:class:`_Rows`), then its note."""
+        """A row field: its label, then its rows (a box per item, :class:`_Rows`; a table for a
+        list of rows, :class:`_Table`), then its note."""
         name = f["name"]
         label = _html("", margin=0)
         self._labels[name] = label
-        editor = _Rows(f, on_edit=lambda text, n=name: self._on_type(n, text))
+        editor = (_Table if f.get("element_fields") else _Rows)(
+            f, on_edit=lambda text, n=name: self._on_type(n, text))
         editor.value = self.form.set.get(name, "")
         self._controls[name] = editor
         return pn.Column(label, editor.view, self._note(name), sizing_mode="stretch_width",

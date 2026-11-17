@@ -96,6 +96,7 @@ nothing_differs = "Nothing differs between the shown runs"
 no_colour = "No colour holds two runs at one value"
 
 [form]
+add_row = "+ {name}"
 heading = "New run"
 from_defaults = "From defaults"
 from_run = "From {run}"

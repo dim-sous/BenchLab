@@ -183,6 +183,7 @@ LIST = f"""
 .when {{ font-family: {MONO}; font-size: 11.5px; color: {INK3}; white-space: nowrap;
          overflow: hidden; text-overflow: ellipsis; }}
 .why {{ font-size: 12px; color: {SIGNAL}; margin-top: 1px; }}
+.note {{ font-size: 12px; color: {INK3}; margin-top: 1px; }}
 .run.stale {{ cursor: default; }}
 .run.stale .name {{ color: {INK3}; }}
 .act {{ visibility: hidden; font: 12px {SANS}; color: {INK2}; background: {PAPER};

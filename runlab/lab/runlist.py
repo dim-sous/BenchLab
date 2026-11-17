@@ -23,8 +23,9 @@ _ROW = """
 
 
 class RunList(JSComponent):
-    """``rows`` in (``name`` and ``stale`` -- :func:`lab.view.run_rows`, a stale run's reason
-    written under its name -- and ``colour``, the colour a shown run's lines wear), ``shown``
+    """``rows`` in (``name``, ``stale`` and ``notes`` -- :func:`lab.view.run_rows`: a stale run's
+    reason written under its name, and under a readable one a line for each way its file departs
+    from what its piece reads now -- and ``colour``, the colour a shown run's lines wear), ``shown``
     out: the ticked names in the order they were ticked, toggled by a click on a readable row.
     A click on ``use`` or ``✕`` reaches :attr:`on_use` / :attr:`on_delete` with the run's name
     as a MESSAGE, not a parameter, so the same run asked twice reaches it twice."""
@@ -54,6 +55,7 @@ class RunList(JSComponent):
           const main = el('div', 'main');
           main.append(el('div', 'name', r.name));
           if (r.stale) main.append(el('div', 'why', r.stale));
+          for (const note of (r.notes || [])) main.append(el('div', 'note', note));
           row.append(dot, main);
           if (!r.stale) {
             row.append(action('use', model.words.use, { use: r.name }));

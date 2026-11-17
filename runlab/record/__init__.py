@@ -26,16 +26,16 @@ import typing
 from datetime import datetime, timezone
 from importlib.metadata import version
 from pathlib import Path
-from typing import Any, ClassVar
+from typing import Any, ClassVar, Mapping
 
 import numpy as np
 
 from runlab.project import declared
-from runlab.record.config import Settings, from_dict, saved
+from runlab.record.config import Settings, from_saved, saved, setting_names
 from runlab.record.files import files_of, listed, run_files
 
 __all__ = ["Provenance", "stamp", "Series", "Figure", "bound_refs", "Number", "Record", "read_header", "capital",
-           "run_files", "files_of",
+           "run_files", "files_of", "Absent", "AbsentField", "Difference", "differences",
            "COMPONENT_KEY", "PANELS_KEY", "NUMBER_SPECS_KEY", "PANEL_GROUPS_KEY", "FILES_KEY",
            "HEADER_KEYS"]
 
@@ -210,20 +210,112 @@ def _array_back(value: Any) -> np.ndarray:
     return np.asarray(back(value), dtype=float)
 
 
-def _decode(hint: Any, value: Any) -> Any:
-    if value is None:
-        return None
+def _plain(hint: Any) -> Any:
+    """``hint`` without its ``| None``; a union of several kinds as it is."""
     origin = typing.get_origin(hint)
     if origin is typing.Union or origin is types.UnionType:
         args = [a for a in typing.get_args(hint) if a is not type(None)]
-        return _decode(args[0], value) if len(args) == 1 else value
+        return args[0] if len(args) == 1 else hint
+    return hint
+
+
+def _decode(hint: Any, value: Any) -> Any:
+    if value is None:
+        return None
+    hint = _plain(hint)
     if isinstance(hint, type) and issubclass(hint, Settings):
-        return from_dict(hint, value, where="config")
+        return from_saved(hint, value)
     if hint is Provenance:
-        return Provenance(**value)
+        return Provenance(**{f.name: value.get(f.name) for f in dataclasses.fields(Provenance)})
     if hint is np.ndarray:
         return _array_back(value)
     return value
+
+
+# ---------------------------------------------------------------------------
+#  A file that departs from what its class reads
+# ---------------------------------------------------------------------------
+
+class AbsentField(ValueError):
+    """A field of a record was used that its file holds no value for the class can read."""
+
+
+class Absent:
+    """Stands where a field's value would be when the record's file holds none its class can
+    read. It is no value: every use of it raises :class:`AbsentField` in ``why``'s words, so
+    nothing is drawn or computed from what was never read."""
+
+    __slots__ = ("why",)
+
+    def __init__(self, why: str) -> None:
+        self.why = why
+
+    def __repr__(self) -> str:
+        return f"Absent({self.why!r})"
+
+    def __getattr__(self, name: str) -> Any:
+        # reached only for a name the class does not hold. A dunder is a protocol being probed
+        # (copy's, numpy's): AttributeError, its plain answer. Any other name is a use.
+        if name.startswith("__") and name.endswith("__"):
+            raise AttributeError(name)
+        raise AbsentField(self.why)
+
+    def _used(self, *_: Any, **__: Any) -> Any:
+        raise AbsentField(self.why)
+
+
+for _used_by in ("len", "iter", "getitem", "contains", "bool", "float", "int", "index", "array",
+                 "call", "neg", "pos", "abs", "lt", "le", "gt", "ge",
+                 *(f"{side}{op}" for op in ("add", "sub", "mul", "truediv", "floordiv", "mod",
+                                            "pow", "matmul") for side in ("", "r"))):
+    setattr(Absent, f"__{_used_by}__", Absent._used)
+
+
+@dataclasses.dataclass(frozen=True)
+class Difference:
+    """One way a record file departs from what its class reads."""
+
+    place: str               # "result", "provenance" or "settings"
+    field: str               # the record's field that holds the place; "" for the result itself
+    kind: str                # "lacks": the class reads it and the file holds none; "extra": the reverse
+    names: tuple[str, ...]
+
+
+def differences(cls: type, raw: Mapping[str, Any]) -> tuple[Difference, ...]:
+    """Where the content ``raw`` of a record file departs from what ``cls`` reads: in its
+    fields, then inside the provenance and the settings it holds. Stated once, here: ``load``
+    reads a file by it, and a listing words it."""
+    hints = typing.get_type_hints(cls)
+    names = [f.name for f in dataclasses.fields(cls)]
+    out: list[Difference] = []
+
+    def compare(place: str, field: str, read: Any, held: Any) -> None:
+        lacks, extra = sorted(set(read) - set(held)), sorted(set(held) - set(read))
+        if lacks:
+            out.append(Difference(place, field, "lacks", tuple(lacks)))
+        if extra:
+            out.append(Difference(place, field, "extra", tuple(extra)))
+
+    compare("result", "", names, [k for k in raw if k not in HEADER_KEYS])
+    for name in names:
+        hint, held = _plain(hints[name]), raw.get(name)
+        if not isinstance(held, dict):
+            continue
+        if hint is Provenance:
+            compare("provenance", name, [f.name for f in dataclasses.fields(Provenance)], held)
+        elif isinstance(hint, type) and issubclass(hint, Settings):
+            compare("settings", name, setting_names(hint), held)
+    return tuple(out)
+
+
+def _without(field: dataclasses.Field, path: Path) -> Any:
+    """What a field the file lacks is read as: the default its class declares for it, else
+    no value."""
+    if field.default is not dataclasses.MISSING:
+        return field.default
+    if field.default_factory is not dataclasses.MISSING:
+        return field.default_factory()
+    return Absent(f"the file {path.name} holds no {field.name!r}")
 
 
 # ---------------------------------------------------------------------------
@@ -265,7 +357,12 @@ class Record:
     def save(self, path: str | os.PathLike[str]) -> Path:
         """Write header then fields, atomically; with them, the files the folder beside
         ``path`` holds (:mod:`runlab.record.files`), when it holds one. Refuses a non-finite
-        or undeclared number."""
+        or undeclared number, and a record read from a file that lacked one of its fields."""
+        absent = sorted(f.name for f in dataclasses.fields(self)
+                        if isinstance(getattr(self, f.name), Absent))
+        if absent:
+            raise ValueError(f"{type(self).component} holds no {absent}: a record read from a "
+                             f"file that lacked a field is not saved again")
         numbers = getattr(self, "numbers", {})
         bad = sorted(k for k, v in numbers.items() if not math.isfinite(float(v)))
         if bad:
@@ -293,6 +390,16 @@ class Record:
 
     @classmethod
     def load(cls, path: str | os.PathLike[str]) -> "Record":
+        """The record a file holds, read by what the class declares now. A file that departs
+        from the class is read all the same, and :func:`differences` names how: an entry the
+        class does not read stays in the file and is left unread; a field the file lacks takes
+        the default the class declares for it, else an :class:`Absent`; a field whose saved
+        value does not decode is an :class:`Absent` in the decoder's words. Refused: a file
+        that is not there, and one of another piece.
+
+        The record holds its fields and nothing more: a project rebuilds one from its own
+        ``__dict__`` (observed 2026-11-17: DeePC's suite failed on a record that carried how
+        its file differed)."""
         path = Path(path)
         if not path.exists():
             raise FileNotFoundError(f"no {cls.__name__} record at {path}. Run it first:\n"
@@ -304,17 +411,18 @@ class Record:
             raise ValueError(f"{path} is a {component!r} record, not {cls.component!r}")
         body = {k: v for k, v in raw.items() if k not in HEADER_KEYS}
         hints = typing.get_type_hints(cls)
-        names = [f.name for f in dataclasses.fields(cls)]
-        unknown, missing = sorted(set(body) - set(names)), sorted(set(names) - set(body))
-        if unknown or missing:
-            raise ValueError(f"the record at {path} does not match the current {cls.__name__} "
-                             f"(unknown fields {unknown}, missing {missing}); it predates or "
-                             f"postdates a field. Re-run: {cls.produced_by}")
-        try:
-            return cls(**{n: _decode(hints[n], body[n]) for n in names})
-        except (TypeError, ValueError) as exc:
-            raise ValueError(f"the record at {path} does not load as the current "
-                             f"{cls.__name__} ({exc}). Re-run: {cls.produced_by}") from exc
+        values: dict[str, Any] = {}
+        for field in dataclasses.fields(cls):
+            if field.name not in body:
+                values[field.name] = _without(field, path)
+                continue
+            try:
+                values[field.name] = _decode(hints[field.name], body[field.name])
+            except (TypeError, ValueError, AttributeError) as exc:
+                values[field.name] = Absent(
+                    f"the file {path.name} holds {field.name!r} in a form the current "
+                    f"{cls.__name__} does not read ({exc})")
+        return cls(**values)
 
 
 def read_header(path: str | os.PathLike[str]) -> dict[str, Any]:

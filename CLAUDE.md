@@ -65,7 +65,11 @@ before it plans anything.
 - **The run file is a contract with every project.** A change to what a record saves, or how it
   loads, is a new RunLab version, and every project takes it by raising its lock
   (`uv lock --upgrade-package benchlab`: the install name until 1.0) and running its own suite. A run saved before the
-  change is still listed and drawn (the notes' `docs/design.md` §4).
+  change is still listed and drawn (the notes' `docs/design.md` §4), and so is one saved
+  before its piece's `Record` changed (the developer, 2026-11-17: "a run should be readable no
+  matter the version it is coming from"; `README.md`, "When a piece's `Record` changes").
+  `tests/test_old_runs.py` reads a run of every release from `tests/runs/`; once a release is
+  tagged, a run made by its code at the tag is added there in the next branch.
 - **Evidence over judgement.** A claim about the code, in a comment, a README or a PR, is checked
   against the code the day it is written; never assert why a number moved, measure it.
 - **The comment rule**, four kinds and nothing else: (1) a function, parameter or return doc;

@@ -34,7 +34,7 @@ from typing import Any, Callable, Optional
 
 import panel as pn
 
-from runlab.figure.chart import chart_of, distinct, pool_refusal, sweep_of
+from runlab.figure.chart import chart_of, distinct, pool_refusal, series_of, sweep_of
 from runlab.figure.own import own_figure
 from runlab.figure.style import series_color
 from runlab.figure.twin import figure_of
@@ -478,15 +478,17 @@ class Lab:
     def _record_of(self, run: dict[str, Any]) -> tuple[Any, str]:
         """The record behind a row, read once per version of its file -- a refusal too, else a
         run the class refuses was read again at every redraw (code review, 2026-10-27); else
-        ``(None, why)`` in the loading's own words."""
+        ``(None, why)`` in the loading's own words. A record whose charts read a field its file
+        holds no value for is such a refusal, in the field's words (``record.AbsentField``):
+        what it can draw is asked here, once."""
         hit = self._loaded.get(run["path"])
         if hit is not None and hit[0] == run["mtime"]:
             return hit[1], hit[2]
         try:
             record, why = state.load(run), ""
+            drawn = _declared(record)
         except (ValueError, OSError) as exc:
-            record, why = None, str(exc)
-        drawn = None if record is None else _declared(record)
+            record, why, drawn = None, str(exc), None
         self._loaded[run["path"]] = (run["mtime"], record, why, drawn)
         return record, why
 
@@ -505,7 +507,7 @@ class Lab:
     def _draw_list(self) -> None:
         listed = self._listed()
         colour = {name: _colour(i) for i, name in enumerate(self.shown)}
-        self.run_list.rows = [{"name": r["name"], "stale": r["stale"],
+        self.run_list.rows = [{"name": r["name"], "stale": r["stale"], "notes": r["notes"],
                                "colour": colour.get(r["name"], "")}
                               for r in view.run_rows(listed)]
         self.run_list.empty = (say("runs.none_listed") if self.runs()
@@ -905,8 +907,9 @@ class Lab:
         self._draw_cards()
 
     def _chart_context(self, card: shaping.Card, pairs: list[tuple[str, Any]]) -> shaping.Context:
-        """What the chart card's controls are read off: the figure layer's own answers."""
-        held = [(n, r) for n, r in pairs if card.chart in [s.name for s in r.series()]]
+        """What the chart card's controls are read off: the figure layer's own answers, over
+        the shown runs that declare the chart."""
+        held = [(n, r) for n, r in pairs if series_of(r, card.chart) is not None]
         if not held:
             return shaping.Context("chart", runs=0)
         pool = {how: pool_refusal(held, card.chart, how) for how in ("mean", "rms")}
@@ -914,22 +917,27 @@ class Lab:
 
     def _chart_view(self, card: shaping.Card, pairs: list[tuple[str, Any]],
                     refused: list[str]) -> pn.Column:
-        """A panel over the shown runs, drawn by the figure layer from what the card's controls
-        hold; a line for each run that does not load, in the loader's words. A shown run that
-        declares no such panel is the figure layer's refusal, in its words: drawn without it, the
-        comparison would leave it out unsaid."""
+        """A panel over the shown runs that declare it, drawn by the figure layer from what the
+        card's controls hold. The foot names every shown run the card leaves out: one that does
+        not load, in the loader's words, and one that declares no such panel (the developer's
+        design of 2026-11-13: "a chart card that says which run it leaves out")."""
         ctx = self._chart_context(card, pairs)
-        declared = next((s for _, r in pairs for s in r.series() if s.name == card.chart), None)
+        held = [(n, r) for n, r in pairs if series_of(r, card.chart) is not None]
+        without = [n for n, r in pairs if series_of(r, card.chart) is None]
+        declared = next((series_of(r, card.chart) for _, r in held), None)
         body: Any = pn.pane.HTML("")
-        foot, warn = " · ".join(refused), bool(refused)
+        words = list(refused)
+        if without and held:
+            words.append(say_n("cards.chart_without", len(without), runs=", ".join(without)))
+        foot, warn = " · ".join(words), bool(words)
         if ctx.runs:
             try:
-                panel = chart_of(pairs, card.chart, **shaping.draw_keywords(card, ctx))
+                panel = chart_of(held, card.chart, **shaping.draw_keywords(card, ctx))
             except ValueError as exc:
                 foot, warn = capital(str(exc)), True
             else:
                 body = self._body(card, panel)
-                self.drawn[card.id] = [n for n, _ in pairs]
+                self.drawn[card.id] = [n for n, _ in held]
         return self._frame(card, declared.title if declared else card.chart,
                            self._toolbar(card, ctx), body, foot, warn)
 

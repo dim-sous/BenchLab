@@ -9,23 +9,23 @@ twin can draw what it declares.
 
 from __future__ import annotations
 
-import dataclasses
 import json
 from pathlib import Path
 from typing import Any
 
 from runlab.project import get_component, piece_names
-from runlab.record import (COMPONENT_KEY, FILES_KEY, HEADER_KEYS, NUMBER_SPECS_KEY,
-                             PANEL_GROUPS_KEY, PANELS_KEY, read_header)
+from runlab.record import (COMPONENT_KEY, FILES_KEY, NUMBER_SPECS_KEY, PANEL_GROUPS_KEY,
+                             PANELS_KEY, differences, read_header)
 from runlab.record.config import fields_of
 from runlab.record.files import kept
 
 from .words import say, say_n
 
-_HEADER = HEADER_KEYS
-#: The keys every listed record carries, and nothing else.
+#: The keys every listed record carries, and nothing else. ``stale``: why it cannot be shown,
+#: empty for one that can. ``notes``: a line for each way a file that can be shown departs
+#: from what its piece reads now.
 RECORD_KEYS = ("piece", "name", "path", "mtime", "panels", "panel_groups", "number_specs",
-               "numbers", "config", "provenance", "stale", "files")
+               "numbers", "config", "provenance", "stale", "notes", "files")
 _CACHE: dict[str, tuple[tuple[float, int], dict[str, Any]]] = {}
 
 
@@ -79,7 +79,7 @@ def _read(path: Path, piece: str, mtime: float) -> dict[str, Any]:
     not take the page down with it."""
     row = {"piece": piece, "name": path.stem, "path": str(path), "mtime": mtime,
            "panels": [], "panel_groups": {}, "number_specs": [], "numbers": {}, "config": {},
-           "provenance": {}, "stale": "", "files": []}
+           "provenance": {}, "stale": "", "notes": [], "files": []}
     try:
         header = read_header(path)                    # the authority on what a record is
     except ValueError as exc:
@@ -99,6 +99,7 @@ def _read(path: Path, piece: str, mtime: float) -> dict[str, Any]:
         "provenance": dict(raw.get("provenance", {})),
         "files": _files(header.get(FILES_KEY)),
         "stale": "; ".join(w for w in (_stale(piece, raw), panel_words, spec_words) if w),
+        "notes": _notes(piece, raw),
     })
     return row
 
@@ -147,25 +148,36 @@ def _number_specs(held: Any) -> tuple[list[dict[str, Any]], str]:
 
 
 def _stale(piece: str, raw: dict[str, Any]) -> str:
-    """Words for a record whose FIELD LAYOUT the piece has moved past, else an empty string.
-
-    The field names only. ``Record.load`` also refuses a record whose saved values no longer
-    fit the Config (a bound narrowed, a choice withdrawn, a gate added) and one whose body no
-    longer decodes; re-stating those rules here would be a second implementation of them, so
-    they are seen where they are enforced -- when the record is loaded, in its own words.
-    """
+    """Words for a record of another piece, which cannot be shown here; else an empty string."""
     held_piece = raw.get(COMPONENT_KEY)
     if held_piece != piece:
         return say("runs.stale.piece", held=repr(held_piece), piece=piece)
-    declared = {f.name for f in dataclasses.fields(get_component(piece).Record)}
-    held = set(raw) - set(_HEADER)
-    missing, gone = sorted(declared - held), sorted(held - declared)
-    parts = []
-    if missing:
-        parts.append(say_n("runs.stale.predates", len(missing), fields=", ".join(missing)))
-    if gone:
-        parts.append(say_n("runs.stale.gone", len(gone), fields=", ".join(gone)))
-    return "; ".join(parts)
+    return ""
+
+
+def _notes(piece: str, raw: dict[str, Any]) -> list[str]:
+    """A line for each way the file departs from what its piece reads now: in its fields, in
+    where it came from, in its settings. The record layer's own statement of them
+    (``record.differences``), worded; the file is shown all the same. A saved value the piece
+    no longer admits (a bound narrowed, a choice withdrawn) is not among them: it is seen where
+    it is read, when the record is loaded, in its own words."""
+    if raw.get(COMPONENT_KEY) != piece:
+        return []
+    return [_note(d.place, d.kind, len(d.names), ", ".join(d.names))
+            for d in differences(get_component(piece).Record, raw)]
+
+
+def _note(place: str, kind: str, n: int, fields: str) -> str:
+    """The words for ``n`` entries of ``place`` the file lacks, or holds past what is read."""
+    lacks = kind == "lacks"
+    if place == "result":
+        return (say_n("runs.stale.predates", n, fields=fields) if lacks
+                else say_n("runs.stale.gone", n, fields=fields))
+    if place == "settings":
+        return (say_n("runs.differs.settings_lacks", n, fields=fields) if lacks
+                else say_n("runs.differs.settings_extra", n, fields=fields))
+    return (say_n("runs.differs.origin_lacks", n, fields=fields) if lacks
+            else say_n("runs.differs.origin_extra", n, fields=fields))
 
 
 def load(run: dict[str, Any]) -> Any:

@@ -28,7 +28,7 @@ from pathlib import Path
 from typing import Optional, Sequence
 
 from runlab.project import command, get_component, piece_names
-from runlab.record import read_header
+from runlab.record import differences, read_header
 from runlab.record.config import from_dict
 from runlab.record.files import kept
 from runlab.runner import planned, run_once
@@ -122,6 +122,13 @@ def draw_command(args: argparse.Namespace) -> int:
                          f"compares runs of one piece")
     component = get_component(pieces.pop())
     pairs = [(Path(path).stem, component.Record.load(path)) for path in args.records]
+    for path in args.records:                        # a file that departs from its piece: said
+        with open(path) as fh:
+            held = json.load(fh)
+        for d in differences(component.Record, held):
+            print(f"{Path(path).stem}: its {d.place} "
+                  f"{'holds no' if d.kind == 'lacks' else 'also holds'} {', '.join(d.names)}",
+                  file=sys.stderr)
     # the figures a piece draws itself are the page's to show (the developer, 2026-11-17)
     own = list(dict.fromkeys(f.name for _, record in pairs for f in record.figures()))
     asked = [name for name in (args.panels or []) if name in own]

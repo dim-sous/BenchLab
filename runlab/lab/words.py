@@ -45,6 +45,13 @@ SLOTS: dict[str, tuple[str, ...]] = {
     "runs.stale.predates.one": ("fields",), "runs.stale.predates.many": ("fields",),
     "runs.stale.gone.one": ("fields",), "runs.stale.gone.many": ("fields",),
     "runs.stale.panels": ("key",), "runs.stale.specs": ("key",), "runs.stale.spec": ("key",),
+    # a run that is shown, and how its file departs from what its piece reads now
+    "runs.differs.origin_lacks.one": ("fields",), "runs.differs.origin_lacks.many": ("fields",),
+    "runs.differs.origin_extra.one": ("fields",), "runs.differs.origin_extra.many": ("fields",),
+    "runs.differs.settings_lacks.one": ("fields",),
+    "runs.differs.settings_lacks.many": ("fields",),
+    "runs.differs.settings_extra.one": ("fields",),
+    "runs.differs.settings_extra.many": ("fields",),
     # the compare table
     "compare.heading": (), "compare.settings": (),
     "compare.settings_none": (), "compare.settings_differing": (), "compare.settings_all": (),
@@ -65,6 +72,7 @@ SLOTS: dict[str, tuple[str, ...]] = {
     "cards.x": (), "cards.runs": (), "cards.overlay": (), "cards.split": (), "cards.mean": (),
     "cards.rms": (), "cards.each": (),
     "cards.one_run": (), "cards.nothing_differs": (), "cards.no_colour": (),
+    "cards.chart_without.one": ("runs",), "cards.chart_without.many": ("runs",),
     # a card of a figure the piece draws itself
     "cards.own_runs": (), "cards.own_without.one": ("runs",), "cards.own_without.many": ("runs",),
     # the form

@@ -243,6 +243,20 @@ def from_dict(cls: type, raw: Mapping[str, Any], where: str = "") -> Settings:
     return cls(**{k: coerce_value(params[k], v) for k, v in raw.items()})
 
 
+def setting_names(cls: type) -> list[str]:
+    """The names of the settings ``cls`` declares, in declaration order."""
+    return list(_parameters(cls))
+
+
+def from_saved(cls: type, raw: Mapping[str, Any]) -> Settings:
+    """A Config from the settings a run file holds. An entry ``cls`` has no setting for is left
+    out, where :func:`from_dict` refuses it: a settings file is written by hand and a stray key
+    in it is a slip, a run file was written by the code of its day and is read as it was saved.
+    A setting the file lacks takes its default, as in :func:`from_dict`."""
+    params = _parameters(cls)
+    return from_dict(cls, {k: v for k, v in raw.items() if k in params}, where="config")
+
+
 def with_overrides(cfg: Settings, pairs: Sequence[tuple[str, Any]]) -> Settings:
     """``cfg`` with each ``(setting, value)`` applied, rebuilt ONCE so a gate is checked on the
     final state, not on an intermediate one."""

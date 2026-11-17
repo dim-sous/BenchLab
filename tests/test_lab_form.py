@@ -19,6 +19,7 @@ from runlab.lab import jobs, state, view
 from runlab.lab.form import Form, as_text, term
 from runlab.lab.words import say
 from runlab.project import get_component, piece_names
+from runlab.record import AbsentField, differences
 from runlab.record.config import coerce_value, fields_of
 
 
@@ -244,16 +245,28 @@ def test_a_json_that_is_not_a_record_is_listed_with_the_refusal_as_its_words(
     assert words in rows[0]["stale"] and rows[0]["config"] == {} and rows[0]["panels"] == []
 
 
-def test_a_record_the_class_has_moved_past_is_listed_and_marked(two_runs, tmp_path: Path) -> None:
+def test_a_record_the_class_has_moved_past_is_listed_with_a_line_per_difference(
+        two_runs, tmp_path: Path) -> None:
+    """In its fields, in where it came from and in its settings; it can be shown all the same
+    (``stale`` is empty)."""
     root, out_dir = two_runs
     raw = json.loads((Path(root) / out_dir / "wave" / "first.json").read_text())
     raw.pop("y")
     raw["mood"] = [1, 2]
+    raw["provenance"]["python"] = "3.13.1"
+    raw["provenance"].pop("duration_s")
+    raw["config"].pop("amplitude")
+    raw["config"]["volume"] = 11
     folder = tmp_path / "elsewhere" / "results" / "wave"
     folder.mkdir(parents=True)
     (folder / "old.json").write_text(json.dumps(raw))
     [row] = state.records(str(tmp_path / "elsewhere"), "results")
-    assert "predates the field y" in row["stale"] and "holds gone field mood" in row["stale"]
+    assert row["stale"] == ""
+    assert row["notes"] == ["predates the field y", "holds gone field mood",
+                            "predates the setting amplitude: today's default is read",
+                            "holds gone setting volume",
+                            "where it came from holds no duration_s",
+                            "where it came from also holds python"]
 
 
 def test_delete_takes_only_what_it_names_and_refuses_anything_else(own_runs) -> None:
@@ -278,7 +291,8 @@ def test_a_draw_of_many_runs_writes_a_folder_a_filesystem_takes() -> None:
 
 
 def test_a_shown_record_is_loaded_through_its_own_class_in_its_own_words(own_runs) -> None:
-    """Loading is reading: the class decodes the file and refuses one it cannot, in words."""
+    """Loading is reading: the class decodes the file. A file that lacks a field its charts read
+    loads all the same, and the field says so, in words, when a chart reads it."""
     root, out_dir = own_runs
     run = next(r for r in state.records(root, out_dir) if r["name"] == "first")
     record = state.load(run)
@@ -287,8 +301,12 @@ def test_a_shown_record_is_loaded_through_its_own_class_in_its_own_words(own_run
     broken = Path(root) / out_dir / "wave" / "broken.json"
     shutil.copy(run["path"], broken)
     broken.write_text(broken.read_text().replace('"t": [', '"tim": [', 1))
-    with pytest.raises(ValueError, match="does not match the current Record"):
-        state.load(dict(run, path=str(broken)))
+    record = state.load(dict(run, path=str(broken)))
+    differs = differences(type(record), json.loads(broken.read_text()))
+    assert [(d.kind, d.names) for d in differs] == [("lacks", ("t",)), ("extra", ("tim",))]
+    assert record.numbers == state.load(run).numbers, "what the file holds is read"
+    with pytest.raises(AbsentField, match="the file broken.json holds no 't'"):
+        record.series()
 
 
 # --- the rail, the chart list and the compare table ----------------------------------------
@@ -301,17 +319,21 @@ def test_a_chart_takes_the_first_group_a_run_names_for_it() -> None:
     assert [row["group"] for row in view.chart_rows(runs, [])] == ["Solver"]
 
 
-def test_a_rail_row_is_the_runs_name_and_why_it_cannot_be_read() -> None:
-    """RCWS's row: the name alone, a stale run's reason under it; what sets a run apart is the
-    compare table's to say."""
+def test_a_rail_row_is_the_runs_name_why_it_cannot_be_read_and_how_its_file_differs() -> None:
+    """RCWS's row: the name alone, a stale run's reason under it, and under a run that can be
+    shown a line per difference; what sets a run apart is the compare table's to say."""
     runs = [{"piece": "wave", "name": "a", "config": {"amplitude": 5.0},
              "provenance": {"date": "2026-10-04T18:02:11+00:00", "git_sha": "0ff4c32abc",
                             "git_dirty": True},
-             "stale": ""},
+             "stale": "", "notes": []},
             {"piece": "wave", "name": "c", "config": {}, "provenance": {},
-             "stale": "predates the field y"}]
-    assert view.run_rows(runs) == [{"name": "a", "stale": ""},
-                                   {"name": "c", "stale": "predates the field y"}]
+             "stale": "", "notes": ["predates the field y"]},
+            {"piece": "wave", "name": "d", "config": {}, "provenance": {},
+             "stale": "is a 'lag' record in the wave folder", "notes": []}]
+    assert view.run_rows(runs) == [
+        {"name": "a", "stale": "", "notes": []},
+        {"name": "c", "stale": "", "notes": ["predates the field y"]},
+        {"name": "d", "stale": "is a 'lag' record in the wave folder", "notes": []}]
     assert view.when(runs[0]) == "2026-10-04 18:02 · 0ff4c32" and view.when(runs[1]) == ""
     assert view.text(None) == "—" and view.text(0.123456) == "0.1235" and view.text(True) == "true"
 

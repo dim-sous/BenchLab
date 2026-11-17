@@ -15,9 +15,10 @@ Two kinds of figure over ``pairs`` -- ``(run name, record)`` in the order the ru
 2026-11-11); what the figure cannot draw it refuses in words (:func:`pool_refusal`), which a
 view shows where it greys a control.
 Nothing here names a piece: it reads the declarations a record carries. BESS's
-``devkit/figure/chart.py``, without its chi-square bands (DeePC's records declare none), and with
-two refusals of its own: runs of different pieces, and a run that does not declare the panel
-asked for -- left out unsaid, a comparison would read as complete.
+``devkit/figure/chart.py``, its chi-square band about a mean of runs being here whatever band
+the panel gives for a mean of all their draws (``Series.mean_band``: the formula is the
+piece's), and with two refusals of its own: runs of different pieces, and a run that does not
+declare the panel asked for -- left out unsaid, a comparison would read as complete.
 """
 
 from __future__ import annotations
@@ -33,7 +34,8 @@ from runlab.figure.style import INK_SECONDARY, NEUTRAL, series_color, shade
 from runlab.record import Series, capital
 from runlab.record.config import fields_of, to_dict
 
-__all__ = ["RUNS", "chart_of", "pool_refusal", "sweep_of", "distinct", "telling", "series_of"]
+__all__ = ["RUNS", "chart_of", "pool_refusal", "sweep_of", "distinct", "telling", "series_of",
+           "mean_band_of"]
 
 #: How several runs share a chart: one pair of axes, a row each, or pooled by a statistic.
 RUNS = ("one", "rows", "mean", "rms")
@@ -92,7 +94,34 @@ def pool_refusal(pairs: Pairs, name: str, how: str) -> str:
         return "the runs are on different time grids"
     if any([label for label, _ in s.traces] != [label for label, _ in first.traces] for _, s in held):
         return "the runs draw different traces"
-    return _replicate_refusal([(run, rec) for run, rec in pairs if series_of(rec, name)])
+    why = _replicate_refusal([(run, rec) for run, rec in pairs if series_of(rec, name)])
+    if why or how != "mean":
+        return why
+    n = sum(int(s.averaged) for _, s in held)
+    band = mean_band_of(first, n)
+    if any(not _same_band(mean_band_of(s, n), band) for _, s in held[1:]):
+        return f"the runs' charts give different bands for a mean of {n} draws"
+    return ""
+
+
+def mean_band_of(s: Series, n: int) -> tuple[str, np.ndarray, np.ndarray] | None:
+    """The band panel ``s`` gives for a mean of ``n`` draws (``Series.mean_band``), its edges
+    over the abscissa; ``None`` when it gives none."""
+    if s.mean_band is None:
+        return None
+    label, lo, hi = s.mean_band(n)
+    m = len(s.x)
+    for edge in (lo, hi):
+        if np.ndim(edge) and len(edge) != m:
+            raise ValueError(f"panel {s.name!r}: its band of a mean of {n} draws has an edge "
+                             f"of {len(edge)} values against {m}")
+    return str(label), _edge(lo, m), _edge(hi, m)
+
+
+def _same_band(a: tuple | None, b: tuple | None) -> bool:
+    if a is None or b is None:
+        return a is b
+    return a[0] == b[0] and np.array_equal(a[1], b[1]) and np.array_equal(a[2], b[2])
 
 
 def _replicate_refusal(pairs: Pairs) -> str:
@@ -214,16 +243,20 @@ def chart_of(pairs: Pairs, name: str, *, runs: str = "one") -> Panel:
         if why:
             raise ValueError(f"panel {name!r} cannot be pooled by {_POOL_WORDS[runs]}: {why}")
         xs = _x(first)
-        w = np.ones(len(held))
+        # each run weighs as many draws as its traces are a mean of, so the mean of the runs
+        # is the mean of all their draws (BESS's ``chart_of``)
+        w = np.array([int(s.averaged) for _, s in held], dtype=float)
         lines = []
         for j, (label, _) in enumerate(first.traces):
             ys = np.array([np.asarray(s.traces[j][1], float) for _, s in held])
             y = (w @ ys) / w.sum() if runs == "mean" else np.sqrt((w @ ys ** 2) / w.sum())
             lines.append(Line(f"{capital(_POOL_WORDS[runs])} of {len(held)} runs · {label}", xs, y,
                               series_color(j)))
+        band = mean_band_of(first, int(w.sum())) if runs == "mean" else None
+        bands = () if band is None else (Band(band[0], xs, band[1], band[2], NEUTRAL),)
         refs = tuple(Ref(label, float(v), INK_SECONDARY, _ref_dash(r))
                      for r, (label, v) in enumerate(first.refs))
-        panel = Panel(name, first.x_label, (Axes(first.y_label, tuple(lines), (), refs),),
+        panel = Panel(name, first.x_label, (Axes(first.y_label, tuple(lines), bands, refs),),
                       first.doc)
     elif len(held) == 1:
         panel = Panel(name, first.x_label, (Axes(first.y_label, *_alone(first, _x(first))),),

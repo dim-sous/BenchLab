@@ -181,7 +181,8 @@ def test_nothing_wears_a_hover_but_a_greyed_control_and_run_refuses_under_a_sett
         page.locator(".run", has_text="first").first.hover()     # its actions show on hover
         assert page.get_by_role("button", name="Delete first", exact=True).is_visible(), \
             "the run list's ✕, named for a screen reader"
-        page.locator('input[placeholder="1"]').fill("-1")         # A, whose default is 1
+        # A, whose default is 1: the first of the two boxes that show a 1 (Draws is the other)
+        page.locator('input[placeholder="1"]').first.fill("-1")
         page.wait_for_timeout(500)
         page.get_by_role("button", name="Run", exact=True).click()
         _shows(page, "A must be at least 0, got -1")

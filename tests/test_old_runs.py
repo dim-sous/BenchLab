@@ -24,9 +24,12 @@ def _release(path: Path) -> tuple[int, ...]:
 RUNS = sorted((Path(__file__).parent / "runs").glob("v*.json"), key=_release)
 #: The made-up project's own files: what ``check_project`` reads for what a project imports.
 TOY = Path(__file__).parent / "toy"
-#: How each archived run's file departs from the wave of today, as the list words it.
-NOTES = {"v0.1.0": ["predates the settings delay, duty, fail, noisy: today's defaults are read"],
-         "v0.2.0": ["predates the setting duty: today's default is read"]}
+#: How each archived run's file departs from the wave of today, as the list words it: the wave
+#: gained ``draws`` in 0.14, so every run of an earlier release predates it.
+NOTES = {"v0.1.0": ["predates the settings delay, draws, duty, fail, noisy: today's defaults "
+                    "are read"],
+         "v0.2.0": ["predates the settings draws, duty: today's defaults are read"]}
+_DRAWS = ["predates the setting draws: today's default is read"]
 
 
 def test_the_archive_holds_the_release_before_this_one() -> None:
@@ -45,7 +48,8 @@ def test_a_run_of_a_release_is_listed_read_and_drawn(path: Path, tmp_path) -> No
     folder.mkdir(parents=True)
     held = Path(shutil.copy(path, folder / path.name))
     [row] = state.records(str(tmp_path), "results")
-    assert row["stale"] == "" and row["notes"] == NOTES.get(path.stem, [])
+    assert row["stale"] == ""
+    assert row["notes"] == NOTES.get(path.stem, _DRAWS if _release(path) < (0, 14, 0) else [])
     assert row["panels"] == ["u", "y"]
     raw = json.loads(held.read_text())
     assert raw["provenance"]["versions"]["benchlab"] == path.stem.removeprefix("v"), \

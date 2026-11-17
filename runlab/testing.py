@@ -23,7 +23,7 @@ from pathlib import Path
 import plotly.graph_objects as go
 
 import runlab
-from runlab.figure.chart import chart_of
+from runlab.figure.chart import chart_of, mean_band_of
 from runlab.figure.draw import draw
 from runlab.figure.own import own_figure
 from runlab.figure.twin import figure_of
@@ -61,7 +61,8 @@ def check_project(runs: Sequence[str | os.PathLike[str]] = (), *,
     - a piece's settings do not build the Lab's form;
     - one of ``runs``, record files the project made, is of no registered piece, does not load
       through its piece's ``Record``, declares a chart that does not draw, as a still or on
-      the page, or a figure of its own that plotly does not take, or lists a file its run
+      the page, or whose band of a mean (``Series.mean_band``) does not answer for the run's
+      own draws, or a figure of its own that plotly does not take, or lists a file its run
       wrote that is not in its folder at the size listed;
     - a Python file under ``sources`` (the declared ``ROOT`` when ``None``; folders whose name
       starts with a dot are skipped) imports more of RunLab than a project may use.
@@ -117,6 +118,7 @@ def _check_run(path: Path, names: Sequence[str], out: Path) -> None:
         try:
             draw(pairs, out, panels=[series.name])
             figure_of(chart_of(pairs, series.name))
+            mean_band_of(series, series.averaged)
         except Exception as exc:        # whatever stops a chart, raised again naming its run
             raise AssertionError(f"{path}: the chart {series.name!r} does not draw "
                                  f"({type(exc).__name__}: {exc})") from exc

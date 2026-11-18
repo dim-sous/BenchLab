@@ -10,6 +10,7 @@ injected. How a run is queued, followed and stopped is ``tests/test_runner.py``'
 
 from __future__ import annotations
 
+import copy
 import dataclasses
 import html
 import json
@@ -27,7 +28,11 @@ import panel as pn
 import pytest
 
 from runlab import cli
-from runlab.lab import jobs, skin, state
+from runlab.figure.chart import chart_of
+from runlab.figure.render import DASHES
+from runlab.figure.style import series_color, shade
+from runlab.figure.twin import figure_of
+from runlab.lab import jobs, shaping, skin, state
 from runlab.lab.app import Lab, page, serve
 
 
@@ -417,13 +422,20 @@ def test_opening_a_chart_is_the_figure_layers_and_queues_no_run(lag_runs) -> Non
 def test_a_control_a_card_cannot_use_is_greyed_with_the_reason_on_its_hover(lag_runs) -> None:
     lab, *_ = _lab(lag_runs, "lag")
     greyed = _greyed(lab, "output")
-    assert greyed == {"Overlay | Split | Mean | RMS": "One run shown"}, "its one control"
+    log_y = greyed.pop("Log y")
+    assert greyed == {"Log x": "Its bottom axis holds 1 value(s) at or below zero",
+                      "Run | Quantity": "One run shown",
+                      "Overlay | Split | Mean | RMS": "One run shown"}
+    assert re.fullmatch(r"It holds \d+ value\(s\) at or below zero", log_y), \
+        "the figure layer's own words, begun with a capital"
     _tick(lab, "first")
     greyed = _greyed(lab, "output")
-    assert greyed["Mean"] == "The chart declares no statistic", \
-        "the figure layer's own words, begun with a capital"
+    assert greyed["Mean"] == "The chart declares no statistic"
     assert greyed["RMS"] == "The chart declares no statistic"
-    assert len(greyed) == 2
+    assert sorted(greyed) == ["Log x", "Log y", "Mean", "RMS"], "two runs: the colour is free"
+    _control(lab, "output", "Split").value = True
+    assert _greyed(lab, "output")["Run | Quantity"] == \
+        "Split: the colour tells the quantities apart"
 
 
 def test_runs_that_differ_in_their_seed_alone_pool_on_a_card_into_one_line(tmp_path) -> None:
@@ -440,6 +452,194 @@ def test_runs_that_differ_in_their_seed_alone_pool_on_a_card_into_one_line(tmp_p
     fig = _figure(lab, "y")
     names = [t["name"] for t in fig["data"] if t.get("showlegend") is not False]
     assert names == ["95% interval of the mean, N = 2", "Mean of 2 runs · y"]
+    assert _greyed(lab, "y")["Run | Quantity"] == "The pooled runs are one line per quantity"
+
+
+# --- a card's controls: the axes, the runs, the drawing, the view ------------------------------
+
+def _row(lab: Lab, panel: str) -> list[list[str]]:
+    """A card's row of controls, group by group, as the words on it: a label or a greyed
+    control's words, a button's, a list's choice in brackets."""
+    tools = next(o for o in _card(lab, panel).objects[1:] if isinstance(o, pn.FlexBox))
+    out = []
+    for group in tools.objects:
+        words = []
+        for o in group.objects:
+            if isinstance(o, pn.widgets.Toggle):
+                words.append(o.name)
+            elif isinstance(o, pn.widgets.Select):
+                words.append(f"[{next((w for w, v in o.options.items() if v == o.value), '')}]")
+            else:
+                words.append(html.unescape(re.sub(r"<[^>]+>", "", o.object)))
+        out.append(words)
+    return out
+
+
+def _list(lab: Lab, panel: str) -> pn.widgets.Select:
+    """A card's one list: the bottom axis."""
+    tools = next(o for o in _card(lab, panel).objects[1:] if isinstance(o, pn.FlexBox))
+    return next(o for g in tools.objects for o in g.objects if isinstance(o, pn.widgets.Select))
+
+
+def _lines(lab: Lab, panel: str) -> list[dict]:
+    """The traces a card's figure draws as lines or dots: not a band's edges, not a reference."""
+    return [t for t in _figure(lab, panel)["data"]
+            if t.get("line", {}).get("width") and "dash" in t["line"] and "marker" in t]
+
+
+def _table(lab: Lab, panel: str) -> tuple[list[str], list[list[str]], list[str]]:
+    """The table in a card's place: its header, its rows, the lines beside it."""
+    sheet = next(o for o in _card(lab, panel).objects
+                 if isinstance(o, pn.pane.HTML) and "class='numbers'" in o.object).object
+    cells = lambda tag, text: [html.unescape(c) for c in re.findall(rf"<{tag}>(.*?)</{tag}>", text)]
+    rows = [cells("td", row) for row in re.findall(r"<tr>(.*?)</tr>", sheet.split("<tbody>")[1])]
+    return (cells("th", sheet), rows,
+            [html.unescape(re.sub(r"<[^>]+>", "", w))
+             for w in re.findall(r"<div(?: class='dim')?>(.*?)</div>", sheet.split("class='beside'>")[1])])
+
+
+def test_a_chart_card_carries_every_control_in_four_groups_and_opens_as_it_drew(lag_runs) -> None:
+    """The developer's answers of 2026-11-17: X, Log x, Log y; Colour by, Runs; Dots or Lines;
+    Chart or Table. A card opens on the drawing it made before it had them."""
+    lab, *_ = _lab(lag_runs, "lag")
+    _tick(lab, "first")
+    before = copy.deepcopy(_figure(lab, "output"))
+    assert _row(lab, "output") == [
+        ["X", "[t [s]]", "Log x", "Log y"],
+        ["Colour by", "Run", "Quantity", "Runs", "Overlay", "Split", "Mean", "RMS"],
+        ["Dots", "Lines"], ["Chart", "Table"]]
+    assert list(_list(lab, "output").options) == ["t [s]", "Sample index [-]"]
+    held = {name: _control(lab, "output", name).value
+            for name in ("Run", "Quantity", "Overlay", "Dots", "Lines", "Chart", "Table")}
+    assert held == {"Run": True, "Quantity": False, "Overlay": True, "Dots": False, "Lines": True,
+                    "Chart": True, "Table": False}
+    panel = chart_of([(run["name"], lab._record_of(run)[0]) for run in lab.shown_runs()], "output")
+    assert _figure(lab, "output") == before == figure_of(panel), \
+        "the figure layer's drawing with no keyword given"
+    # each control reaches the drawing
+    _control(lab, "output", "Quantity").value = True
+    assert [(t["line"]["color"], t["line"]["dash"]) for t in _lines(lab, "output")] == \
+        [(shade(series_color(0), i), DASHES[i]) for i in (0, 1)], \
+        "one quantity, y: one hue, each run a shade and a dash of it"
+    _control(lab, "output", "Dots").value = True
+    assert all(t["mode"] == "markers" for t in _lines(lab, "output"))
+    _list(lab, "output").value = "index"
+    fig = _figure(lab, "output")
+    assert fig["layout"]["xaxis"]["title"]["text"] == "Sample index [-]"
+    assert _lines(lab, "output")[0]["x"][:3] == [0.0, 1.0, 2.0]
+    card = _card_of(lab, "output")
+    assert (card.colour_by, card.points, card.x) == ("quantity", True, "index")
+    # a card keeps its choices while it is open; closed and opened again, it starts over
+    _tick(lab, "first", on=False)
+    _tick(lab, "first")
+    assert all(t["mode"] == "markers" for t in _lines(lab, "output"))
+    assert _row(lab, "output")[0][1] == "[Sample index [-]]"
+    _tabs(lab)["output"].value = False
+    _tabs(lab)["output"].value = True
+    assert _figure(lab, "output") == before
+
+
+def test_a_logarithmic_axis_opens_as_the_chart_declares_and_is_switched_on_the_card(
+        lag_runs) -> None:
+    lab, *_ = _lab(lag_runs, "lag")
+    _tabs(lab)["bode-magnitude"].value = True
+    axes = lambda: tuple(_figure(lab, "bode-magnitude")["layout"][a].get("type")
+                         for a in ("xaxis", "yaxis"))
+    assert (_control(lab, "bode-magnitude", "Log x").value,
+            _control(lab, "bode-magnitude", "Log y").value) == (True, True), "as declared"
+    assert axes() == ("log", "log") and not _greyed(lab, "bode-magnitude").keys() & {"Log x", "Log y"}
+    _control(lab, "bode-magnitude", "Log y").value = False
+    assert axes() == ("log", None)
+    _control(lab, "bode-magnitude", "Log y").value = True
+    assert axes() == ("log", "log")
+    # over the sample index the chart declares no logarithm, and the index holds a zero
+    _list(lab, "bode-magnitude").value = "index"
+    assert axes() == (None, "log")
+    assert _greyed(lab, "bode-magnitude")["Log x"] == \
+        "Its bottom axis holds 1 value(s) at or below zero"
+    _list(lab, "bode-magnitude").value = "own"
+    assert axes() == ("log", "log"), "back on its own axis, as declared again"
+    # switched on by hand and then put over the index: refused in the figure layer's words,
+    # the switch left to press off
+    _control(lab, "bode-magnitude", "Log x").value = False
+    _control(lab, "bode-magnitude", "Log x").value = True
+    _list(lab, "bode-magnitude").value = "index"
+    assert _figure(lab, "bode-magnitude") is None
+    assert any("cannot take a logarithmic bottom axis" in w
+               for w in _card_words(lab, "bode-magnitude"))
+    _control(lab, "bode-magnitude", "Log x").value = False
+    assert axes() == (None, "log")
+
+
+def test_a_table_in_a_cards_place_is_the_numbers_on_its_chart(lag_runs) -> None:
+    lab, *_ = _lab(lag_runs, "lag")
+    _tick(lab, "first")
+    record = {run["name"]: lab._record_of(run)[0] for run in lab.shown_runs()}
+    _control(lab, "output", "Table").value = True
+    assert _figure(lab, "output") is None and _card_of(lab, "output").id not in lab._panes, \
+        "no chart, and nothing for a zoom to reach"
+    header, rows, beside = _table(lab, "output")
+    assert header == ["t [s]", "second", "first"], "one column per line"
+    assert len(rows) == len(record["first"].t)
+    assert rows[3] == [f"{v:.6g}" for v in (record["first"].t[3], record["second"].y[3],
+                                            record["first"].y[3])]
+    assert beside == ["Lower bound of y [-]: -1", "Upper bound of y [-]: 1",
+                      "Six significant digits"]
+    _control(lab, "output", "Split").value = True
+    assert _table(lab, "output")[0] == ["t [s]", "second · y", "first · y"]
+    _control(lab, "output", "Chart").value = True
+    assert _figure(lab, "output") is not None
+    assert lab.page().get_root() is not None, "the page builds with a table on it"
+
+
+def test_a_number_card_carries_the_same_row_and_colours_by_the_settings_picked(tmp_path) -> None:
+    runs = str(tmp_path), "results"
+    for amplitude in (1, 2):
+        for shape in ("sine", "square"):
+            _wave(*runs, f"{shape}-{amplitude}", f"amplitude={amplitude}", f"shape={shape}")
+    lab, *_ = _lab(runs)
+    lab.all_btn.clicks += 1
+    lab.compare_table._handle_msg({"number": "rms_u"})
+    card = _card_of(lab, number="rms_u")
+    assert _row(lab, "rms_u") == [["X", f"[{'Shape' if card.x == 'shape' else 'A'}]", "Log x", "Log y"],
+                                  ["Colour by", "A" if card.x == "shape" else "Shape", "Runs",
+                                   "All | Mean | RMS"],
+                                  ["Dots", "Lines"], ["Chart", "Table"]]
+    _list(lab, "rms_u").value = "amplitude"
+    assert _control(lab, "rms_u", "Dots").value and _control(lab, "rms_u", "Shape").value
+    names = lambda: [t["name"] for t in _lines(lab, "rms_u")]
+    assert names() == ["Shape = sine", "Shape = square"] or names() == ["Shape = square",
+                                                                        "Shape = sine"]
+    _control(lab, "rms_u", "Shape").value = False
+    assert names() == ["RMS of u"] and card.by == (), "none picked: one colour over every run"
+    assert "Log x" not in _greyed(lab, "rms_u"), "amplitudes 1 and 2"
+    _control(lab, "rms_u", "Log x").value = True
+    assert _figure(lab, "rms_u")["layout"]["xaxis"]["type"] == "log"
+    _control(lab, "rms_u", "Lines").value = True
+    assert all(t["mode"] != "markers" for t in _lines(lab, "rms_u"))
+    _control(lab, "rms_u", "Table").value = True
+    header, rows, _ = _table(lab, "rms_u")
+    assert header == ["trace", "point", "A", "RMS of u [-]"] and len(rows) == 4
+    # over the shapes the bottom axis holds names; with the amplitude alone varying, nothing
+    # else tells the runs apart
+    _control(lab, "rms_u", "Chart").value = True
+    _control(lab, "rms_u", "Log x").value = False
+    _list(lab, "rms_u").value = "shape"
+    assert _greyed(lab, "rms_u")["Log x"] == "Its bottom axis holds names"
+    for name in ("square-1", "square-2"):
+        _tick(lab, name, on=False)
+    assert _greyed(lab, "rms_u")["Colour by"] == "Nothing else tells the runs apart"
+
+
+def test_a_card_no_shown_run_draws_and_a_pieces_own_figure_keep_what_they_had(lag_runs) -> None:
+    lab, *_ = _lab(lag_runs, "lag")
+    _tabs(lab)["pole"].value = True
+    assert _row(lab, "pole") == [["Runs", "Overlay | Split | Mean | RMS"]], \
+        "a figure the piece draws itself: its one greyed control"
+    lab.cards.append(shaping.Card(99, "chart", chart="no-such-chart"))
+    lab._draw_cards()
+    assert not [o for o in _card(lab, "no-such-chart").objects[1:] if isinstance(o, pn.FlexBox)], \
+        "nothing to shape: no controls"
 
 
 # --- a zoom on one chart reaches every open chart over the same bottom axis -------------------
@@ -494,6 +694,37 @@ def test_a_zoom_moves_the_charts_over_its_own_axis_alone_and_another_piece_start
     lab.piece_select.value = "lag"
     _tabs(lab)["bode-phase"].value = True
     assert _span(lab, "bode-phase") is None, "another piece and back: the range is forgotten"
+
+
+def test_a_zoom_crosses_a_logarithmic_and_a_linear_card_as_the_same_span(lag_runs) -> None:
+    """A card switches its own axis, so two charts over ω may differ: the span a zoom left is
+    set on each in its own terms, the powers of ten on the logarithmic one (the plan of
+    2026-11-18, departure 3)."""
+    lab, *_ = _lab(lag_runs, "lag")
+    for name in ("bode-magnitude", "bode-phase"):
+        _tabs(lab)[name].value = True
+    _control(lab, "bode-phase", "Log x").value = False        # the phase over ω itself
+    _pane(lab, "bode-magnitude").relayout_data = {"xaxis.range[0]": 0.5, "xaxis.range[1]": 2.0}
+    assert _span(lab, "bode-phase") == [10.0 ** 0.5, 100.0], "10^0.5 to 10^2 rad/s"
+    _pane(lab, "bode-phase").relayout_data = {"xaxis.range[0]": 10.0, "xaxis.range[1]": 1000.0}
+    assert _span(lab, "bode-magnitude") == [1.0, 3.0]
+    _tick(lab, "first")                              # every card is drawn again
+    assert (_span(lab, "bode-magnitude"), _span(lab, "bode-phase")) == ([1.0, 3.0], [10.0, 1000.0])
+    _control(lab, "bode-phase", "Log x").value = True
+    assert _span(lab, "bode-phase") == [1.0, 3.0], "switched, the card shows the same span"
+    _control(lab, "bode-phase", "Log x").value = False
+    # a span reaching zero cannot stand on a logarithmic axis: that chart shows its whole axis
+    _pane(lab, "bode-phase").relayout_data = {"xaxis.range[0]": -5.0, "xaxis.range[1]": 50.0}
+    assert _span(lab, "bode-magnitude") is None
+    _tick(lab, "first", on=False)
+    assert (_span(lab, "bode-magnitude"), _span(lab, "bode-phase")) == (None, [-5.0, 50.0])
+    _pane(lab, "bode-phase").relayout_data = {"xaxis.autorange": True}
+    _tick(lab, "first")
+    assert (_span(lab, "bode-magnitude"), _span(lab, "bode-phase")) == (None, None)
+    # over the sample index a card leaves the charts over ω and joins the ones over the index
+    _list(lab, "bode-phase").value = "index"
+    _pane(lab, "bode-magnitude").relayout_data = {"xaxis.range[0]": 0.5, "xaxis.range[1]": 2.0}
+    assert _span(lab, "bode-phase") is None
 
 
 def test_a_number_clicked_in_the_compare_table_is_a_card_every_run_a_point(two_runs) -> None:

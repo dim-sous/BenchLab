@@ -117,6 +117,21 @@ def test_a_word_a_project_changes_is_the_word_on_the_page(words_file, two_runs) 
     assert lab.refresh.label == "Reload" and lab.new_run_btn.label == words.load()["header.new_run"]
 
 
+def test_a_cards_controls_wear_the_projects_words(words_file, two_runs) -> None:
+    """The row of a card is words like any other: its names, its options, the reason a control
+    is greyed (the plan of 2026-11-18, departure 4)."""
+    words_file('[cards]\ndots = "Points"\ny_log = "Log ordinate"\none_run = "A single run"\n')
+    root, out_dir = two_runs
+    lab = Lab(root, out_dir, every=lambda cb, ms: None, toast=lambda _w: None)
+    lab.page()
+    row = [o for card in lab.cards_box.objects for tools in card.objects[1:2]
+           for group in tools.objects for o in group.objects]
+    assert "Points" in [o.name for o in row if hasattr(o, "value")]
+    said = " ".join(o.object for o in row if not hasattr(o, "value"))
+    assert "Log ordinate" in said and 'title="A single run"' in said
+    assert "Dots" not in [o.name for o in row if hasattr(o, "value")]
+
+
 def test_a_count_says_its_one_or_its_many() -> None:
     assert words.say_n("compare.alone", 1) == "1 number; tick another run to compare"
     assert words.say_n("compare.alone", 2) == "2 numbers; tick another run to compare"

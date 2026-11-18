@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import contextlib
 import json
+import re
 import socket
 import time
 import urllib.request
@@ -50,6 +51,12 @@ _TEXT = """() => {
   walk(document);
   return out;
 }"""
+
+
+def _run(page):
+    """The form's Run. A chart card over several runs carries a button of the same word, the
+    Run of its Colour by, so the form's is found by its dress: the page's primary button."""
+    return page.locator("button.bk-btn-primary", has_text=re.compile(r"^Run$"))
 
 
 def _shows(page, *words: str, timeout: float = 45.0) -> list[str]:
@@ -121,7 +128,7 @@ def test_the_runs_in_progress_move_on_the_page_as_the_runs_do(tmp_path, toy_inst
         _shows(page, "Nothing running", "2 on disk")
         page.locator("button", has_text="New run").click()
         page.wait_for_timeout(800)
-        page.get_by_role("button", name="Run", exact=True).click()
+        _run(page).click()
         _shows(page, "1 done", "3 on disk")                # the form's run, ended and listed
         monkeypatch.setattr(jobs.QUEUE, "at_once", 2)
         jobs.QUEUE.submit("wave", planned("sw", ["delay=2"], ["seed=1,2,3"]), root=root,
@@ -184,10 +191,10 @@ def test_nothing_wears_a_hover_but_a_greyed_control_and_run_refuses_under_a_sett
         # A, whose default is 1: the first of the two boxes that show a 1 (Draws is the other)
         page.locator('input[placeholder="1"]').first.fill("-1")
         page.wait_for_timeout(500)
-        page.get_by_role("button", name="Run", exact=True).click()
+        _run(page).click()
         _shows(page, "A must be at least 0, got -1")
         assert [r.name for r in jobs.QUEUE.runs()] == ["long"], "nothing more queued"
-        assert page.get_by_role("button", name="Run", exact=True).is_visible(), "the form open"
+        assert _run(page).is_visible(), "the form open"
         assert not errors, errors
 
 
@@ -259,7 +266,7 @@ def test_what_is_pasted_or_typed_with_tab_at_once_is_what_the_run_uses(tmp_path,
         page.keyboard.type("25", delay=0)                          # keys and Tab, at once
         page.keyboard.press("Tab")
         page.wait_for_timeout(900)
-        page.get_by_role("button", name="Run", exact=True).click()
+        _run(page).click()
         deadline = time.time() + 60
         while not record.exists() and time.time() < deadline:
             page.wait_for_timeout(300)
@@ -300,7 +307,10 @@ def test_a_zoom_drawn_with_the_mouse_on_one_chart_moves_the_other(tmp_path) -> N
     with _served(tmp_path, "?shown=first&open=u,y") as (page, errors, root, out_dir):
         assert len(_charts(page, 2)) == 2
         plots = page.locator(".js-plotly-plot")
-        ticks = lambda i: plots.nth(i).locator(".xtick text").all_text_contents()
+        # sorted: a chart zoomed with the mouse held the same six labels in another order than
+        # the chart the zoom was set on (Chromium 157 in a cloud session, 2026-11-18: `0.4`
+        # first on the one, `0.3` first on the other, both charts on 0.3 to 0.55)
+        ticks = lambda i: sorted(plots.nth(i).locator(".xtick text").all_text_contents())
 
         def settled(what, said: str) -> None:
             deadline = time.time() + 20
@@ -329,12 +339,34 @@ def test_driving_every_kind_of_card_raises_nothing_in_the_browser(tmp_path) -> N
         _shows(page, "2 on disk")
         page.locator("td", has_text="RMS of y").first.click()      # a number card
         page.wait_for_timeout(1500)
-        # a chart card's one control is its runs (the developer's cut, 2026-11-11)
-        for words in ("Split", "Overlay"):
-            page.locator("button", has_text=words).first.click()
+        button = lambda words: page.get_by_role("button", name=words, exact=True)
+        # every control of a card, pressed once on each card that carries it (the developer's
+        # answers of 2026-11-17): the path from the click to the page's code and back
+        for words in ("Split", "Overlay", "Quantity"):
+            assert button(words).count() == 1, f"{words} is the chart card's alone"
+            button(words).click()
             page.wait_for_timeout(900)
-        for gone in ("Save", "Table", "Dots", "Log x", "Quantity"):
-            assert not page.locator("button", has_text=gone).count(), f"{gone} is not on a card"
+        for words in ("Dots", "Lines", "Table", "Chart"):
+            assert button(words).count() == 2, f"{words} is on the number card and on the chart card"
+            for i in range(2):
+                button(words).nth(i).click()
+                page.wait_for_timeout(900)
+                if words == "Table":
+                    assert page.locator(".numbers th").count(), "the table stands in the card"
+        assert not page.locator(".numbers").count(), "both cards are back on their charts"
+        assert len(_charts(page, 2)) == 2
+        # the wave runs from t = 0 and below zero, so its Log x and Log y are greyed; the number
+        # card's amplitudes are 1 and 2
+        assert button("Log x").count() == button("Log y").count() == 1
+        for _ in range(2):
+            button("Log x").click()
+            page.wait_for_timeout(900)
+        axis = page.locator("select", has=page.locator("option", has_text="Sample index"))
+        axis.select_option(label="Sample index [-]")
+        page.wait_for_timeout(900)
+        assert "Sample index [-]" in page.locator(".xtitle").all_text_contents(), \
+            "the chart card's bottom axis"
+        assert not button("Save").count(), "Save is the next step's"
         page.locator("button", has_text="Differing").click()
         page.wait_for_timeout(900)
         assert any("vs A" in t for t in page.evaluate(_TEXT)), "the number card is on the page"
@@ -426,13 +458,15 @@ def test_a_runs_files_show_in_the_compare_table_and_go_with_the_run(tmp_path, to
         switched = len(errors)
         page.locator("button", has_text="New run").click()
         page.wait_for_timeout(800)
-        page.get_by_role("button", name="Run", exact=True).click()
+        _run(page).click()
         _shows(page, "1 done", "1 on disk", "FILES", "weights.npy", "144 B")
         page.locator("button", has_text="New run").click()
         page.wait_for_timeout(800)
-        page.locator("select").nth(1).select_option(label="fit-1")   # Start from
+        # Start from: the list that offers the saved fit (a card's bottom axis is a list too)
+        page.locator("select", has=page.locator("option", has_text="fit-1")) \
+            .select_option(label="fit-1")
         page.wait_for_timeout(500)
-        page.get_by_role("button", name="Run", exact=True).click()
+        _run(page).click()
         _shows(page, "2 done", "2 on disk")
         second = json.loads((folder / "fit-2.json").read_text())
         assert second["config"]["start_from"] == "results/fit/fit-1.json"
@@ -470,20 +504,20 @@ def test_a_matrix_and_a_date_are_typed_refused_run_compared_and_loaded_back(tmp_
         switched = len(errors)
         page.locator("button", has_text="New run").click()
         page.wait_for_timeout(800)
-        page.get_by_role("button", name="Run", exact=True).click()
+        _run(page).click()
         _shows(page, "1 done", "1 on disk")
         page.locator("button", has_text="New run").click()
         page.wait_for_timeout(800)
         page.locator(scale).fill("[[1, 0], [0")
         page.locator(day).fill("tomorrow")
         page.wait_for_timeout(500)
-        page.get_by_role("button", name="Run", exact=True).click()
+        _run(page).click()
         _shows(page, "Scale cannot read [[1, 0], [0", "Day cannot read tomorrow")
         assert [r.name for r in jobs.QUEUE.runs()] == ["fit-1"], "nothing more queued"
         page.locator(scale).fill("[[1, 0], [0, 0.5]]")
         page.locator(day).fill("2026-02-03")
         page.wait_for_timeout(500)
-        page.get_by_role("button", name="Run", exact=True).click()
+        _run(page).click()
         _shows(page, "2 done", "2 on disk")
         held = json.loads((Path(root) / out_dir / "fit" / "fit-2.json").read_text())["config"]
         assert (held["scale"], held["day"]) == ([[1.0, 0.0], [0.0, 0.5]], "2026-02-03")

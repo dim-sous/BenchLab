@@ -8,17 +8,18 @@ import dataclasses
 import json
 import re
 
+import numpy as np
 import plotly.graph_objects as go
 import pytest
 
 import runlab.figure.render as render_module
-from runlab import Figure, cli
+from runlab import Figure, Series, cli
 from runlab.figure import draw
-from runlab.figure.chart import chart_of, sweep_of
+from runlab.figure.chart import INDEX_LABEL, chart_of, sweep_of
 from runlab.figure.own import TEMPLATE, own_figure
-from runlab.figure.render import has_legend, render
+from runlab.figure.render import DASHES, has_legend, log_refusal, render, table_of
 from runlab.figure.twin import figure_of
-from runlab.figure.style import GRID, SURFACE
+from runlab.figure.style import GRID, LINE_WIDTH, SURFACE, series_color, shade
 from runlab.figure.twin import ONE_PX
 from runlab.record import stamp
 from tests.toy import lag, wave
@@ -268,3 +269,178 @@ def test_draw_writes_the_charts_and_names_the_figures_it_left_out(runs, tmp_path
         cli.main(["draw", str(path), "--panel", "pole", "--out-dir", str(tmp_path / "out")])
     cli.main(["draw", str(path), "--panel", "output", "--out-dir", str(tmp_path / "one")])
     assert capsys.readouterr().err == "", "asked for a chart by name, it has nothing to add"
+
+
+# --- a card's controls, as the figure layer's keywords (BESS's ``tests/test_figure.py``) ------
+
+@pytest.fixture
+def lags(tmp_path) -> list:
+    """Three lags drawing both their traces: ``a`` and ``b`` on one wave, so they hold its u
+    identically, and ``c`` on a wave of twice the amplitude, so it holds no trace of theirs."""
+    one = str(wave.run(wave.Config()).save(tmp_path / "one.json"))
+    two = str(wave.run(wave.Config(amplitude=2.0)).save(tmp_path / "two.json"))
+    return [("a", lag.run(lag.Config(wave_run=one, keep=["u", "y"]))),
+            ("b", lag.run(lag.Config(wave_run=one, keep=["u", "y"], tau=0.2))),
+            ("c", lag.run(lag.Config(wave_run=two, keep=["u", "y"])))]
+
+
+def test_colour_by_quantity_swaps_what_the_colour_and_the_dash_tell_apart(lags) -> None:
+    apart = [lags[0], lags[2]]                       # no trace held by both
+    by_run = chart_of(apart, "output").axes[0].lines
+    by_quantity = chart_of(apart, "output", colour_by="quantity").axes[0].lines
+    assert [ln.label for ln in by_run] == [ln.label for ln in by_quantity] \
+        == ["a — u", "a — y", "c — u", "c — y"]
+    assert [(ln.color, ln.dash) for ln in by_run] == \
+        [(shade(series_color(i), j), DASHES[j]) for i in (0, 1) for j in (0, 1)], \
+        "the run picks the hue, the quantity its shade and the dash"
+    assert [(ln.color, ln.dash) for ln in by_quantity] == \
+        [(shade(series_color(j), i), DASHES[i]) for i in (0, 1) for j in (0, 1)], \
+        "the quantity picks the hue, the run its shade and the dash"
+    # a line every run holds is drawn once either way, in the first colour nothing else wears:
+    # after the three runs, or after the two quantities
+    same = lags[:2] + [("b2", lags[1][1])]
+    for colour_by, slot in (("run", 3), ("quantity", 2)):
+        first = chart_of(same, "output", colour_by=colour_by).axes[0].lines[0]
+        assert (first.label, first.color) == ("3 runs — u (identical)", series_color(slot))
+    with pytest.raises(ValueError, match="colour_by is one of"):
+        chart_of(apart, "output", colour_by="piece")
+
+
+def test_a_logarithmic_axis_the_chart_does_not_declare_is_refused_at_or_below_zero(runs) -> None:
+    pairs = [("w", runs["wave"])]
+    u = chart_of(pairs, "u")
+    assert (u.x_log, u.y_log) == (False, False)
+    assert log_refusal(u, "x") == "its bottom axis holds 1 value(s) at or below zero"
+    assert re.fullmatch(r"it holds \d+ value\(s\) at or below zero", log_refusal(u, "y"))
+    with pytest.raises(ValueError, match="cannot take a logarithmic bottom axis: its bottom"):
+        chart_of(pairs, "u", x_log=True)
+    with pytest.raises(ValueError, match="cannot take a logarithmic ordinate: it holds"):
+        chart_of(pairs, "u", y_log=True)
+    with pytest.raises(ValueError, match="axis is 'x' or 'y'"):
+        log_refusal(u, "z")
+    lag_pairs = [("l", runs["lag"])]
+    bode = chart_of(lag_pairs, "bode-magnitude")
+    assert (bode.x_log, bode.y_log) == (True, True), "a card opens on what the chart declares"
+    plain = chart_of(lag_pairs, "bode-magnitude", x_log=False, y_log=False)
+    assert (plain.x_log, plain.y_log) == (False, False), "and either is switched off"
+    assert (log_refusal(plain, "x"), log_refusal(plain, "y")) == ("", "")
+    phase = chart_of(lag_pairs, "bode-phase")
+    assert (phase.x_log, phase.y_log) == (True, False)
+    assert log_refusal(phase, "y"), "the phase runs from 0 down"
+
+
+class _Declaring:
+    """A record that declares one panel and nothing else a chart reads."""
+    component = "declaring"
+
+    def __init__(self, series: Series) -> None:
+        self._series = series
+
+    def series(self) -> tuple[Series, ...]:
+        return (self._series,)
+
+
+def test_a_logarithmic_axis_the_chart_declares_is_drawn_whatever_it_holds() -> None:
+    """A release takes no chart from a project: a panel that declares a logarithmic axis over a
+    value at or below zero is drawn as it was before a drawing could be asked for an axis (the
+    plan of 2026-11-18, departure 2). Over the sample index it declares no logarithm."""
+    rec = _Declaring(Series(name="p", x=[0.0, 1.0, 2.0], x_label="t [s]", y_label="e [-]",
+                            traces=(("e", [0.0, 1.0, 10.0]),), x_log=True, y_log=True))
+    for asked in ({}, {"x_log": True, "y_log": True}):
+        panel = chart_of([("r", rec)], "p", **asked)
+        assert (panel.x_log, panel.y_log) == (True, True)
+        assert log_refusal(panel, "x") and log_refusal(panel, "y"), "each holds a zero"
+    over_index = chart_of([("r", rec)], "p", x="index")
+    assert (over_index.x_log, over_index.y_log) == (False, True)
+    with pytest.raises(ValueError, match="logarithmic bottom axis"):
+        chart_of([("r", rec)], "p", x="index", x_log=True)
+
+
+def test_the_sample_index_counts_the_samples_from_zero_and_names_the_axis(runs) -> None:
+    rec = runs["lag"]
+    n = len(rec.t)
+    assert INDEX_LABEL == "Sample index [-]"
+    for how in ("one", "rows"):
+        panel = chart_of([("a", rec), ("b", rec)], "output", x="index", runs=how)
+        assert panel.x_label == INDEX_LABEL
+        assert all(list(ln.x) == list(range(n)) for ax in panel.axes for ln in ax.lines)
+    assert chart_of([("a", rec)], "output").x_label == "t [s]"
+    with pytest.raises(ValueError, match="x is one of"):
+        chart_of([("a", rec)], "output", x="time")
+
+
+def test_the_shaping_reaches_both_drawings(runs, tmp_path) -> None:
+    pairs = [("l", runs["lag"])]
+    shaping = {"points": True, "y_log": False, "x": "index"}
+    fig = figure_of(chart_of(pairs, "bode-magnitude", **shaping))
+    assert fig["layout"]["xaxis"]["title"]["text"] == INDEX_LABEL
+    assert "type" not in fig["layout"]["xaxis"] and "type" not in fig["layout"]["yaxis"]
+    drawn = [t for t in fig["data"] if t.get("line", {}).get("width") == LINE_WIDTH]
+    assert drawn and all(t["mode"] == "markers" for t in drawn)
+    joined = figure_of(chart_of(pairs, "bode-magnitude"))
+    assert joined["layout"]["xaxis"]["type"] == joined["layout"]["yaxis"]["type"] == "log"
+    assert all(t["mode"] == "lines" for t in joined["data"]
+               if t.get("line", {}).get("width") == LINE_WIDTH)
+    [still] = draw(pairs, tmp_path, panels=["bode-magnitude"], **shaping)
+    side = json.loads((still.parent / f"{still.name}.json").read_text())
+    assert side["shaping"] == shaping and side["x_label"] == INDEX_LABEL
+    for how in ("rows", "mean"):
+        seeds = [(f"s{seed}", wave.run(wave.Config(noise=0.5, seed=seed))) for seed in (1, 2)]
+        panel = chart_of(seeds, "y", runs=how, points=True)
+        assert all(ln.points for ax in panel.axes for ln in ax.lines), how
+
+
+def _swept(values, seeds=(0, 1)) -> list:
+    return [(f"A{a}-s{s}", wave.run(wave.Config(amplitude=a, seed=s)))
+            for a in values for s in seeds]
+
+
+def test_a_sweep_over_positive_values_takes_a_log_axis_with_its_runs_side_by_side() -> None:
+    """Spread by a share of the span, two seeds at 0.001 of a sweep up to 1 were drawn at
+    -0.005 and the log axis was greyed (BESS's code review, 2026-10-27)."""
+    pairs = _swept((0.001, 0.01, 1.0))
+    plain = sweep_of(pairs, "rms_u", vs="amplitude")
+    assert (plain.x_log, plain.y_log) == (False, False)
+    assert log_refusal(plain, "x") == ""
+    assert np.min(plain.axes[0].lines[0].drawn_x()) < 0, "spread by a share of the span"
+    panel = sweep_of(pairs, "rms_u", vs="amplitude", x_log=True, y_log=True)
+    (line,) = panel.axes[0].lines
+    drawn = line.drawn_x()
+    assert (panel.x_log, panel.y_log) == (True, True)
+    assert np.all(drawn > 0) and drawn[0] < 0.001 < drawn[1], drawn
+    assert list(line.x) == [0.001, 0.001, 0.01, 0.01, 1.0, 1.0], "the numbers keep x"
+    joined = sweep_of(pairs, "rms_u", vs="amplitude", points=False)
+    assert not joined.axes[0].lines[0].points and plain.axes[0].lines[0].points
+    with pytest.raises(ValueError, match="logarithmic bottom axis: its bottom axis holds 1"):
+        sweep_of(_swept((0.0, 1.0)), "rms_u", vs="amplitude", x_log=True)
+    named = [(shape, wave.run(wave.Config(shape=shape))) for shape in ("sine", "square")]
+    with pytest.raises(ValueError, match="its bottom axis holds names"):
+        sweep_of(named, "rms_u", vs="shape", x_log=True)
+
+
+def test_the_table_is_exactly_what_the_chart_draws(lags) -> None:
+    rec = lags[0][1]
+    s = next(x for x in rec.series() if x.name == "output")
+    table = table_of(chart_of([lags[0]], "output"))
+    assert table.header == ("t [s]", "u", "y")
+    assert [row[0] for row in table.rows] == list(np.asarray(s.x, float))
+    for j, (_, y) in enumerate(s.traces, start=1):
+        assert [row[j] for row in table.rows] == list(np.asarray(y, float))
+    assert table.beside == (("Lower bound of y [-]", (-1.0,)), ("Upper bound of y [-]", (1.0,)))
+    # a row per run: each row's traces under its run's name
+    rows = table_of(chart_of([lags[0], lags[2]], "output", runs="rows"))
+    assert rows.header == ("t [s]", "a · u", "a · y", "c · u", "c · y")
+    # a band that varies is its two edges; the mean of two seeds holds one about it
+    seeds = [(f"s{seed}", wave.run(wave.Config(noise=0.5, seed=seed))) for seed in (1, 2)]
+    mean = chart_of(seeds, "y", runs="mean")
+    pooled = table_of(mean)
+    (band,) = mean.axes[0].bands
+    assert pooled.header == ("t", "Mean of 2 runs · y", f"{band.label} (lower)",
+                             f"{band.label} (upper)")
+    assert [row[2] for row in pooled.rows] == list(np.asarray(band.lo, float))
+    # a number against a setting: a row per point, named by its run, the setting's own value
+    sweep = table_of(sweep_of(_swept((1.0, 2.0)), "rms_u", vs="amplitude"))
+    assert sweep.header == ("trace", "point", "A", "RMS of u [-]")
+    assert [(row[1], row[2]) for row in sweep.rows] == \
+        [("A1.0-s0", 1.0), ("A1.0-s1", 1.0), ("A2.0-s0", 2.0), ("A2.0-s1", 2.0)], \
+        "where a point is drawn to the side, the table keeps the setting itself"

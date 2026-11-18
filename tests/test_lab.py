@@ -54,9 +54,14 @@ _ALLOWED = {# the declared project: its pieces, and its command and title -- wor
             # twin of it the page shows; the colour a run wears is the figure layer's slot, so
             # its dot in the list matches its lines; the page's paper, inks, rules and type are
             # the figure layer's, so a chart sits on its card's paper
-            # and whether a run declares a chart at all, so a card names the run it leaves out
+            # and whether a run declares a chart at all, so a card names the run it leaves out;
+            # the sample index's words, an option of a card's bottom axis; the settings that
+            # tell the runs apart, a number card's colours
             "runlab.figure.chart": {"chart_of", "sweep_of", "pool_refusal", "distinct",
-                                    "series_of"},
+                                    "series_of", "INDEX_LABEL", "telling"},
+            # why a card's chart cannot take a logarithmic axis, and the numbers on it as the
+            # table a card shows in its place: both read off the panel the figure layer built
+            "runlab.figure.render": {"log_refusal", "table_of"},
             "runlab.figure.twin": {"figure_of"},
             # a figure the piece draws itself, as the page's pane takes it: passed through
             "runlab.figure.own": {"own_figure"},

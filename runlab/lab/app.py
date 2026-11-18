@@ -28,6 +28,7 @@ import dataclasses
 import functools
 import html
 import json
+import math
 import sys
 import time
 import traceback
@@ -35,8 +36,10 @@ from typing import Any, Callable, Optional
 
 import panel as pn
 
-from runlab.figure.chart import chart_of, distinct, pool_refusal, series_of, sweep_of
+from runlab.figure.chart import (INDEX_LABEL, chart_of, distinct, pool_refusal, series_of,
+                                 sweep_of, telling)
 from runlab.figure.own import own_figure
+from runlab.figure.render import log_refusal, table_of
 from runlab.figure.style import series_color
 from runlab.figure.twin import figure_of
 from runlab.project import title
@@ -67,6 +70,8 @@ _LABEL = f"{_DIM};font-size:12px;line-height:24px;display:inline-block"
 #: A card's controls' margin (RCWS): with Panel's own (5, 10), 20 px between two buttons, and a
 #: number card's controls over 160 runs took two lines of a 1050 px card.
 _TOOL_MARGIN = (2, 3)
+#: The most a table in a card's place takes of the page's height before it scrolls (BESS).
+_TABLE_PX = 420
 #: The width of the column a chart group's words stand in, before its charts: the form's label
 #: track (RCWS: in 100 px the longest group name took three lines).
 _GROUP_PX = skin.LABEL_PX
@@ -350,6 +355,30 @@ def _width(words: str) -> int:
     return 20 + 13 * len(words) // 2
 
 
+def _six(value: Any) -> str:
+    """A number at six significant digits, as a table in a card's place writes it."""
+    if isinstance(value, float):
+        return f"{value:.6g}"
+    return "" if value is None else str(value)
+
+
+def _span_on(span: Optional[tuple[list[Any], bool]], x_log: bool) -> Optional[list[Any]]:
+    """The span a zoom left -- its two ends as the chart library reported them, and whether the
+    chart reporting them was logarithmic, on which the library's ends are powers of ten -- as
+    the ends to set on a chart that is logarithmic (``x_log``) or not. ``None``: nothing to
+    set, because no span is kept or a logarithmic axis cannot show one that reaches zero."""
+    if span is None:
+        return None
+    ends, was_log = span
+    if was_log == x_log:
+        return list(ends)
+    if was_log:
+        return [10.0 ** float(e) for e in ends]
+    if min(float(e) for e in ends) <= 0.0:
+        return None
+    return [math.log10(float(e)) for e in ends]
+
+
 def _tab(name: str, value: bool) -> pn.widgets.Toggle:
     """A chart's toggle, across the cell that holds it, in the controls' look (RCWS)."""
     return pn.widgets.Toggle(label=name, value=value, margin=0, sizing_mode="stretch_width",
@@ -429,8 +458,8 @@ class Lab:
         self.drawn: dict[int, list[str]] = {}
         #: Each open chart's pane with the words of its bottom axis; and, per bottom axis, the
         #: range a zoom left on it (``None`` once reset): every chart over it is shown at it.
-        self._panes: dict[int, tuple[pn.pane.Plotly, str]] = {}
-        self._ranges: dict[str, Optional[list[Any]]] = {}
+        self._panes: dict[int, tuple[pn.pane.Plotly, str, bool]] = {}
+        self._ranges: dict[str, Optional[tuple[list[Any], bool]]] = {}
         self._answer: Optional[Callable[[], None]] = None   # what the dialog's yes does
         self._read_url()
 
@@ -995,14 +1024,25 @@ class Lab:
         for s, why in shaping.offered(card, ctx):
             value, options = s.shown(card, ctx), s.options(card, ctx)
             cell: list[Any] = []
-            if s.slot:
-                cell.append(_html(html.escape(say(s.slot)), style=_LABEL, margin=(0, 2, 0, 4)))
+            words = say(s.slot) if s.slot else ""
+            if words and s.kind != "switch":
+                cell.append(_html(html.escape(words), style=_LABEL, margin=(0, 2, 0, 4)))
             if why:
-                said = ([next((w for w, v, _ in options if v == value), "")] if s.kind == "list"
+                said = ([words] if s.kind == "switch"
+                        else [next((w for w, v, _ in options if v == value), "")] if s.kind == "list"
                         else [" | ".join(w for w, _, _ in options)])
+                # a control with nothing of its own to grey (no setting to colour by) greys
+                # its label, so the reason still has a hover to stand on
+                if not any(said):
+                    said, cell = [words], []
                 cell += [_html(html.escape(w), title=capital(why), style=skin.GREYED,
                                margin=_TOOL_MARGIN)
                          for w in said if w]
+            elif s.kind == "switch":
+                toggle = _tool(pn.widgets.Toggle, label=words, value=bool(value),
+                               width=_width(words))
+                toggle.param.watch(functools.partial(self._on_shaping, card, s.field), "value")
+                cell.append(toggle)
             elif s.kind == "list":
                 shows = next((w for w, v, _ in options if v == value), "")
                 select = _tool(pn.widgets.Select, options={w: v for w, v, _ in options},
@@ -1022,9 +1062,16 @@ class Lab:
                     toggle.param.watch(functools.partial(self._on_one, card, s.field, option),
                                        "value")
                     cell.append(toggle)
+            elif s.kind == "several":
+                for words, option, _ in options:
+                    toggle = _tool(pn.widgets.Toggle, label=words, value=option in value,
+                                   width=_width(words))
+                    toggle.param.watch(functools.partial(self._on_several, card, s.field,
+                                                         option, tuple(value)), "value")
+                    cell.append(toggle)
             else:
                 raise ValueError(f"a card control of kind {s.kind!r}: lab.shaping declares "
-                                 f"'list' and 'one'")
+                                 f"'list', 'switch', 'one' and 'several'")
             groups.setdefault(s.group, []).extend(cell)
         # Each group as wide as its controls and kept whole: a FlexBox stretches across what
         # holds it by default, which put each group on a line of its own (seen 2026-10-27 at
@@ -1045,14 +1092,35 @@ class Lab:
             setattr(card, name, option)
         self._draw_cards()
 
+    def _on_several(self, card: shaping.Card, name: str, option: Any, held: tuple,
+                    event: Any) -> None:
+        """Any of a few: pressed, the card holds it with the others; pressed off, without it."""
+        chosen = tuple(v for v in held if v != option) + ((option,) if event.new else ())
+        setattr(card, name, chosen)
+        self._draw_cards()
+
     def _chart_context(self, card: shaping.Card, pairs: list[tuple[str, Any]]) -> shaping.Context:
         """What the chart card's controls are read off: the figure layer's own answers, over
         the shown runs that declare the chart."""
         held = [(n, r) for n, r in pairs if series_of(r, card.chart) is not None]
         if not held:
             return shaping.Context("chart", runs=0)
+        first = series_of(held[0][1], card.chart)
         pool = {how: pool_refusal(held, card.chart, how) for how in ("mean", "rms")}
-        return shaping.Context("chart", runs=len(held), pool=pool)
+        axes = {first.x_label: "own"}
+        axes.setdefault(INDEX_LABEL, "index")
+        # over the sample index the chart declares no logarithm: its own was of its abscissa
+        own = (card.x or "own") == "own"
+        ctx = shaping.Context("chart", runs=len(held), axes=axes, pool=pool,
+                              declared_x_log=first.x_log and own, declared_y_log=first.y_log)
+        base = {**shaping.draw_keywords(card, ctx), "x_log": False, "y_log": False}
+        try:
+            plain = chart_of(held, card.chart, **base)
+        except ValueError:
+            # not hidden: the view builds the chart again and writes the refusal under the card
+            return ctx
+        return dataclasses.replace(ctx, x_log_refusal=log_refusal(plain, "x"),
+                                   y_log_refusal=log_refusal(plain, "y"))
 
     def _chart_view(self, card: shaping.Card, pairs: list[tuple[str, Any]],
                     refused: list[str]) -> pn.Column:
@@ -1077,8 +1145,10 @@ class Lab:
             else:
                 body = self._body(card, panel)
                 self.drawn[card.id] = [n for n, _ in held]
+        # a card no shown run draws has nothing to shape: no controls, where an X with no
+        # axis to offer would be an empty list
         return self._frame(card, declared.title if declared else card.chart,
-                           self._toolbar(card, ctx), body, foot, warn)
+                           self._toolbar(card, ctx) if ctx.runs else [], body, foot, warn)
 
     def _own_view(self, card: shaping.Card, pairs: list[tuple[str, Any]],
                   refused: list[str]) -> pn.Column:
@@ -1117,15 +1187,20 @@ class Lab:
         if card.x not in vary:
             card.x = vary[0] if vary else ""
         axes = {view.term(fields[v]): v for v in vary}
-        ctx = shaping.Context("numbers", runs=len(pairs), axes=axes)
+        ctx = shaping.Context("numbers", runs=len(pairs), axes=axes, declared_points=True)
         if not card.x:
             return ctx
+        tell = {fields[v]["label"]: v for v in telling(pairs, card.x)}
+        ctx = dataclasses.replace(ctx, telling=tell)
+        each = {**shaping.draw_keywords(card, ctx), "runs": "each", "x_log": False,
+                "y_log": False}
         try:
-            plain = sweep_of(pairs, card.number, vs=card.x)
+            plain = sweep_of(pairs, card.number, **each)
         except ValueError:
             return ctx
         pools = any(len(set(line.x)) < len(line.x) for line in plain.axes[0].lines)
-        return shaping.Context(**{**ctx.__dict__, "pools": pools})
+        return dataclasses.replace(ctx, pools=pools, x_log_refusal=log_refusal(plain, "x"),
+                                   y_log_refusal=log_refusal(plain, "y"))
 
     def _numbers_view(self, card: shaping.Card, pairs: list[tuple[str, Any]],
                       refused: list[str]) -> pn.Column:
@@ -1152,50 +1227,71 @@ class Lab:
         return self._frame(card, title, self._toolbar(card, ctx), body, foot, warn)
 
     def _body(self, card: shaping.Card, panel: Any) -> Any:
-        """What a card shows: the figure layer's chart, as its live twin. A chart is drawn at
-        the range a zoom left on its bottom axis, and its own zooms are heard
-        (:meth:`_on_zoom`); a number card's bottom axis is a setting, so it is neither."""
+        """What a card shows: the figure layer's chart, as its live twin, or -- its table
+        picked -- the numbers on it, read off the same panel (``figure.render.table_of``), at
+        six significant digits (BESS's ``_body``). A chart is drawn at the span a zoom left on
+        its bottom axis, and its own zooms are heard (:meth:`_on_zoom`); a number card's bottom
+        axis is a setting, so it is neither, and a table has no axis to zoom."""
+        if card.table:
+            table = table_of(panel)
+            head = "".join(f"<th>{html.escape(str(h))}</th>" for h in table.header)
+            rows = "".join("<tr>" + "".join(f"<td>{html.escape(_six(v))}</td>" for v in row)
+                           + "</tr>" for row in table.rows)
+            beside = "".join(f"<div>{html.escape(w)}: {', '.join(_six(v) for v in vals)}</div>"
+                             for w, vals in table.beside)
+            note = f"<div class='dim'>{html.escape(say('cards.table_digits'))}</div>"
+            return pn.pane.HTML(
+                f"<div class='numbers' style='max-height:{_TABLE_PX}px'><table><thead><tr>{head}"
+                f"</tr></thead><tbody>{rows}</tbody></table></div>"
+                f"<div class='beside'>{beside}{note}</div>",
+                stylesheets=[skin.NUMBERS], sizing_mode="stretch_width")
         # a number card draws no legend: the hover names each point's run (RCWS)
         fig = figure_of(panel, legend=card.kind != "numbers")
         linked = card.kind == "chart"
-        if linked and self._ranges.get(panel.x_label):
-            fig["layout"]["xaxis"] = {**fig["layout"]["xaxis"],
-                                      "range": self._ranges[panel.x_label], "autorange": False}
+        ends = _span_on(self._ranges.get(panel.x_label), panel.x_log) if linked else None
+        if ends:
+            fig["layout"]["xaxis"] = {**fig["layout"]["xaxis"], "range": ends,
+                                      "autorange": False}
         pane = pn.pane.Plotly(fig, config=_PLOT_CONFIG, sizing_mode="stretch_width",
                               height=fig["layout"]["height"])
         if linked:
             pane.param.watch(lambda e, key=card.id: self._on_zoom(key, e.new), "relayout_data")
-            self._panes[card.id] = (pane, panel.x_label)
+            self._panes[card.id] = (pane, panel.x_label, panel.x_log)
         return pane
 
     def _on_zoom(self, key: int, data: Any) -> None:
         """A zoom on one chart reaches every open chart over the same bottom axis, and a reset
-        too; the range is kept for a chart drawn afterwards. A chart already on that range is
+        too; the span is kept for a chart drawn afterwards. A chart already on that span is
         not pushed, so a push cannot echo back (BESS's ``lab/app.py``, ``_on_relayout``). The
-        range is plotly's own, as the chart reported it: on a logarithmic axis, the powers of
-        ten."""
+        span is kept as the chart reported it, with whether that chart was logarithmic: a card
+        switches its own axis, so two charts over one axis may differ, and each is set the span
+        in its own terms (:func:`_span_on`). A logarithmic chart shows the whole of its axis
+        when the span reaches zero or below, and a reset made on it then reads as the echo of
+        that and is not passed on."""
         if not isinstance(data, dict) or key not in self._panes:
             return
+        _, label, x_log = self._panes[key]
         if "xaxis.range[0]" in data and "xaxis.range[1]" in data:
-            rng: Optional[list[Any]] = [data["xaxis.range[0]"], data["xaxis.range[1]"]]
+            span: Optional[tuple[list[Any], bool]] = (
+                [data["xaxis.range[0]"], data["xaxis.range[1]"]], x_log)
         elif data.get("xaxis.autorange"):
-            rng = None
+            span = None
         else:
             return
-        _, label = self._panes[key]
-        if self._ranges.get(label) == rng:
+        if _span_on(self._ranges.get(label), x_log) == (span[0] if span else None):
             return                                 # the echo of a push, or nothing new
-        self._ranges[label] = rng
-        for other, (pane, other_label) in self._panes.items():
+        self._ranges[label] = span
+        for other, (pane, other_label, other_log) in self._panes.items():
             if other == key or other_label != label:
                 continue
             fig = pane.object
             xaxis = dict(fig["layout"].get("xaxis", {}))
-            if rng is None:
+            ends = _span_on(span, other_log)
+            if ends is None:
                 xaxis.pop("range", None)
                 xaxis["autorange"] = True
             else:
-                xaxis["range"], xaxis["autorange"] = rng, False
+                xaxis["range"], xaxis["autorange"] = ends, False
             pane.object = {**fig, "layout": {**fig["layout"], "xaxis": xaxis}}
 
     def _close(self, card: shaping.Card) -> None:

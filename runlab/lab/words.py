@@ -71,7 +71,11 @@ SLOTS: dict[str, tuple[str, ...]] = {
     "cards.number_title": ("number", "setting"), "cards.number_foot": (),
     "cards.x": (), "cards.runs": (), "cards.overlay": (), "cards.split": (), "cards.mean": (),
     "cards.rms": (), "cards.each": (),
+    "cards.x_log": (), "cards.y_log": (), "cards.colour_by": (), "cards.by_run": (),
+    "cards.by_quantity": (), "cards.dots": (), "cards.lines": (), "cards.chart": (),
+    "cards.table": (), "cards.table_digits": (),
     "cards.one_run": (), "cards.nothing_differs": (), "cards.no_colour": (),
+    "cards.colour_pooled": (), "cards.colour_split": (), "cards.nothing_else_differs": (),
     "cards.chart_without.one": ("runs",), "cards.chart_without.many": ("runs",),
     # a card of a figure the piece draws itself
     "cards.own_runs": (), "cards.own_without.one": ("runs",), "cards.own_without.many": ("runs",),

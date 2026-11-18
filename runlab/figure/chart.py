@@ -3,22 +3,24 @@
 Two kinds of figure over ``pairs`` -- ``(run name, record)`` in the order the runs are shown:
 
 * :func:`chart_of`, a panel the records declare (``Record.series``): one run alone; several on
-  one pair of axes (``runs="one"``: the colour carries the run, its quantities told apart by a
-  shade of that hue and a dash, and a trace or band every run holds identically is drawn once
-  and said to be); a row each (``"rows"``, on one time axis); or the runs pooled into one trace
-  per quantity (``"mean"``, ``"rms"``) where the panel declares that statistic;
+  one pair of axes (``runs="one"``: the colour carries the run or the quantity, the other told
+  apart by a shade of that hue and a dash, and a trace or band every run holds identically is
+  drawn once and said to be); a row each (``"rows"``, on one time axis); or the runs pooled
+  into one trace per quantity (``"mean"``, ``"rms"``) where the panel declares that statistic;
 * :func:`sweep_of`, one summary number against a setting: every run a point, coloured by the
   settings that tell the runs apart but a replicate (the seed), runs of one colour at one value
   side by side in replicate order, or pooled into their mean or RMS there.
 
-``runs`` is the one way a drawing is shaped (the Lab's only card control, the developer's cut of
-2026-11-11); what the figure cannot draw it refuses in words (:func:`pool_refusal`), which a
-view shows where it greys a control.
+Every keyword is a way of shaping the drawing (a card's controls on the Lab's page, the
+developer's answers of 2026-11-17); what the figure cannot draw it refuses in words
+(:func:`pool_refusal`, :func:`render.log_refusal`), which a view shows where it greys a control.
 Nothing here names a piece: it reads the declarations a record carries. BESS's
 ``devkit/figure/chart.py``, its chi-square band about a mean of runs being here whatever band
 the panel gives for a mean of all their draws (``Series.mean_band``: the formula is the
-piece's), and with two refusals of its own: runs of different pieces, and a run that does not
-declare the panel asked for -- left out unsaid, a comparison would read as complete.
+piece's), and with three departures of its own: runs of different pieces are refused; a run
+that does not declare the panel asked for is refused -- left out unsaid, a comparison would
+read as complete; and a logarithmic axis the panel declares itself is drawn whatever it holds,
+as it was before a drawing could be asked for one (a release takes no chart from a project).
 """
 
 from __future__ import annotations
@@ -29,16 +31,21 @@ from typing import Any
 
 import numpy as np
 
-from runlab.figure.render import DASHES, Axes, Band, Line, Panel, Ref
+from runlab.figure.render import DASHES, Axes, Band, Line, Panel, Ref, log_refusal
 from runlab.figure.style import INK_SECONDARY, NEUTRAL, series_color, shade
 from runlab.record import Series, capital
 from runlab.record.config import fields_of, to_dict
 
-__all__ = ["RUNS", "chart_of", "pool_refusal", "sweep_of", "distinct", "telling", "series_of",
-           "mean_band_of"]
+__all__ = ["RUNS", "COLOUR_BY", "X", "INDEX_LABEL", "chart_of", "pool_refusal", "sweep_of",
+           "distinct", "telling", "series_of", "mean_band_of"]
 
 #: How several runs share a chart: one pair of axes, a row each, or pooled by a statistic.
 RUNS = ("one", "rows", "mean", "rms")
+#: What the colour tells apart on one pair of axes of several runs; the dash tells the other.
+COLOUR_BY = ("run", "quantity")
+#: The bottom axis: the panel's own abscissa, or the sample index, labelled ``INDEX_LABEL``.
+X = ("own", "index")
+INDEX_LABEL = "Sample index [-]"
 _POOL_WORDS = {"mean": "mean", "rms": "RMS"}
 #: How far apart runs of one colour at one value of a sweep's setting are drawn: a share of the
 #: span of the setting's values (a number), or of the step between two names.
@@ -152,7 +159,10 @@ def _replicate_refusal(pairs: Pairs) -> str:
     return ""
 
 
-def _x(s: Series) -> np.ndarray:
+def _x(s: Series, x: str = "own") -> np.ndarray:
+    """The panel's abscissa, or with ``x="index"`` its samples counted from 0."""
+    if x == "index":
+        return np.arange(len(s.x), dtype=float)
     return np.asarray(s.x, dtype=float)
 
 
@@ -179,11 +189,11 @@ def _ref_dash(r: int) -> str:
     return DASHES[1 + r % (len(DASHES) - 1)]
 
 
-def _alone(s: Series, xs: np.ndarray) -> tuple[tuple, tuple, tuple]:
+def _alone(s: Series, xs: np.ndarray, points: bool) -> tuple[tuple, tuple, tuple]:
     """One run's lines, bands and references: colours by position, the i-th trace slot i; a
     band its trace's colour (:func:`_band_owner`), a band about the panel the neutral."""
     n = len(xs)
-    lines = tuple(Line(label, xs, np.asarray(y, float), series_color(i))
+    lines = tuple(Line(label, xs, np.asarray(y, float), series_color(i), points=points)
                   for i, (label, y) in enumerate(s.traces))
     bands = tuple(Band(label, xs, _edge(lo, n), _edge(hi, n),
                        NEUTRAL if (owner := _band_owner(s, label)) is None else series_color(owner))
@@ -193,7 +203,7 @@ def _alone(s: Series, xs: np.ndarray) -> tuple[tuple, tuple, tuple]:
     return lines, bands, refs
 
 
-def _identical(held: list[tuple[str, Series]], kind: str) -> list[str]:
+def _identical(held: list[tuple[str, Series]], x: str, kind: str) -> list[str]:
     """The labels of the traces (``kind="traces"``) or bands (``"bands"``) every run in ``held``
     holds on the same abscissa with the same numbers: one source -- a truth both runs were
     scored against -- drawn once. Decided on the numbers, never on the label alone (RCWS
@@ -202,7 +212,7 @@ def _identical(held: list[tuple[str, Series]], kind: str) -> list[str]:
         return []
 
     def by_label(s: Series) -> dict[str, tuple[np.ndarray, ...]]:
-        xs = _x(s)
+        xs = _x(s, x)
         if kind == "traces":
             return {label: (xs, np.asarray(y, dtype=float)) for label, y in s.traces}
         return {label: (xs, *(np.asarray(v, dtype=float) for v in rest))
@@ -225,11 +235,18 @@ def _shared(items: list[tuple[str, tuple, Any]], runs: int) -> list[tuple[str, A
             for item, held in groups.values()]
 
 
-def chart_of(pairs: Pairs, name: str, *, runs: str = "one") -> Panel:
-    """Panel ``name`` over ``pairs``, the runs shared as ``runs`` says (:data:`RUNS`). Refused
-    in words: no run declaring the panel, runs labelling its axes differently, a statistic the
-    runs cannot be pooled by (:func:`pool_refusal`)."""
-    _choice(runs, RUNS, "runs")
+def chart_of(pairs: Pairs, name: str, *, runs: str = "one", colour_by: str = "run",
+             points: bool = False, x: str = "own", x_log: bool | None = None,
+             y_log: bool | None = None) -> Panel:
+    """Panel ``name`` over ``pairs``, shaped by the keywords (the module): the runs shared as
+    ``runs`` says (:data:`RUNS`), the colour telling apart what ``colour_by`` names
+    (:data:`COLOUR_BY`), each sample marked (``points``) or joined, over the bottom axis ``x``
+    (:data:`X`). ``x_log`` and ``y_log`` start at what the panel declares (``None``; over the
+    sample index it declares no logarithm) and override it when given. Refused in words: no run
+    declaring the panel, runs labelling its axes differently, a statistic the runs cannot be
+    pooled by (:func:`pool_refusal`), a logarithmic axis the panel does not declare over a
+    value at or below zero (:func:`render.log_refusal`)."""
+    _choice(runs, RUNS, "runs"); _choice(colour_by, COLOUR_BY, "colour_by"); _choice(x, X, "x")
     held = _held(pairs, name)
     first = held[0][1]
     for what in ("x_label", "y_label"):
@@ -237,12 +254,15 @@ def chart_of(pairs: Pairs, name: str, *, runs: str = "one") -> Panel:
         if len(said) > 1:
             raise ValueError(f"the runs label panel {name!r}'s {what[0]} axis differently: "
                              f"{sorted(said)}")
+    dots = bool(points)
+    x_label = first.x_label if x == "own" else INDEX_LABEL
+    declared = (first.x_log if x == "own" else False, first.y_log)
 
     if runs in ("mean", "rms"):
         why = pool_refusal(pairs, name, runs)
         if why:
             raise ValueError(f"panel {name!r} cannot be pooled by {_POOL_WORDS[runs]}: {why}")
-        xs = _x(first)
+        xs = _x(first, x)
         # each run weighs as many draws as its traces are a mean of, so the mean of the runs
         # is the mean of all their draws (BESS's ``chart_of``)
         w = np.array([int(s.averaged) for _, s in held], dtype=float)
@@ -251,34 +271,44 @@ def chart_of(pairs: Pairs, name: str, *, runs: str = "one") -> Panel:
             ys = np.array([np.asarray(s.traces[j][1], float) for _, s in held])
             y = (w @ ys) / w.sum() if runs == "mean" else np.sqrt((w @ ys ** 2) / w.sum())
             lines.append(Line(f"{capital(_POOL_WORDS[runs])} of {len(held)} runs · {label}", xs, y,
-                              series_color(j)))
+                              series_color(j), points=dots))
         band = mean_band_of(first, int(w.sum())) if runs == "mean" else None
         bands = () if band is None else (Band(band[0], xs, band[1], band[2], NEUTRAL),)
         refs = tuple(Ref(label, float(v), INK_SECONDARY, _ref_dash(r))
                      for r, (label, v) in enumerate(first.refs))
-        panel = Panel(name, first.x_label, (Axes(first.y_label, tuple(lines), bands, refs),),
+        panel = Panel(name, x_label, (Axes(first.y_label, tuple(lines), bands, refs),),
                       first.doc)
     elif len(held) == 1:
-        panel = Panel(name, first.x_label, (Axes(first.y_label, *_alone(first, _x(first))),),
+        panel = Panel(name, x_label, (Axes(first.y_label, *_alone(first, _x(first, x), dots)),),
                       first.doc)
     elif runs == "rows":
-        axes = tuple(Axes(run, *_alone(s, _x(s))) for run, s in held)
-        panel = Panel(name, first.x_label, axes, first.doc, quantity=first.y_label)
+        axes = tuple(Axes(run, *_alone(s, _x(s, x), dots)) for run, s in held)
+        panel = Panel(name, x_label, axes, first.doc, quantity=first.y_label)
     else:
         # a run wears the slot of its place among ALL the runs given, so a view that colours
         # its runs by the order shown keeps each run's colour when one of them lacks the panel
         slot = {run: i for i, (run, _) in enumerate(pairs)}
-        same_lines, same_bands = _identical(held, "traces"), _identical(held, "bands")
+
+        def colour(i: int, j: int) -> str:
+            """Run ``i``'s quantity ``j``: the run's hue in the quantity's shade, or the
+            transpose when colour carries the quantity (RCWS ``overlay._axes``)."""
+            return shade(series_color(i), j) if colour_by == "run" else shade(series_color(j), i)
+
+        def dash(i: int, j: int) -> str:
+            return DASHES[(j if colour_by == "run" else i) % len(DASHES)]
+
+        same_lines, same_bands = _identical(held, x, "traces"), _identical(held, x, "bands")
         # two runs are named, three or more counted: in RCWS a line 8 runs shared was named
         # with 333 characters of run names
         every = ", ".join(run for run, _ in held) if len(held) < 3 else f"{len(held)} runs"
-        # a line every run holds takes the first colour slot no run wears (code review,
-        # 2026-10-27: after the runs alone, it took the third quantity's colour)
-        after = len(pairs)
+        # a line every run holds takes the first colour slot no run -- or, with colour by
+        # quantity, no quantity -- wears (code review, 2026-10-27: after the runs alone, it took
+        # the third quantity's colour)
+        after = len(pairs) if colour_by == "run" else max(len(s.traces) for _, s in held)
         lines, bands, ref_items = [], [], []
         for k, (run, s) in enumerate(held):
             i = slot[run]
-            xs = _x(s)
+            xs = _x(s, x)
             n = len(xs)
             own = [label for label, _ in s.traces if label not in same_lines]
             for j, (label, y) in enumerate(s.traces):
@@ -286,12 +316,11 @@ def chart_of(pairs: Pairs, name: str, *, runs: str = "one") -> Panel:
                     if k == 0:
                         lines.append(Line(f"{every} — {label} (identical)", xs,
                                           np.asarray(y, float),
-                                          series_color(after + same_lines.index(label))))
+                                          series_color(after + same_lines.index(label)),
+                                          points=dots))
                     continue
-                # the run's hue in the quantity's shade, the quantity also told by its dash
                 lines.append(Line(run if len(own) == 1 else f"{run} — {label}", xs,
-                                  np.asarray(y, float), shade(series_color(i), j),
-                                  DASHES[j % len(DASHES)]))
+                                  np.asarray(y, float), colour(i, j), dash(i, j), dots))
             for label, lo, hi in s.bands:
                 lo_, hi_ = _edge(lo, n), _edge(hi, n)
                 if label in same_bands:
@@ -302,15 +331,32 @@ def chart_of(pairs: Pairs, name: str, *, runs: str = "one") -> Panel:
                     continue
                 owner = _band_owner(s, label)
                 bands.append(Band(f"{run} — {label}", xs, lo_, hi_,
-                                  NEUTRAL if owner is None else shade(series_color(i), owner)))
+                                  NEUTRAL if owner is None else colour(i, owner)))
             for r, (label, v) in enumerate(s.refs):
                 ref_items.append((run, (label, float(v)),
                                   Ref(label, float(v), INK_SECONDARY, _ref_dash(r))))
         refs = tuple(Ref(f"{pre}{r.label}", r.value, r.color, r.dash)
                      for pre, r in _shared(ref_items, len(held)))
-        panel = Panel(name, first.x_label,
+        panel = Panel(name, x_label,
                       (Axes(first.y_label, tuple(lines), tuple(bands), refs),), first.doc)
-    return dataclasses.replace(panel, x_log=first.x_log, y_log=first.y_log)
+    return _finished(panel, x_log, y_log, declared)
+
+
+def _finished(panel: Panel, x_log: bool | None, y_log: bool | None,
+              declared: tuple[bool, bool] = (False, False)) -> Panel:
+    """``panel`` on the axes asked for, ``None`` being what it declares (``declared``, its
+    bottom axis then its ordinate). A logarithmic axis it does not declare is refused over a
+    value at or below zero; one it declares is drawn as it always was."""
+    logs = []
+    for axis, asked, own, words in (("x", x_log, declared[0], "bottom axis"),
+                                    ("y", y_log, declared[1], "ordinate")):
+        log = own if asked is None else bool(asked)
+        if log and not own:
+            why = log_refusal(panel, axis)
+            if why:
+                raise ValueError(f"panel {panel.name!r} cannot take a logarithmic {words}: {why}")
+        logs.append(log)
+    return dataclasses.replace(panel, x_log=logs[0], y_log=logs[1])
 
 
 # --- a number against a setting --------------------------------------------------------------
@@ -347,11 +393,14 @@ def _words(f: dict[str, Any], value: Any) -> str:
 
 
 def sweep_of(pairs: Pairs, number: str, *, vs: str, by: Sequence[str] | None = None,
-             runs: str = "each") -> Panel:
+             runs: str = "each", points: bool = True, x_log: bool = False,
+             y_log: bool = False) -> Panel:
     """Summary number ``number`` against setting ``vs`` over ``pairs`` (the module). ``by`` are
     the settings each colour stands for, ``None`` for every one that tells the runs apart
     (:func:`telling`), ``()`` for one colour over every run; ``runs`` is ``"each"`` (a point per
-    run) or the statistic of a colour's runs at one value (``"mean"``, ``"rms"``)."""
+    run) or the statistic of a colour's runs at one value (``"mean"``, ``"rms"``); ``points``
+    marks each run, or joins a colour's; a logarithmic axis over a value at or below zero is
+    refused (:func:`render.log_refusal`)."""
     _choice(runs, ("each", "mean", "rms"), "runs")
     if not pairs:
         raise ValueError("a sweep needs at least one run")
@@ -378,7 +427,13 @@ def sweep_of(pairs: Pairs, number: str, *, vs: str, by: Sequence[str] | None = N
     where = ({repr(v): float(v) for v in values} if numeric
              else {repr(v): float(names.index(repr(v))) for v in values})
     xs_all = np.array([where[repr(v)] for v in values])
-    span = float(xs_all.max() - xs_all.min()) or (abs(float(xs_all.max())) or 1.0)
+    # on a log bottom axis the runs at one value are spread by a share of the decades the
+    # values span, so a point never lands at or below zero (BESS's ``sweep_of``)
+    geometric = numeric and x_log and bool(np.all(xs_all > 0))
+    if geometric:
+        span = float(np.log10(xs_all.max() / xs_all.min())) or 1.0
+    else:
+        span = float(xs_all.max() - xs_all.min()) or (abs(float(xs_all.max())) or 1.0)
     step = _SPREAD_NUMBER * span if numeric else _SPREAD_NAME
     replicates = [n for n, f in fields.items() if f["replicate"]]
 
@@ -403,13 +458,15 @@ def sweep_of(pairs: Pairs, number: str, *, vs: str, by: Sequence[str] | None = N
                 continue
             for i, (run, rec) in enumerate(here):
                 px.append(xv); py.append(float(rec.numbers[number])); texts.append(run)
-                spread.append((i - (len(here) - 1) / 2) * step)
-        lines.append(Line(label, px, py, series_color(g), points=True, texts=tuple(texts),
-                          spread=tuple(spread)))
+                k = (i - (len(here) - 1) / 2) * step
+                spread.append(xv * (10.0 ** k - 1.0) if geometric else k)
+        lines.append(Line(label, px, py, series_color(g), points=bool(points),
+                          texts=tuple(texts), spread=tuple(spread)))
     f = fields[vs]
     x_label = f["label"] + (f" [{f['unit']}]" if f["unit"] else "")
     y_label = spec.label + (f" [{spec.unit}]" if spec.unit else " [-]")
     shown = {repr(v): str(v) for v in values}
     ticks = None if numeric else tuple((float(i), shown[n]) for i, n in enumerate(names))
-    return Panel(f"{number}-vs-{vs}", x_label, (Axes(y_label, tuple(lines)),), spec.doc,
-                 x_ticks=ticks)
+    panel = Panel(f"{number}-vs-{vs}", x_label, (Axes(y_label, tuple(lines)),), spec.doc,
+                  x_ticks=ticks)
+    return _finished(panel, x_log, y_log)

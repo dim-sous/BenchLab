@@ -120,7 +120,7 @@ class Series:
     #: is the piece's own (BESS's is a chi-square band about a NEES); None for none.
     mean_band: Callable[[int], tuple[str, Any, Any]] | None = None
     #: A logarithmic bottom axis or ordinate, declared by the record for a quantity read in
-    #: decades (a Bode plot's ω and |G|); not a card's control.
+    #: decades (a Bode plot's ω and |G|): what a card's Log x and Log y open on.
     x_log: bool = False
     y_log: bool = False
 

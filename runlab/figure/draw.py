@@ -22,7 +22,7 @@ def draw_one(record: Record, out_dir: Path) -> list[Path]:
 def draw(pairs: Sequence[tuple[str, Any]], out_dir: Path, *, panels: Sequence[str] | None = None,
          **shaping: Any) -> list[Path]:
     """``panels`` (every panel the first record declares, when ``None``) over ``pairs``, each
-    shaped by ``shaping`` (:func:`figure.chart.chart_of`'s keywords: ``runs``)."""
+    shaped by ``shaping`` (:func:`figure.chart.chart_of`'s keywords)."""
     names = list(panels) if panels is not None else [s.name for s in pairs[0][1].series()]
     unknown = [n for n in names if not any(series_of(rec, n) for _, rec in pairs)]
     if unknown:

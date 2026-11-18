@@ -120,6 +120,20 @@ table.cmp tr:last-child td {{ border-bottom: 0; }}
 .empty {{ font-size: 13px; color: {INK3}; padding: 10px 12px; }}
 """
 
+#: A chart's numbers in its place (a card's "table"), RCWS's: a sheet that scrolls under a header
+#: that stays put, the numbers in the mono face and right-aligned so their digits line up.
+NUMBERS = f"""
+.numbers {{ overflow: auto; border-top: 1px solid {LINE}; }}
+.numbers table {{ border-collapse: collapse; font: 12px/1.4 {MONO}; color: {INK}; }}
+.numbers th {{ position: sticky; top: 0; background: {PAPER}; color: {INK2}; text-align: right;
+               font: 500 11.5px/1.3 {SANS}; padding: 4px 8px; vertical-align: bottom;
+               border-bottom: 1px solid {LINE2}; }}
+.numbers td {{ text-align: right; padding: 2px 8px; white-space: nowrap;
+               border-bottom: 1px solid {LINE}; }}
+.beside {{ font: 12px/1.5 {MONO}; color: {INK2}; margin-top: 6px; }}
+.beside .dim {{ color: {INK3}; font-family: {SANS}; }}
+"""
+
 #: A group of a card's controls after the first: a rule before it -- the groups by what they
 #: act on (RCWS, the developer's: lined up in two rows' columns, they were not grouped by sense).
 GROUP = {"border-left": f"1px solid {LINE2}", "padding-left": "8px"}

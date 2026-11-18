@@ -4,12 +4,15 @@ now, and the keyword it hands the figure layer. A card's controls are these, in 
 (:data:`SHAPINGS`); its chart is drawn from what they hold (:func:`draw_keywords`), and a new way
 of shaping a chart is one entry here (RCWS ``feat/unequal-state-mixing``, ``lab/shaping.py``).
 
-Three, after the developer's cut of 2026-11-11: a chart card's runs (Overlay | Split | Mean |
-RMS); a number card's setting on the bottom axis (X) and its runs (All | Mean | RMS). A control a
-card cannot use is greyed with the reason on its hover: the figure layer's refusal in its own
-words where it is one (``figure.chart.pool_refusal``). A card of a figure the piece draws itself
-(kind ``own``) carries the chart card's control, greyed whole: such a figure is drawn once per
-run, and only the piece could merge two.
+The controls stand in groups by what they act on -- the axes (X, Log x, Log y), the runs (Colour
+by, Runs), the drawing (Dots | Lines), the view (Chart | Table) -- every one on every chart and
+number card (BESS's ``lab/shaping.py``; the developer's answers of 2026-11-17, which put back
+what the cut of 2026-11-11 took). A control a card cannot use is greyed with the reason on its
+hover: the figure layer's refusal in its own words where it is one
+(``figure.chart.pool_refusal``, ``figure.render.log_refusal``). A logarithmic axis the chart
+declares itself is never greyed: only switching on one it does not declare is. A card of a
+figure the piece draws itself (kind ``own``) carries the chart card's Runs alone, greyed whole:
+such a figure is drawn once per run, and only the piece could merge two.
 
 No Panel here, so what a card offers is tested without a page.
 """
@@ -28,27 +31,44 @@ __all__ = ["Card", "Context", "Shaping", "SHAPINGS", "offered", "draw_keywords"]
 @dataclass
 class Card:
     """One open card: a ``chart`` (a panel the records declare) or a ``numbers`` card (a summary
-    number against a setting, ``x``). ``runs`` and ``x`` are ``""`` for the card's default."""
+    number against a setting, ``x``). ``x_log``, ``y_log`` and ``points`` are ``None`` while
+    they follow what the chart declares; ``runs`` and ``x`` are ``""`` for the card's default;
+    ``by`` is ``None`` for every setting that tells the runs apart."""
     id: int
     kind: str
     chart: str = ""
     number: str = ""
     x: str = ""
+    x_log: bool | None = None
+    y_log: bool | None = None
+    colour_by: str = "run"
+    by: tuple[str, ...] | None = None
     runs: str = ""
+    points: bool | None = None
+    table: bool = False
 
 
 @dataclass(frozen=True)
 class Context:
     """What a card's controls are read off: its kind (``chart``, ``numbers``, or ``own`` for a
-    chart card whose panel is a figure the piece draws itself) and how many runs it draws; on a chart
-    card why each statistic cannot pool its runs (``{"mean": why, "rms": why}``, ``""`` where it
-    can); on a numbers card the settings on offer for its bottom axis (words -> setting) and
-    whether a colour holds two runs at one value."""
+    chart card whose panel is a figure the piece draws itself) and how many runs it draws; the
+    bottom axis's options (words -> value); on a chart card why each statistic cannot pool its
+    runs (``{"mean": why, "rms": why}``, ``""`` where it can); what the chart declares over the
+    bottom axis the card is on (its logarithmic axes, its dots); on a numbers card the settings
+    that tell the runs apart (words -> setting) and whether a colour holds two runs at one
+    value; and, once the chart is built, why it cannot take a logarithmic bottom axis or
+    ordinate."""
     kind: str
     runs: int = 1
     axes: dict[str, str] = field(default_factory=dict)
     pool: dict[str, str] = field(default_factory=dict)
+    declared_x_log: bool = False
+    declared_y_log: bool = False
+    declared_points: bool = False
+    telling: dict[str, str] = field(default_factory=dict)
     pools: bool = False
+    x_log_refusal: str = ""
+    y_log_refusal: str = ""
 
 
 def _fine(card: Card, ctx: Context) -> str:
@@ -57,13 +77,14 @@ def _fine(card: Card, ctx: Context) -> str:
 
 @dataclass(frozen=True)
 class Shaping:
-    """One way of shaping a card. ``kind``: ``list`` (a drop-down) or ``one`` (one of a few,
-    side by side, an option greyed alone where it cannot be picked). ``options(card, ctx)`` are
-    ``(words, value, why greyed)``; ``shown`` what it holds for a card; ``keywords`` what it hands
-    the figure layer; ``unusable`` why the whole control is greyed, ``""`` when it is not;
-    ``kinds`` the cards it stands on."""
+    """One way of shaping a card. ``kind``: ``list`` (a drop-down), ``switch`` (on or off),
+    ``one`` (one of a few, side by side, an option greyed alone where it cannot be picked) or
+    ``several`` (any of a few). ``options(card, ctx)`` are ``(words, value, why greyed)``;
+    ``shown`` what it holds for a card; ``keywords`` what it hands the figure layer;
+    ``unusable`` why the whole control is greyed, ``""`` when it is not; ``kinds`` the cards it
+    stands on."""
     field: str
-    slot: str                                     # its words' slot (lab.words)
+    slot: str                                     # its words' slot (lab.words), "" for none
     kind: str
     group: int
     shown: Callable[[Card, Context], Any]
@@ -92,19 +113,78 @@ def _one_run(card: Card, ctx: Context) -> str:
     return say("cards.one_run") if ctx.runs < 2 else ""
 
 
+def _colour_unusable(card: Card, ctx: Context) -> str:
+    if ctx.runs < 2:
+        return say("cards.one_run")
+    runs = _chart_runs(card, ctx)
+    if runs in ("mean", "rms"):
+        return say("cards.colour_pooled")
+    if runs == "rows":
+        return say("cards.colour_split")
+    return ""
+
+
 # -- the numbers card's runs: each a point, or a colour's runs at one value pooled
 
 def _numbers_runs(card: Card, ctx: Context) -> str:
     return (card.runs or "each") if ctx.pools else "each"
 
 
+def _by(card: Card, ctx: Context) -> tuple[str, ...]:
+    """The settings a numbers card's colours stand for: every one that tells the runs apart
+    until some are picked, then those of the picked that still do."""
+    offered = tuple(ctx.telling.values())
+    return offered if card.by is None else tuple(b for b in card.by if b in offered)
+
+
+# -- the axes: logarithmic as the chart declares until switched; a declared one never greyed
+
+def _x_log_shown(card: Card, ctx: Context) -> bool:
+    return ctx.declared_x_log if card.x_log is None else bool(card.x_log)
+
+
+def _x_log_unusable(card: Card, ctx: Context) -> str:
+    return "" if _x_log_shown(card, ctx) or ctx.declared_x_log else ctx.x_log_refusal
+
+
+def _y_log_shown(card: Card, ctx: Context) -> bool:
+    return ctx.declared_y_log if card.y_log is None else bool(card.y_log)
+
+
+def _y_log_unusable(card: Card, ctx: Context) -> str:
+    return "" if _y_log_shown(card, ctx) or ctx.declared_y_log else ctx.y_log_refusal
+
+
+def _points_shown(card: Card, ctx: Context) -> bool:
+    return ctx.declared_points if card.points is None else bool(card.points)
+
+
 #: Every way of shaping a card, in the order a card shows them.
 SHAPINGS: tuple[Shaping, ...] = (
+    Shaping("x", "cards.x", "list", 1, kinds=("chart",),
+            options=lambda card, ctx: [(w, v, "") for w, v in ctx.axes.items()],
+            shown=lambda card, ctx: card.x or "own",
+            keywords=lambda card, ctx: {"x": card.x or "own"}),
     Shaping("x", "cards.x", "list", 1, kinds=("numbers",),
             options=lambda card, ctx: [(w, v, "") for w, v in ctx.axes.items()],
             unusable=lambda card, ctx: "" if ctx.axes else say("cards.nothing_differs"),
             shown=lambda card, ctx: card.x,
             keywords=lambda card, ctx: {"vs": card.x}),
+    Shaping("x_log", "cards.x_log", "switch", 1, unusable=_x_log_unusable, shown=_x_log_shown,
+            keywords=lambda card, ctx: {"x_log": _x_log_shown(card, ctx)}),
+    Shaping("y_log", "cards.y_log", "switch", 1, unusable=_y_log_unusable, shown=_y_log_shown,
+            keywords=lambda card, ctx: {"y_log": _y_log_shown(card, ctx)}),
+    Shaping("colour_by", "cards.colour_by", "one", 2, kinds=("chart",),
+            options=lambda card, ctx: [(say("cards.by_run"), "run", ""),
+                                       (say("cards.by_quantity"), "quantity", "")],
+            unusable=_colour_unusable, shown=lambda card, ctx: card.colour_by,
+            keywords=lambda card, ctx: ({"colour_by": card.colour_by}
+                                        if not _colour_unusable(card, ctx) else {})),
+    # Its colours travel even when greyed: none named is one colour over every run.
+    Shaping("by", "cards.colour_by", "several", 2, kinds=("numbers",),
+            options=lambda card, ctx: [(w, v, "") for w, v in ctx.telling.items()],
+            unusable=lambda card, ctx: "" if ctx.telling else say("cards.nothing_else_differs"),
+            shown=_by, keywords=lambda card, ctx: {"by": _by(card, ctx)}),
     Shaping("runs", "cards.runs", "one", 2, kinds=("chart", "own"), options=_chart_runs_options,
             unusable=_one_run, shown=_chart_runs,
             keywords=lambda card, ctx: {"runs": _chart_runs(card, ctx)}),
@@ -115,6 +195,17 @@ SHAPINGS: tuple[Shaping, ...] = (
             unusable=lambda card, ctx: "" if ctx.pools else say("cards.no_colour"),
             shown=_numbers_runs,
             keywords=lambda card, ctx: {"runs": _numbers_runs(card, ctx)}),
+    Shaping("points", "", "one", 3,
+            options=lambda card, ctx: [(say("cards.dots"), True, ""),
+                                       (say("cards.lines"), False, "")],
+            shown=_points_shown,
+            keywords=lambda card, ctx: {"points": _points_shown(card, ctx)}),
+    # The view hands the figure layer nothing: the table is read off the chart it draws.
+    Shaping("table", "", "one", 4,
+            options=lambda card, ctx: [(say("cards.chart"), False, ""),
+                                       (say("cards.table"), True, "")],
+            shown=lambda card, ctx: card.table,
+            keywords=lambda card, ctx: {}),
 )
 
 

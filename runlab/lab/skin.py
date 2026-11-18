@@ -185,6 +185,8 @@ LIST = f"""
 .list {{ background: {PAPER}; border-radius: 6px; overflow: hidden; font-family: {SANS}; }}
 .run {{ display: grid; grid-template-columns: 22px minmax(0, 1fr) auto auto; align-items: center;
         gap: 8px; padding: 8px 10px 8px 12px; border-bottom: 1px solid {LINE}; cursor: pointer; }}
+.run.flat {{ grid-template-columns: minmax(0, 1fr) auto; cursor: default; }}
+.run.flat .when {{ white-space: normal; }}
 .run:last-child {{ border-bottom: 0; }}
 .run:hover {{ background: color-mix(in srgb, {ACCENT_SOFT} 45%, {PAPER}); }}
 .dot {{ width: 12px; height: 12px; border-radius: 50%; border: 1.5px solid {LINE2};

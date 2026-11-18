@@ -43,6 +43,7 @@ from runlab.record.config import coerce_value, fields_of
 from runlab.record.files import discard, kept
 
 from .form import as_text
+from .state import RUN_FILES
 from .words import say, say_n
 
 QUEUED, RUNNING, DONE, FAILED, STOPPED = "queued", "running", "done", "failed", "stopped"
@@ -163,14 +164,38 @@ def run_argv(piece: str, overrides: Sequence[str] = (), name: str = "",
     return argv
 
 
-def delete(piece: str, records: Sequence[str] = (), *,
+#: A folder of saved pictures: record names joined by '+' (``cli.folder_of``).
+_FOLDER = re.compile(r"[A-Za-z0-9][A-Za-z0-9._+-]*\Z")
+#: What a Save or a draw writes into a folder: a still, a table, and each one's sidecar.
+_DRAWN = (".png", ".csv", ".png.json", ".csv.json")
+
+
+def delete(piece: str, records: Sequence[str] = (), folders: Sequence[str] = (), *,
            root: str, out_dir: str = DEFAULT_OUT_DIR) -> list[str]:
     """Delete the named records (``<out_dir>/<piece>/<name>.json``), each with the folder of
-    files its run wrote (``<name>.files/``), and return what went, as paths under ``root``.
-    Anything else is refused in words and nothing is deleted: a name that is not a record's, a
-    path outside the out-dir."""
+    files its run wrote (``<name>.files/``), and the named folders of saved pictures
+    (``<out_dir>/<piece>/<name>/``, which hold only what a Save writes: ``.png``, ``.csv`` and
+    their ``.json`` sidecars), and return what went, as paths under ``root``. Anything else is
+    refused in words and nothing is deleted: a name that is not a record's, a path outside the
+    out-dir, a run's own folder of files named as pictures, a folder holding a file no Save
+    writes (BESS's ``lab/jobs.py``)."""
     piece = _piece(piece)
     base = os.path.realpath(os.path.join(root, out_dir, piece))
+    where = f"{out_dir}/{piece}/"
+    pictures: list[str] = []
+    for name in folders:
+        if not _FOLDER.match(name or "") or name.endswith(RUN_FILES):
+            raise ValueError(say("messages.delete_not_folder", name=repr(name)))
+        path = os.path.join(base, name)
+        if not os.path.isdir(path):
+            raise ValueError(say("messages.delete_no_folder", name=repr(name), folder=where))
+        if not os.path.realpath(path).startswith(base + os.sep):
+            raise ValueError(say("messages.delete_outside", path=path, folder=where))
+        odd = sorted(f for f in os.listdir(path) if not f.endswith(_DRAWN))
+        if odd:
+            raise ValueError(say("messages.delete_holds_other", folder=f"{where}{name}/",
+                                 files=", ".join(odd)))
+        pictures.append(path)
     targets: list[str] = []
     for name in records:
         path = os.path.join(base, f"{_name(name)}.json")
@@ -188,6 +213,11 @@ def delete(piece: str, records: Sequence[str] = (), *,
         if kept(path).is_dir():
             shutil.rmtree(kept(path))
             gone.append(str(kept(path)) + os.sep)
+    for path in pictures:
+        for f in os.listdir(path):
+            os.remove(os.path.join(path, f))
+        os.rmdir(path)
+        gone.append(path + os.sep)
     return [os.path.relpath(path, root) + (os.sep if path.endswith(os.sep) else "")
             for path in gone]
 

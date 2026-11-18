@@ -46,7 +46,8 @@ _ALLOWED = {# the declared project: its pieces, and its command and title -- wor
             "runlab.record.config": {"fields_of", "coerce_value"},
             "runlab.record.files": {"kept", "discard"},
             # the one constant saying where records live
-            "runlab.cli": {"DEFAULT_OUT_DIR"},
+            # and the folder a draw of some runs writes into, where a card's Save writes too
+            "runlab.cli": {"DEFAULT_OUT_DIR", "folder_of"},
             # how a record name and the form's words become runs, the command line's own rule
             "runlab.runner": {"planned"},
             # what a card draws is the figure layer's own: the panel built from what the records
@@ -63,6 +64,9 @@ _ALLOWED = {# the declared project: its pieces, and its command and title -- wor
             # table a card shows in its place: both read off the panel the figure layer built
             "runlab.figure.render": {"log_refusal", "table_of"},
             "runlab.figure.twin": {"figure_of"},
+            # a card's Save: the still of the chart it shows, and of a number against a setting,
+            # written by the figure layer from the keywords the card was drawn from
+            "runlab.figure.draw": {"draw", "draw_sweep"},
             # a figure the piece draws itself, as the page's pane takes it: passed through
             "runlab.figure.own": {"own_figure"},
             "runlab.figure.style": {"series_color", "FONT", "MONO", "SURFACE", "INK",
@@ -584,3 +588,59 @@ def test_a_refusal_in_a_folded_group_opens_it(two_runs) -> None:
     assert queue.runs() == [] and fold.value, "opened"
     body = lab.form_box.objects[-1].objects[1]
     assert body.visible and _note(lab, "delay") == "Delay must be at least 0, got -1"
+
+
+# --- the folders of pictures a Save wrote: listed, and deleted (BESS's ``tests/test_lab.py``) --
+
+def test_the_folders_of_saved_pictures_are_listed_with_what_they_hold(two_runs) -> None:
+    root, out_dir = two_runs
+    base = Path(root) / out_dir / "wave"
+    folder = base / "first+second"
+    folder.mkdir()
+    for name in ("u.png", "u.png.json", "u.csv", "u.csv.json", "y.png"):
+        (folder / name).write_text("x")
+    (base / "empty").mkdir()
+    (base / "first.files").mkdir()                   # a run's own files, a picture among them
+    (base / "first.files" / "plot.png").write_text("x")
+    [listed] = state.folders(root, out_dir, "wave")
+    assert listed["name"] == "first+second" and listed["pictures"] == ["u.png", "y.png"]
+    assert listed["tables"] == 1
+    assert state.folders(root, out_dir, "lag") == [], "a piece with no folder yet"
+
+
+def test_delete_takes_the_folders_it_names_and_refuses_anything_else(two_runs) -> None:
+    root, out_dir = two_runs
+    base = Path(root) / out_dir / "wave"
+    for name, files in (("first", ("u.png", "u.png.json")), ("first+second", ("y.png",)),
+                        ("kept", ("notes.txt",)), ("second.files", ("plot.png",))):
+        (base / name).mkdir()
+        for f in files:
+            (base / name / f).write_text("x")
+    delete = lambda **named: jobs.delete("wave", root=root, out_dir=out_dir, **named)
+    with pytest.raises(ValueError, match="holds notes.txt, which Save does not write"):
+        delete(folders=["kept"])
+    with pytest.raises(ValueError, match="'second.files' is not a folder of saved pictures"):
+        delete(folders=["second.files"])
+    with pytest.raises(ValueError, match="is not a folder of saved pictures"):
+        delete(folders=["../first"])
+    with pytest.raises(ValueError, match="no folder 'absent' under results/wave/"):
+        delete(folders=["absent"])
+    with pytest.raises(ValueError, match="which Save does not write"):
+        delete(records=["first"], folders=["first", "kept"])
+    assert (base / "first.json").exists() and (base / "first" / "u.png").exists(), \
+        "one refusal, and nothing went"
+    gone = delete(records=["first"], folders=["first", "first+second"])
+    assert gone == [f"{out_dir}/wave/first.json", f"{out_dir}/wave/first/",
+                    f"{out_dir}/wave/first+second/"]
+    assert not (base / "first").exists() and not (base / "first+second").exists()
+    assert (base / "second.json").exists() and (base / "second.files" / "plot.png").exists()
+    assert (base / "kept" / "notes.txt").exists()
+
+
+def test_the_folder_of_many_runs_is_one_a_filesystem_and_delete_both_take() -> None:
+    from runlab.cli import folder_of
+    names = [f"default-amplitude-{20 + i}-run-{i}" for i in range(20)]
+    many = folder_of(names)
+    assert len(many.encode()) <= 255 and many.startswith(names[0] + "+19-more-")
+    assert jobs._FOLDER.match(many) and jobs._FOLDER.match(folder_of(["a", "b"]))
+

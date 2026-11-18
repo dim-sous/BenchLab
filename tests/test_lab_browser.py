@@ -366,7 +366,24 @@ def test_driving_every_kind_of_card_raises_nothing_in_the_browser(tmp_path) -> N
         page.wait_for_timeout(900)
         assert "Sample index [-]" in page.locator(".xtitle").all_text_contents(), \
             "the chart card's bottom axis"
-        assert not button("Save").count(), "Save is the next step's"
+        # Save on each card, the folder it wrote listed, and deleted after its question
+        assert button("Save").count() == 2, "on the number card and on the chart card"
+        for i in range(2):
+            button("Save").nth(i).click()
+            page.wait_for_timeout(2500)              # the first loads the drawing library
+        said = page.evaluate(_TEXT)
+        assert sum("Wrote results/wave/second+first/" in t for t in said) == 2, said
+        saved = page.locator(".run.flat")
+        assert saved.locator(".name").all_text_contents() == ["second+first"], \
+            "listed under Saved pictures"
+        assert "2 pictures" in saved.locator(".when").first.text_content()
+        saved.first.hover()                          # a row's delete shows under the mouse
+        page.get_by_role("button", name="Delete the saved pictures second+first",
+                         exact=True).click()
+        page.get_by_text("Delete the pictures in results/wave/second+first/?").wait_for()
+        button("Delete").click()
+        page.wait_for_timeout(1500)
+        assert not page.locator(".run.flat").count(), "gone from the list"
         page.locator("button", has_text="Differing").click()
         page.wait_for_timeout(900)
         assert any("vs A" in t for t in page.evaluate(_TEXT)), "the number card is on the page"

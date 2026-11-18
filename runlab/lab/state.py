@@ -180,6 +180,32 @@ def _note(place: str, kind: str, n: int, fields: str) -> str:
             else say_n("runs.differs.origin_extra", n, fields=fields))
 
 
+#: A run's own folders beside its run file (``record.files``): never a folder of saved pictures.
+RUN_FILES = (".files", ".files.partial")
+
+
+def folders(root: str, out_dir: str, piece: str) -> list[dict[str, Any]]:
+    """The folders of saved pictures under ``<root>/<out_dir>/<piece>/``, newest first: each
+    one's name, its pictures (``.png``), how many tables (``.csv``) beside them, and when it
+    last changed -- what a Save or a draw wrote, read off the folder (BESS's ``lab/state.py``).
+    A run's own folder of files is not one, whatever it holds."""
+    base = Path(root) / out_dir / piece
+    if not base.is_dir():
+        return []
+    out = []
+    for folder in base.iterdir():
+        if not folder.is_dir() or folder.name.endswith(RUN_FILES):
+            continue
+        pictures = sorted(f.name for f in folder.iterdir() if f.suffix == ".png")
+        if not pictures:
+            continue
+        tables = sum(1 for f in folder.iterdir() if f.suffix == ".csv")
+        out.append({"name": folder.name, "path": str(folder), "pictures": pictures,
+                    "tables": tables, "mtime": max(f.stat().st_mtime for f in folder.iterdir())})
+    out.sort(key=lambda f: f["mtime"], reverse=True)
+    return out
+
+
 def load(run: dict[str, Any]) -> Any:
     """The record behind a listed row, through its own class: READ off disk, with every rule of
     the reading the class's own (a body that no longer decodes, a value the Config no longer

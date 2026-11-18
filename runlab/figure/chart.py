@@ -237,15 +237,18 @@ def _shared(items: list[tuple[str, tuple, Any]], runs: int) -> list[tuple[str, A
 
 def chart_of(pairs: Pairs, name: str, *, runs: str = "one", colour_by: str = "run",
              points: bool = False, x: str = "own", x_log: bool | None = None,
-             y_log: bool | None = None) -> Panel:
+             y_log: bool | None = None,
+             x_range: tuple[float, float] | None = None) -> Panel:
     """Panel ``name`` over ``pairs``, shaped by the keywords (the module): the runs shared as
     ``runs`` says (:data:`RUNS`), the colour telling apart what ``colour_by`` names
     (:data:`COLOUR_BY`), each sample marked (``points``) or joined, over the bottom axis ``x``
     (:data:`X`). ``x_log`` and ``y_log`` start at what the panel declares (``None``; over the
-    sample index it declares no logarithm) and override it when given. Refused in words: no run
-    declaring the panel, runs labelling its axes differently, a statistic the runs cannot be
-    pooled by (:func:`pool_refusal`), a logarithmic axis the panel does not declare over a
-    value at or below zero (:func:`render.log_refusal`)."""
+    sample index it declares no logarithm) and override it when given; ``x_range`` is the span
+    of the bottom axis drawn, in the axis's own units, ``None`` for all of it. Refused in words:
+    no run declaring the panel, runs labelling its axes differently, a statistic the runs cannot
+    be pooled by (:func:`pool_refusal`), a logarithmic axis the panel does not declare over a
+    value at or below zero (:func:`render.log_refusal`), a span that does not run from low to
+    high or that a logarithmic axis cannot show."""
     _choice(runs, RUNS, "runs"); _choice(colour_by, COLOUR_BY, "colour_by"); _choice(x, X, "x")
     held = _held(pairs, name)
     first = held[0][1]
@@ -339,14 +342,16 @@ def chart_of(pairs: Pairs, name: str, *, runs: str = "one", colour_by: str = "ru
                      for pre, r in _shared(ref_items, len(held)))
         panel = Panel(name, x_label,
                       (Axes(first.y_label, tuple(lines), tuple(bands), refs),), first.doc)
-    return _finished(panel, x_log, y_log, declared)
+    return _finished(panel, x_log, y_log, declared, x_range)
 
 
 def _finished(panel: Panel, x_log: bool | None, y_log: bool | None,
-              declared: tuple[bool, bool] = (False, False)) -> Panel:
+              declared: tuple[bool, bool] = (False, False),
+              x_range: tuple[float, float] | None = None) -> Panel:
     """``panel`` on the axes asked for, ``None`` being what it declares (``declared``, its
-    bottom axis then its ordinate). A logarithmic axis it does not declare is refused over a
-    value at or below zero; one it declares is drawn as it always was."""
+    bottom axis then its ordinate), over the span ``x_range`` of its bottom axis. A logarithmic
+    axis it does not declare is refused over a value at or below zero; one it declares is drawn
+    as it always was."""
     logs = []
     for axis, asked, own, words in (("x", x_log, declared[0], "bottom axis"),
                                     ("y", y_log, declared[1], "ordinate")):
@@ -356,7 +361,13 @@ def _finished(panel: Panel, x_log: bool | None, y_log: bool | None,
             if why:
                 raise ValueError(f"panel {panel.name!r} cannot take a logarithmic {words}: {why}")
         logs.append(log)
-    return dataclasses.replace(panel, x_log=logs[0], y_log=logs[1])
+    span = None if x_range is None else (float(x_range[0]), float(x_range[1]))
+    if span is not None and not span[0] < span[1]:
+        raise ValueError(f"an x range runs from low to high; {x_range!r} given")
+    if span is not None and logs[0] and span[0] <= 0.0:
+        raise ValueError(f"panel {panel.name!r}: a logarithmic bottom axis shows no span from "
+                         f"{span[0]!r}")
+    return dataclasses.replace(panel, x_log=logs[0], y_log=logs[1], x_range=span)
 
 
 # --- a number against a setting --------------------------------------------------------------

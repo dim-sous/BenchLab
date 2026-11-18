@@ -32,6 +32,7 @@ from runlab.figure.chart import chart_of
 from runlab.figure.render import DASHES
 from runlab.figure.style import series_color, shade
 from runlab.figure.twin import figure_of
+import runlab.lab.app as app_module
 from runlab.lab import jobs, shaping, skin, state
 from runlab.lab.app import Lab, page, serve
 
@@ -584,7 +585,8 @@ def test_a_table_in_a_cards_place_is_the_numbers_on_its_chart(lag_runs) -> None:
     assert rows[3] == [f"{v:.6g}" for v in (record["first"].t[3], record["second"].y[3],
                                             record["first"].y[3])]
     assert beside == ["Lower bound of y [-]: -1", "Upper bound of y [-]: 1",
-                      "Six significant digits"]
+                      "Six significant digits here; Save writes every digit to a file beside "
+                      "the picture"]
     _control(lab, "output", "Split").value = True
     assert _table(lab, "output")[0] == ["t [s]", "second · y", "first · y"]
     _control(lab, "output", "Chart").value = True
@@ -1005,6 +1007,123 @@ def test_deleting_a_run_asks_first_and_then_takes_only_its_record(two_runs, caps
     assert "lab: deleted results/wave/first.json" in capsys.readouterr().out
     lab._on_yes()                                    # a second yes finds nothing left to do
     assert _names(lab) == ["second"]
+
+
+# --- Save, and the pictures it wrote ----------------------------------------------------------
+
+def _save_button(lab: Lab, panel: str) -> pn.widgets.Button | None:
+    """A card's Save, beside its close; ``None`` on a card that has none."""
+    top = _card(lab, panel).objects[0]
+    return next((o for o in top.objects
+                 if isinstance(o, pn.widgets.Button) and o.name == "Save"), None)
+
+
+def _foot(lab: Lab, panel: str) -> tuple[str, bool]:
+    """A card's last line, and whether it is written in red."""
+    last = [o for o in _card(lab, panel).objects[1:] if isinstance(o, pn.pane.HTML)][-1]
+    return html.unescape(re.sub(r"<[^>]+>", "", last.object)), skin.SIGNAL in last.object
+
+
+def test_save_writes_the_card_as_it_is_shown_and_its_folder_is_listed(
+        two_runs, monkeypatch, capsys) -> None:
+    """The developer's answer of 2026-11-17 ("Save and the saved list"): the picture of a card
+    with its controls' choices and the span a zoom left, in the folder named after its runs."""
+    root, out_dir = two_runs
+    lab, *_ = _lab(two_runs)                         # ``second`` is shown on arrival
+    _tick(lab, "first")
+    _tabs(lab)["y"].value = True
+    asked, real = [], app_module.draw
+    monkeypatch.setattr(app_module, "draw",
+                        lambda pairs, folder, **kw: asked.append((pairs, kw)) or real(pairs, folder, **kw))
+    assert lab.saved_list.rows == [] and lab.saved_count.object == ""
+    _control(lab, "y", "Dots").value = True
+    _pane(lab, "u").relayout_data = {"xaxis.range[0]": 0.2, "xaxis.range[1]": 0.6}
+    _save_button(lab, "y").clicks += 1
+    folder = Path(root) / out_dir / "wave" / "second+first"
+    assert sorted(p.name for p in folder.iterdir()) == ["y.png", "y.png.json"]
+    [(pairs, kw)] = asked
+    assert kw == {"panels": ["y"], "table": False, "x": "own", "x_log": False, "y_log": False,
+                  "colour_by": "run", "runs": "one", "points": True, "x_range": (0.2, 0.6)}
+    shaped = {k: v for k, v in kw.items() if k not in ("panels", "table")}
+    assert figure_of(chart_of(pairs, "y", **shaped)) == _figure(lab, "y"), \
+        "the still is drawn from what the card shows: its choices and its span"
+    side = json.loads((folder / "y.png.json").read_text())
+    assert side["runs"] == ["second", "first"] and side["xlim"] == [0.2, 0.6]
+    assert side["shaping"]["points"] is True and side["shaping"]["x_range"] == [0.2, 0.6]
+    assert _foot(lab, "y") == (f"Wrote {out_dir}/wave/second+first/y.png", False)
+    assert f"lab: wrote {out_dir}/wave/second+first/y.png" in capsys.readouterr().out
+    [row] = lab.saved_list.rows
+    assert (row["name"], row["pictures"]) == ("second+first", "y.png")
+    assert re.fullmatch(r"\d{4}-\d\d-\d\d \d\d:\d\d · 1 picture", row["when"])
+    assert "1 folder" in lab.saved_count.object
+    # with its table picked, its numbers too; the picture is replaced, not added to
+    _control(lab, "y", "Table").value = True
+    _save_button(lab, "y").clicks += 1
+    assert sorted(p.name for p in folder.iterdir()) == ["y.csv", "y.csv.json", "y.png",
+                                                        "y.png.json"]
+    assert _foot(lab, "y")[0] == (f"Wrote {out_dir}/wave/second+first/y.png "
+                                  f"{out_dir}/wave/second+first/y.csv")
+    assert lab.saved_list.rows[0]["when"].endswith("· 1 picture and 1 table")
+    # a number card writes its own into the same folder
+    lab.compare_table._handle_msg({"number": "rms_u"})
+    _save_button(lab, "rms_u").clicks += 1
+    assert (folder / "rms_u-vs-amplitude.png").exists()
+    [row] = lab.saved_list.rows
+    assert row["pictures"] == "rms_u-vs-amplitude.png, y.png"
+    assert row["when"].endswith("· 2 pictures and 1 table") and "1 folder" in lab.saved_count.object
+    # another piece has its own folders; back, this one's are listed again
+    lab.piece_select.value = "lag"
+    assert lab.saved_list.rows == []
+    lab.piece_select.value = "wave"
+    assert [r["name"] for r in lab.saved_list.rows] == ["second+first"]
+    assert lab.page().get_root() is not None, "the page builds with the list on it"
+
+
+def test_a_save_that_cannot_write_says_why_and_some_cards_have_no_save(
+        lag_runs, monkeypatch) -> None:
+    root, out_dir = lag_runs
+    lab, *_ = _lab(lag_runs, "lag")
+    _tabs(lab)["pole"].value = True
+    assert _save_button(lab, "pole") is None, "a figure the piece draws itself is not saved"
+    lab.cards.append(shaping.Card(99, "chart", chart="no-such-chart"))
+    lab._draw_cards()
+    assert _save_button(lab, "no-such-chart") is None, "a card that draws nothing"
+    real = app_module.draw
+
+    def refused(*args, **kwargs):
+        raise ValueError("the figure layer said no")
+
+    monkeypatch.setattr(app_module, "draw", refused)
+    _save_button(lab, "output").clicks += 1
+    assert _foot(lab, "output") == ("Not saved: the figure layer said no", True)
+    assert lab.saved_list.rows == [] and not (Path(root) / out_dir / "lag" / "second").exists()
+    monkeypatch.setattr(app_module, "draw", real)
+    _save_button(lab, "output").clicks += 1          # asked again, it writes: nothing is latched
+    assert _foot(lab, "output") == (f"Wrote {out_dir}/lag/second/output.png", False)
+
+
+def test_a_saved_folder_is_deleted_after_asking_and_only_if_save_wrote_all_of_it(two_runs) -> None:
+    root, out_dir = two_runs
+    lab, _queue, _ticker, toasts = _lab(two_runs)
+    folder = Path(root) / out_dir / "wave" / "second"
+    _save_button(lab, "u").clicks += 1
+    lab.saved_list._handle_msg({"delete": "second"})
+    assert "Delete the pictures in results/wave/second/?" in lab.question.object
+    lab._on_no()
+    assert (folder / "u.png").exists(), "cancel deletes nothing"
+    (folder / "notes.txt").write_text("mine")
+    lab.saved_list._handle_msg({"delete": "second"})
+    lab._on_yes()
+    assert toasts[-1] == ("Not deleted: results/wave/second/ holds notes.txt, which Save does "
+                          "not write; it is left as it is")
+    assert (folder / "u.png").exists() and [r["name"] for r in lab.saved_list.rows] == ["second"]
+    (folder / "notes.txt").unlink()
+    lab.saved_list._handle_msg({"delete": "second"})
+    lab._on_yes()
+    assert not folder.exists() and lab.saved_list.rows == []
+    assert toasts[-1] == "Deleted results/wave/second/"
+    assert (Path(root) / out_dir / "wave" / "second.json").exists(), "the run stays"
+    assert lab.shown == ["second"]
 
 
 def test_a_bar_sets_the_centreline_on_its_children_and_the_form_is_one_set_of_tracks(two_runs) -> None:

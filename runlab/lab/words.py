@@ -74,11 +74,18 @@ SLOTS: dict[str, tuple[str, ...]] = {
     "cards.x_log": (), "cards.y_log": (), "cards.colour_by": (), "cards.by_run": (),
     "cards.by_quantity": (), "cards.dots": (), "cards.lines": (), "cards.chart": (),
     "cards.table": (), "cards.table_digits": (),
+    "cards.save": (), "cards.wrote": ("files",), "cards.not_saved": ("words",),
     "cards.one_run": (), "cards.nothing_differs": (), "cards.no_colour": (),
     "cards.colour_pooled": (), "cards.colour_split": (), "cards.nothing_else_differs": (),
     "cards.chart_without.one": ("runs",), "cards.chart_without.many": ("runs",),
     # a card of a figure the piece draws itself
     "cards.own_runs": (), "cards.own_without.one": ("runs",), "cards.own_without.many": ("runs",),
+    # the pictures a Save wrote: the list under the compare table
+    "saved.heading": (), "saved.count.one": ("n",), "saved.count.many": ("n",),
+    "saved.empty": (), "saved.pictures.one": ("n",), "saved.pictures.many": ("n",),
+    "saved.tables.one": ("n",), "saved.tables.many": ("n",),
+    "saved.row": ("when", "pictures"), "saved.row_tables": ("when", "pictures", "tables"),
+    "saved.delete": (), "saved.delete_label": ("name",),
     # the form
     "form.heading": (), "form.from_defaults": (), "form.from_run": ("run",),
     "form.clear": (), "form.close": (), "form.run": (),
@@ -118,6 +125,9 @@ SLOTS: dict[str, tuple[str, ...]] = {
     "messages.delete_ask_files.many": ("path", "folder", "n"), "messages.delete_yes": (), "messages.delete_no": (),
     "messages.deleted": ("paths",), "messages.not_deleted": ("words",),
     "messages.delete_no_record": ("name", "folder"), "messages.delete_outside": ("path", "folder"),
+    "messages.delete_ask_folder": ("folder",), "messages.delete_not_folder": ("name",),
+    "messages.delete_no_folder": ("name", "folder"),
+    "messages.delete_holds_other": ("folder", "files"), "messages.save_run_files": ("folder",),
 }
 
 

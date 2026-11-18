@@ -1,7 +1,7 @@
-"""The list on the left: a piece's runs -- one row each, a dot that ticks it shown, ``use`` and a
-delete. RCWS's lists (``lab/runlist.py``,
-822b0cf): a run's row is its name alone, the dot in the colour its lines wear while it is shown;
-what sets a run apart is the compare table's to say."""
+"""The lists on the left: a piece's runs -- one row each, a dot that ticks it shown, ``use`` and
+a delete -- and the folders of pictures a Save wrote, each a row with a delete. RCWS's lists
+(``lab/runlist.py``, 822b0cf): a run's row is its name alone, the dot in the colour its lines
+wear while it is shown; what sets a run apart is the compare table's to say."""
 
 from __future__ import annotations
 
@@ -85,3 +85,48 @@ class RunList(JSComponent):
             self.on_use(msg["use"])
         elif isinstance(msg.get("delete"), str) and self.on_delete is not None:
             self.on_delete(msg["delete"])
+
+
+class SavedList(JSComponent):
+    """``rows`` in (``name``, ``when`` -- its date and what it holds -- and ``pictures``, their
+    names): the folders of saved pictures, each a flat row with a delete that reaches
+    :attr:`on_delete` with the folder's name as a message. BESS's ``StillList``, the pictures'
+    names written under the folder's instead of on its hover: this page wears no hover but a
+    greyed control's."""
+
+    rows = param.List(default=[], item_type=dict)
+    empty = param.String(default="")
+    #: the list's own words (``lab.words``): ``delete``, and ``delete_label``, which names a
+    #: folder's delete for a screen reader by its ``{name}``
+    words = param.Dict(default={})
+
+    on_delete: Optional[Callable[[str], None]] = None
+
+    _stylesheets = [LIST]
+    _esm = """
+    export function render({ model }) {
+      const root = document.createElement('div'); root.className = 'list';""" + _ROW + """
+      const draw = () => {
+        root.replaceChildren();
+        if (!model.rows.length) { root.append(el('div', 'empty', model.empty)); return; }
+        for (const r of model.rows) {
+          const row = el('div', 'run flat');
+          const main = el('div', 'main');
+          main.append(el('div', 'name', r.name), el('div', 'when', r.when),
+                      el('div', 'note', r.pictures));
+          const del = action('del', model.words.delete, { delete: r.name });
+          del.setAttribute('aria-label', model.words.delete_label.split('{name}').join(r.name));
+          row.append(main, del);
+          root.append(row);
+        }
+      };
+      for (const p of ['rows', 'empty']) model.on(p, draw);
+      draw();
+      return root;
+    }
+    """
+
+    def _handle_msg(self, msg: Any) -> None:
+        if isinstance(msg, dict) and isinstance(msg.get("delete"), str) and self.on_delete:
+            self.on_delete(msg["delete"])
+

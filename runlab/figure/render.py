@@ -1,5 +1,6 @@
 """One panel spec, three artefacts: a PNG still (matplotlib, here), the Lab's live twin (plotly,
-:mod:`figure.twin`) and, asked, the numbers on it as a table (:func:`table_of`).
+:mod:`figure.twin`) and, asked, the numbers on it as a table (:func:`table_of`, a CSV beside
+the still).
 
 :mod:`figure.chart` decides WHAT is on a panel -- which run wears which colour, which trace
 which dash, what is pooled over the runs -- and says it once as a :class:`Panel`; the backends
@@ -16,7 +17,8 @@ from typing import Any
 
 import numpy as np
 
-from runlab.figure.style import INK_SECONDARY, LINE_WIDTH, REF_WIDTH, apply_style, save_figure
+from runlab.figure.style import (INK_SECONDARY, LINE_WIDTH, REF_WIDTH, apply_style, save_figure,
+                                 save_table)
 
 __all__ = ["Line", "Band", "Ref", "Axes", "Panel", "Table", "DASHES", "BAND_ALPHA", "SHORT",
            "broken", "has_legend", "log_refusal", "render", "table_of"]
@@ -109,7 +111,8 @@ class Axes:
 class Panel:
     """A figure: its file stem, its bottom axis and its rows (one, or one per run). ``quantity``
     is the ordinate's words shared by every row of a stacked panel, ``""`` for one row.
-    ``x_ticks`` names the positions of a bottom axis of names."""
+    ``x_ticks`` names the positions of a bottom axis of names; ``x_range`` is the span of it
+    shown, in its own units, ``None`` for all of it."""
     name: str
     x_label: str
     axes: tuple[Axes, ...]
@@ -119,6 +122,7 @@ class Panel:
     #: Logarithmic axes: as the record's Series declares them, or as the drawing was asked for.
     x_log: bool = False
     y_log: bool = False
+    x_range: tuple[float, float] | None = None
 
 
 def _labels(panel: Panel) -> set[str]:
@@ -157,9 +161,10 @@ def log_refusal(panel: Panel, axis: str) -> str:
 
 # --- the still -------------------------------------------------------------------------------
 
-def render(panel: Panel, out_dir: Path, prov, *, facts: dict[str, Any] | None = None) -> list[Path]:
-    """``<out_dir>/<panel>.png`` with its sidecar; ``facts`` (what shaped the drawing) ride in
-    the sidecar."""
+def render(panel: Panel, out_dir: Path, prov, *, facts: dict[str, Any] | None = None,
+           table: bool = False) -> list[Path]:
+    """``<out_dir>/<panel>.png`` with its sidecar, and with ``table`` the numbers on it as
+    ``<panel>.csv`` beside it. ``facts`` (what shaped the drawing) ride in the sidecars."""
     import matplotlib.pyplot as plt
 
     n = len(panel.axes)
@@ -191,6 +196,8 @@ def render(panel: Panel, out_dir: Path, prov, *, facts: dict[str, Any] | None = 
     bottom.set_xlabel(panel.x_label)
     if panel.x_log:
         bottom.set_xscale("log")
+    if panel.x_range is not None:
+        bottom.set_xlim(*panel.x_range)
     if panel.quantity:
         fig.supylabel(panel.quantity, color=INK_SECONDARY, fontsize=10)
     if has_legend(panel):
@@ -205,7 +212,10 @@ def render(panel: Panel, out_dir: Path, prov, *, facts: dict[str, Any] | None = 
              "xlim": list(map(float, bottom.get_xlim())),
              "ylim": [list(map(float, ax.get_ylim())) for ax in axs[:, 0]],
              "traces": [line.label for ax in panel.axes for line in ax.lines], **(facts or {})}
-    return [save_figure(fig, out_dir, panel.name, facts, prov)]
+    paths = [save_figure(fig, out_dir, panel.name, facts, prov)]
+    if table:
+        paths.append(save_table(table_of(panel), out_dir, panel.name, facts, prov))
+    return paths
 
 
 def _span(spec: Axes) -> list[float]:

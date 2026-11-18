@@ -14,7 +14,7 @@ import pytest
 
 import runlab.figure.render as render_module
 from runlab import Figure, Series, cli
-from runlab.figure import draw
+from runlab.figure import draw, draw_sweep
 from runlab.figure.chart import INDEX_LABEL, chart_of, sweep_of
 from runlab.figure.own import TEMPLATE, own_figure
 from runlab.figure.render import DASHES, has_legend, log_refusal, render, table_of
@@ -444,3 +444,52 @@ def test_the_table_is_exactly_what_the_chart_draws(lags) -> None:
     assert [(row[1], row[2]) for row in sweep.rows] == \
         [("A1.0-s0", 1.0), ("A1.0-s1", 1.0), ("A2.0-s0", 2.0), ("A2.0-s1", 2.0)], \
         "where a point is drawn to the side, the table keeps the setting itself"
+
+
+# --- what a Save writes: the span of the bottom axis, and the numbers beside the still --------
+
+def test_the_span_of_the_bottom_axis_reaches_both_drawings(runs, tmp_path) -> None:
+    pairs = [("w", runs["wave"])]
+    panel = chart_of(pairs, "u", x_range=(0.2, 0.6))
+    assert panel.x_range == (0.2, 0.6) and chart_of(pairs, "u").x_range is None
+    xaxis = figure_of(panel)["layout"]["xaxis"]
+    assert (xaxis["range"], xaxis["autorange"]) == ([0.2, 0.6], False)
+    assert "range" not in figure_of(chart_of(pairs, "u"))["layout"]["xaxis"]
+    [still] = draw(pairs, tmp_path, panels=["u"], x_range=(0.2, 0.6))
+    side = json.loads((still.parent / f"{still.name}.json").read_text())
+    assert side["xlim"] == [0.2, 0.6] and side["shaping"] == {"x_range": [0.2, 0.6]}
+    # on a logarithmic axis the span is in the axis's own units; plotly holds its powers of ten
+    lag_pairs = [("l", runs["lag"])]
+    bode = figure_of(chart_of(lag_pairs, "bode-magnitude", x_range=(1.0, 100.0)))
+    assert bode["layout"]["xaxis"]["range"] == [0.0, 2.0]
+    [still] = draw(lag_pairs, tmp_path, panels=["bode-magnitude"], x_range=(1.0, 100.0))
+    assert json.loads((still.parent / f"{still.name}.json").read_text())["xlim"] == [1.0, 100.0]
+    with pytest.raises(ValueError, match="runs from low to high"):
+        chart_of(pairs, "u", x_range=(0.6, 0.2))
+    with pytest.raises(ValueError, match="a logarithmic bottom axis shows no span from -1.0"):
+        chart_of(lag_pairs, "bode-magnitude", x_range=(-1.0, 100.0))
+
+
+def test_a_draw_with_its_table_writes_the_numbers_every_digit(lags, tmp_path) -> None:
+    """BESS's ``test_a_shaped_draw_writes_the_card_and_its_numbers_every_digit``: beside the
+    still, what it draws as a CSV, each number as Python writes it whole, with a sidecar of its
+    own holding the still's facts."""
+    pairs = [lags[0], lags[2]]
+    paths = draw(pairs, tmp_path, panels=["output"], colour_by="quantity", table=True)
+    assert [p.name for p in paths] == ["output.png", "output.csv"]
+    side = json.loads((tmp_path / "output.csv.json").read_text())
+    assert side["table"] == "output.csv" and side["runs"] == ["a", "c"]
+    assert side["shaping"] == {"colour_by": "quantity"}
+    assert json.loads((tmp_path / "output.png.json").read_text())["shaping"] == side["shaping"]
+    rows = (tmp_path / "output.csv").read_text().splitlines()
+    assert rows[0] == "t [s],a — u,a — y,c — u,c — y"
+    a, c = lags[0][1], lags[2][1]
+    assert rows[4] == ",".join(repr(float(v)) for v in (a.t[3], a.u[3], a.y[3], c.u[3], c.y[3]))
+    assert len(rows) == 1 + len(a.t) + 2, "the header, a row a sample, the two bounds beside"
+    assert rows[-2:] == ["Lower bound of y [-],-1.0", "Upper bound of y [-],1.0"]
+    assert [p.name for p in draw(pairs, tmp_path / "plain", panels=["output"])] == ["output.png"]
+    swept = draw_sweep(_swept((1.0, 2.0)), tmp_path, "rms_u", vs="amplitude", table=True)
+    assert [p.name for p in swept] == ["rms_u-vs-amplitude.png", "rms_u-vs-amplitude.csv"]
+    assert (tmp_path / "rms_u-vs-amplitude.csv").read_text().splitlines()[:2] == \
+        ["trace,point,A,RMS of u [-]", f"RMS of u,A1.0-s0,1.0,{_swept((1.0,))[0][1].numbers['rms_u']!r}"]
+

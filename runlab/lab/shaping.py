@@ -33,7 +33,8 @@ class Card:
     """One open card: a ``chart`` (a panel the records declare) or a ``numbers`` card (a summary
     number against a setting, ``x``). ``x_log``, ``y_log`` and ``points`` are ``None`` while
     they follow what the chart declares; ``runs`` and ``x`` are ``""`` for the card's default;
-    ``by`` is ``None`` for every setting that tells the runs apart."""
+    ``by`` is ``None`` for every setting that tells the runs apart. ``saved`` is what its last
+    Save wrote, or why it wrote nothing (``save_failed``)."""
     id: int
     kind: str
     chart: str = ""
@@ -46,6 +47,8 @@ class Card:
     runs: str = ""
     points: bool | None = None
     table: bool = False
+    saved: str = ""
+    save_failed: bool = False
 
 
 @dataclass(frozen=True)

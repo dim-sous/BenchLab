@@ -151,5 +151,9 @@ def figure_of(panel: Panel, legend: bool = True) -> dict[str, Any]:
     if panel.x_ticks:
         xaxis.update({"tickvals": [p for p, _ in panel.x_ticks],
                       "ticktext": [w for _, w in panel.x_ticks]})
+    if panel.x_range is not None:
+        # plotly holds a log axis's range as powers of ten
+        span = np.log10(panel.x_range).tolist() if panel.x_log else list(panel.x_range)
+        xaxis.update({"range": span, "autorange": False})
     layout["xaxis"] = xaxis
     return {"data": data, "layout": layout}

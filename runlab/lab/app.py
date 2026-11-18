@@ -29,15 +29,19 @@ import functools
 import html
 import json
 import math
+import os
 import sys
 import time
 import traceback
+from datetime import datetime, timezone
 from typing import Any, Callable, Optional
 
 import panel as pn
 
+from runlab.cli import folder_of
 from runlab.figure.chart import (INDEX_LABEL, chart_of, distinct, pool_refusal, series_of,
                                  sweep_of, telling)
+from runlab.figure.draw import draw, draw_sweep
 from runlab.figure.own import own_figure
 from runlab.figure.render import log_refusal, table_of
 from runlab.figure.style import series_color
@@ -49,7 +53,7 @@ from runlab.runner import planned
 from . import jobs, shaping, skin, state, view
 from .compare import CompareTable
 from .form import Form, as_text, term
-from .runlist import RunList
+from .runlist import RunList, SavedList
 from .strip import RunsInProgress
 from .words import say, say_n, word
 from .split import DEFAULT_PX, Split
@@ -362,6 +366,12 @@ def _six(value: Any) -> str:
     return "" if value is None else str(value)
 
 
+def _when(mtime: float) -> str:
+    """A file's last change as a run's date reads in the lists: ``2026-11-18 07:10``, UTC."""
+    return datetime.fromtimestamp(mtime, timezone.utc).isoformat(timespec="minutes")[:16] \
+        .replace("T", " ")
+
+
 def _span_on(span: Optional[tuple[list[Any], bool]], x_log: bool) -> Optional[list[Any]]:
     """The span a zoom left -- its two ends as the chart library reported them, and whether the
     chart reporting them was logarithmic, on which the library's ends are powers of ten -- as
@@ -447,6 +457,8 @@ class Lab:
         self._from: Optional[str] = None            # the run the form was last loaded from
         self.shown: list[str] = []                  # the runs the cards and the table show
         self.cards: list[shaping.Card] = []
+        #: the folders of pictures a Save wrote for this piece, newest first (``state.folders``)
+        self.folders: list[dict[str, Any]] = []
         self._seq = 0
         self._asked_open: list[str] = []            # what the address asked to open
         self.settings_shown = "none"
@@ -502,6 +514,12 @@ class Lab:
                                           styles={"background": skin.PAPER,
                                                   "border-radius": "6px", "overflow": "auto"})
         self.compare_table.on_number = self.open_number
+        self.saved_count = _html("", style=_DIM, stylesheets=[skin.BAR_FILL])
+        self.saved_list = SavedList(rows=[], sizing_mode="stretch_width",
+                                    empty=say("saved.empty"),
+                                    words={"delete": say("saved.delete"),
+                                           "delete_label": word("saved.delete_label")})
+        self.saved_list.on_delete = self._ask_delete_folder
 
         # -- the right pane: the cards
         self.open_count = _html("", style=_DIM)
@@ -607,6 +625,7 @@ class Lab:
     def reload(self) -> None:
         """Re-read the records on disk and redraw everything that shows them."""
         self.records = state.records(self.root, self.out_dir)
+        self.folders = state.folders(self.root, self.out_dir, self.piece["name"])
         self._offer_saved()
         # the piece's own: with two pieces, every piece's count stood beside one piece's folder
         n = len(self.runs())
@@ -664,6 +683,7 @@ class Lab:
         """Everything that shows the runs, from disk, the ticks and the cards, in one pass."""
         self._draw_list()
         self._draw_compare()
+        self._draw_saved()
         self._draw_tabs()
         self._draw_cards()
         self._draw_url()
@@ -754,9 +774,30 @@ class Lab:
         self._answer = None
         self.asking.hide()
 
-    def _delete(self, records: tuple = ()) -> None:
+    def _ask_delete_folder(self, name: str) -> None:
+        self._ask(say("messages.delete_ask_folder",
+                      folder=f"{self.out_dir}/{self.piece['name']}/{name}/"),
+                  functools.partial(self._delete, folders=[name]))
+
+    def _draw_saved(self) -> None:
+        """The folders of pictures a Save wrote, each with its date, what it holds and its
+        pictures' names (BESS's ``_draw_saved``)."""
+        n = len(self.folders)
+        self.saved_count.object = (f"<span style='{_DIM}'>"
+                                   f"{html.escape(say_n('saved.count', n))}</span>" if n else "")
+        rows = []
+        for f in self.folders:
+            fields = {"when": _when(f["mtime"]),
+                      "pictures": say_n("saved.pictures", len(f["pictures"]))}
+            held = (say("saved.row_tables", tables=say_n("saved.tables", f["tables"]), **fields)
+                    if f["tables"] else say("saved.row", **fields))
+            rows.append({"name": f["name"], "when": held, "pictures": ", ".join(f["pictures"])})
+        self.saved_list.rows = rows
+
+    def _delete(self, records: tuple = (), folders: tuple = ()) -> None:
         try:
-            gone = jobs.delete(self.piece["name"], records, root=self.root, out_dir=self.out_dir)
+            gone = jobs.delete(self.piece["name"], records, folders, root=self.root,
+                               out_dir=self.out_dir)
         except ValueError as exc:
             self.toast(say("messages.not_deleted", words=exc))
             return
@@ -988,11 +1029,12 @@ class Lab:
         return self._chart_view(card, pairs, refused)
 
     def _frame(self, card: shaping.Card, title: str, tools: list[Any], body: Any,
-               foot: str, warn: bool) -> pn.Column:
-        """A card: its title and close at the line's end; then its controls, one row of
+               foot: str, warn: bool, save: Optional[Any] = None) -> pn.Column:
+        """A card: its title, Save and close at the line's end; then its controls, one row of
         groups, a whole group wrapping onto the next line when the card is too narrow for it;
-        then what it draws; then a foot -- why it could not draw. No hover: the title is the
-        chart's or the number's own words."""
+        then what it draws; then a foot -- why it could not draw, else what its last Save
+        wrote or why that wrote nothing. No hover: the title is the chart's or the number's
+        own words."""
         close = _widget(pn.widgets.Button, label=say("cards.close"), width=34)
         close.on_click(lambda _e: self._close(card))
         # the panel's name rides on the title as data-panel: the tests found a card by its
@@ -1000,7 +1042,7 @@ class Lab:
         top = pn.FlexBox(_html(f"<b data-panel='{html.escape(card.chart or card.number)}' "
                                f"style='{_MONO};font-size:15px'>{html.escape(title)}</b>",
                                stylesheets=[skin.BAR_FILL]),
-                         close,
+                         *([save] if save is not None else []), close,
                          flex_wrap="nowrap", align_items="center", margin=0,
                          stylesheets=[skin.BAR], sizing_mode="stretch_width")
         items: list[Any] = [top]
@@ -1009,9 +1051,10 @@ class Lab:
                                     gap="4px 8px", stylesheets=[skin.BAR],
                                     sizing_mode="stretch_width"))
         items.append(body)
-        if foot:
-            items.append(_html(html.escape(foot),
-                               style=f"font-size:12.5px;{_RED if warn else _DIM}"))
+        words, red = (foot, warn) if foot else (card.saved, card.save_failed)
+        if words:
+            items.append(_html(html.escape(words),
+                               style=f"font-size:12.5px;{_RED if red else _DIM}"))
         return pn.Column(*items, styles=skin.CARD, sizing_mode="stretch_width")
 
     def _toolbar(self, card: shaping.Card, ctx: shaping.Context) -> list[Any]:
@@ -1133,22 +1176,27 @@ class Lab:
         without = [n for n, r in pairs if series_of(r, card.chart) is None]
         declared = next((series_of(r, card.chart) for _, r in held), None)
         body: Any = pn.pane.HTML("")
+        save = None
         words = list(refused)
         if without and held:
             words.append(say_n("cards.chart_without", len(without), runs=", ".join(without)))
         foot, warn = " · ".join(words), bool(words)
         if ctx.runs:
+            keywords = shaping.draw_keywords(card, ctx)
             try:
-                panel = chart_of(held, card.chart, **shaping.draw_keywords(card, ctx))
+                panel = chart_of(held, card.chart, **keywords)
             except ValueError as exc:
                 foot, warn = capital(str(exc)), True
             else:
                 body = self._body(card, panel)
                 self.drawn[card.id] = [n for n, _ in held]
+                save = self._save_button(card, [n for n, _ in held], keywords,
+                                         panels=(card.chart,), axis=panel.x_label,
+                                         x_log=panel.x_log)
         # a card no shown run draws has nothing to shape: no controls, where an X with no
         # axis to offer would be an empty list
         return self._frame(card, declared.title if declared else card.chart,
-                           self._toolbar(card, ctx) if ctx.runs else [], body, foot, warn)
+                           self._toolbar(card, ctx) if ctx.runs else [], body, foot, warn, save)
 
     def _own_view(self, card: shaping.Card, pairs: list[tuple[str, Any]],
                   refused: list[str]) -> pn.Column:
@@ -1213,18 +1261,22 @@ class Lab:
         if card.x:
             title = say("cards.number_title", number=title, setting=fields[card.x]["label"])
         body: Any = pn.pane.HTML("")
+        save = None
         foot, warn = " · ".join(refused), bool(refused)
         if not card.x:
             foot, warn = say("cards.number_foot"), True
         else:
+            keywords = shaping.draw_keywords(card, ctx)
             try:
-                panel = sweep_of(pairs, card.number, **shaping.draw_keywords(card, ctx))
+                panel = sweep_of(pairs, card.number, **keywords)
             except ValueError as exc:
                 foot, warn = capital(str(exc)), True
             else:
                 body = self._body(card, panel)
                 self.drawn[card.id] = [n for n, _ in pairs]
-        return self._frame(card, title, self._toolbar(card, ctx), body, foot, warn)
+                save = self._save_button(card, [n for n, _ in pairs], keywords,
+                                         number=card.number)
+        return self._frame(card, title, self._toolbar(card, ctx), body, foot, warn, save)
 
     def _body(self, card: shaping.Card, panel: Any) -> Any:
         """What a card shows: the figure layer's chart, as its live twin, or -- its table
@@ -1258,6 +1310,55 @@ class Lab:
             pane.param.watch(lambda e, key=card.id: self._on_zoom(key, e.new), "relayout_data")
             self._panes[card.id] = (pane, panel.x_label, panel.x_log)
         return pane
+
+    # ------------------------------------------------------------------ save: the card, as shown
+    def _save_button(self, card: shaping.Card, names: list[str], keywords: dict[str, Any], *,
+                     panels: tuple = (), number: str = "", axis: str = "",
+                     x_log: bool = False) -> Any:
+        """Save, for a card that draws: ``names`` the runs it draws and ``keywords`` what its
+        controls hold, as the card was just drawn from them. ``axis``, the words of a chart's
+        bottom axis: the span the page is on for it is read when Save is pressed, because a
+        zoom reaches the chart without building the card again (BESS's ``_save_button``)."""
+        save = _widget(pn.widgets.Button, label=say("cards.save"),
+                       width=_width(say("cards.save")) + 16)
+        save.on_click(lambda _e: self._save(card, names, keywords, panels, number, axis, x_log))
+        return save
+
+    def _save(self, card: shaping.Card, names: list[str], keywords: dict[str, Any],
+              panels: tuple, number: str, axis: str, x_log: bool) -> None:
+        """Write the card's picture as it is shown, and with its table picked its numbers too,
+        into the folder beside the runs that is named after them -- where the command's
+        ``draw`` writes (``cli.folder_of``). The figure layer writes it, from the keywords the
+        card's chart was built from, in this process: nothing is started and no command is
+        read (the developer's answer of 2026-11-18; BESS's page starts its ``draw`` command).
+        What it wrote, or why it wrote nothing, stands under the card."""
+        shaped = dict(keywords)
+        ends = _span_on(self._ranges.get(axis), x_log) if axis else None
+        if ends:
+            # the span in the axis's own units: plotly holds a logarithmic axis's as powers of ten
+            shaped["x_range"] = tuple(10.0 ** float(e) if x_log else float(e) for e in ends)
+        piece = self.piece["name"]
+        where = os.path.join(self.out_dir, piece, folder_of(names))
+        loaded = dict(self._pairs()[0])
+        try:
+            gone = [name for name in names if name not in loaded]
+            if gone:
+                raise ValueError(say("messages.no_record", name=", ".join(gone)))
+            if where.endswith(state.RUN_FILES):
+                raise ValueError(say("messages.save_run_files", folder=f"{where}/"))
+            pairs = [(name, loaded[name]) for name in names]
+            folder = os.path.join(self.root, where)
+            paths = (draw_sweep(pairs, folder, number, table=card.table, **shaped) if number
+                     else draw(pairs, folder, panels=list(panels), table=card.table, **shaped))
+        except (ValueError, OSError) as exc:
+            card.saved, card.save_failed = say("cards.not_saved", words=exc), True
+        else:
+            wrote = " ".join(os.path.relpath(str(path), self.root) for path in paths)
+            print(f"lab: wrote {wrote}")
+            card.saved, card.save_failed = say("cards.wrote", files=wrote), False
+        self.folders = state.folders(self.root, self.out_dir, piece)
+        self._draw_saved()
+        self._draw_cards()
 
     def _on_zoom(self, key: int, data: Any) -> None:
         """A zoom on one chart reaches every open chart over the same bottom axis, and a reset
@@ -1745,6 +1846,9 @@ class Lab:
             pn.Row(_html(html.escape(say("compare.settings")), style=_LABEL), self.settings_choice,
                    stylesheets=[skin.BAR], sizing_mode="stretch_width"),
             self.compare_table,
+            pn.Row(_h2(say("saved.heading")), self.saved_count, stylesheets=[skin.BAR],
+                   sizing_mode="stretch_width", margin=(14, 0, 0, 0)),
+            self.saved_list,
             styles=skin.LEFT, scroll=True, sizing_mode="stretch_width")
         right = pn.Column(
             pn.Row(_h2(say("figures.heading")), self.open_count, self.show_all, self.hide_all,

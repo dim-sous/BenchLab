@@ -35,6 +35,7 @@ from runlab.figure.twin import figure_of
 import runlab.lab.app as app_module
 from runlab.lab import jobs, shaping, skin, state
 from runlab.lab.app import Lab, page, serve
+from runlab.lab.form import interval
 
 
 def _wave(root: str, out_dir: str, name: str, *sets: str) -> str:
@@ -279,6 +280,24 @@ def test_a_folded_groups_settings_are_folded_until_opened_and_say_what_changed(t
     lab._draw_form()
     head, body = head_and_body()
     assert body.visible and head.value, "opened, it stays open"
+
+
+def test_a_setting_with_a_range_shows_it_under_its_box_and_one_without_shows_nothing(
+        two_runs) -> None:
+    """The range is on the page before anything is typed; BESS's page had it in a mouse-over."""
+    lab, *_ = _lab(two_runs)
+    whole = lab.page()
+    under: dict[str, list[str]] = {}
+    for col in whole.select(pn.Column):
+        for f in lab.form.fields:
+            if col.objects and col.objects[0] is lab._controls.get(f["name"]):
+                under[f["name"]] = [re.sub(r"<[^>]+>", "", o.object) for o in col.objects[1:]
+                                    if isinstance(o, pn.pane.HTML)]
+    assert under["duty"][0] == "(0 … 1)" and under["samples"][0] == "[2 … ∞)"
+    ranged = [n for n in under if interval(lab.form.by_name[n])]
+    assert all(under[n][0] == interval(lab.form.by_name[n]) and len(under[n]) == 2 for n in ranged)
+    plain = [n for n in under if n not in ranged]
+    assert plain and all(len(under[n]) == 1 for n in plain), "the note's line alone"
 
 
 def test_a_typed_box_is_empty_and_greyed_once_a_pick_shuts_its_gate(two_runs) -> None:

@@ -16,7 +16,7 @@ import pytest
 
 from runlab.cli import folder_of
 from runlab.lab import jobs, state, view
-from runlab.lab.form import Form, as_text, term
+from runlab.lab.form import Form, as_text, interval, term
 from runlab.lab.words import say
 from runlab.project import get_component, piece_names
 from runlab.record import AbsentField, differences
@@ -139,6 +139,20 @@ def test_a_list_of_numbers_goes_as_the_runner_reads_it_and_is_no_sweep_axis(lag)
 def test_a_control_wears_its_label_and_its_unit(lag) -> None:
     by = Form(lag).by_name
     assert term(by["tau"]) == "τ [s]" and term(by["hold"]) == "Hold"
+
+
+def test_a_setting_declares_its_range_as_an_interval(piece, lag) -> None:
+    """A square bracket for an end the value may take, a round one for an end it may not, ∞ for
+    none (BESS's ``test_a_hover_carries_the_bounds_a_field_declares_as_an_interval``, the range
+    alone)."""
+    wave, lags = Form(piece).by_name, Form(lag).by_name
+    assert interval(wave["duty"]) == "(0 … 1)", "both ends excluded"
+    assert interval(wave["noise"]) == "[0 … 10]", "both ends included"
+    assert interval(wave["samples"]) == "[2 … ∞)", "no upper end"
+    assert interval(lags["tau"]) == "(0 … ∞)"
+    assert interval({"low": None, "high": 5, "low_exclusive": False,
+                     "high_exclusive": False}) == "(-∞ … 5]"
+    assert interval(wave["shape"]) == "", "no bounds, no interval"
 
 
 def test_a_name_says_when_run_overwrites_a_record(piece) -> None:

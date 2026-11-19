@@ -37,6 +37,17 @@ def term(f: dict[str, Any]) -> str:
     return f"{f['label']} [{f['unit']}]" if f.get("unit") else f["label"]
 
 
+def interval(f: dict[str, Any]) -> str:
+    """The bounds a number declares as an interval: ``[`` for an end it may take, ``(`` for one
+    it may not, ``∞`` for no end; empty when it declares none (BESS's ``devkit/lab/form.py``,
+    ``hover``, at ``da5b981``)."""
+    if f.get("low") is None and f.get("high") is None:
+        return ""
+    low = "(-∞" if f["low"] is None else ("(" if f["low_exclusive"] else "[") + as_text(f["low"])
+    high = "∞)" if f["high"] is None else as_text(f["high"]) + (")" if f["high_exclusive"] else "]")
+    return say("form.range", low=low, high=high)
+
+
 class Form:
     """One piece's form: the typed values, the sweep row and the record name, as plain data."""
 

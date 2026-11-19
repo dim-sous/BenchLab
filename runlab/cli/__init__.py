@@ -18,7 +18,8 @@ Config, in its words. ``draw`` writes the panels the records declare (every one,
 says; with ``--number`` it draws that summary number against the setting ``--vs`` instead. Default
 ``<out-dir>``: a folder beside the first record named after the records drawn (:func:`folder_of`).
 ``settings`` prints every setting of a piece under its group: the variable ``--set`` takes, its
-name where the piece gives it one, its unit, its default, its choices and its description.
+name where the piece gives it one, its unit, its default, its range, its choices and its
+description.
 """
 
 from __future__ import annotations
@@ -32,7 +33,7 @@ from typing import Optional, Sequence
 
 from runlab.project import command, get_component, piece_names
 from runlab.record import differences, read_header
-from runlab.record.config import fields_of, from_dict
+from runlab.record.config import fields_of, from_dict, interval_ends
 from runlab.record.files import kept
 from runlab.runner import planned, run_once
 
@@ -97,7 +98,9 @@ def settings_command(args: argparse.Namespace) -> int:
         named = f' "{f["label"]}"' if f["label"] != f["name"] else ""
         unit = f" [{f['unit']}]" if f["unit"] else ""
         choices = f" one of {f['choices']}" if f["choices"] else ""
-        print(f"  {f['name']}{named}{unit} = {f['default']!r}{choices}: {f['doc']}")
+        ends = interval_ends(f)
+        within = f" in {ends[0]} … {ends[1]}" if ends else ""
+        print(f"  {f['name']}{named}{unit} = {f['default']!r}{within}{choices}: {f['doc']}")
     return 0
 
 

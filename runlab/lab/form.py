@@ -9,27 +9,12 @@ the setting it names, or against the sweep rungs when that setting is the sweep 
 
 from __future__ import annotations
 
-import json
 from pathlib import PurePath
 from typing import Any, Optional
 
-from .words import say, say_n
+from runlab.record.config import as_text, interval_ends
 
-def as_text(value: Any) -> str:
-    """A value as the text ``--set`` reads back: ``true``/``false``, an integral float without
-    its point, a list as JSON (a list of expressions holds quotes ``str`` would write as Python's),
-    else ``str``."""
-    if value is None:
-        return ""
-    if isinstance(value, (list, tuple)):
-        return json.dumps(list(value), ensure_ascii=False)
-    if isinstance(value, dict):
-        return json.dumps(value, ensure_ascii=False)
-    if isinstance(value, bool):
-        return "true" if value else "false"
-    if isinstance(value, float) and value.is_integer() and abs(value) < 1e15:
-        return str(int(value))
-    return str(value)
+from .words import say, say_n
 
 
 def term(f: dict[str, Any]) -> str:
@@ -38,14 +23,9 @@ def term(f: dict[str, Any]) -> str:
 
 
 def interval(f: dict[str, Any]) -> str:
-    """The bounds a number declares as an interval: ``[`` for an end it may take, ``(`` for one
-    it may not, ``∞`` for no end; empty when it declares none (BESS's ``devkit/lab/form.py``,
-    ``hover``, at ``da5b981``)."""
-    if f.get("low") is None and f.get("high") is None:
-        return ""
-    low = "(-∞" if f["low"] is None else ("(" if f["low_exclusive"] else "[") + as_text(f["low"])
-    high = "∞)" if f["high"] is None else as_text(f["high"]) + (")" if f["high_exclusive"] else "]")
-    return say("form.range", low=low, high=high)
+    """The range a number declares, in the page's words (``form.range``); empty when none."""
+    ends = interval_ends(f)
+    return say("form.range", low=ends[0], high=ends[1]) if ends else ""
 
 
 class Form:

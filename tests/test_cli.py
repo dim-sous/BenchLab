@@ -63,16 +63,20 @@ def test_a_draw_writes_each_panel_beside_the_record_with_its_sidecar(tmp_path) -
 
 def test_settings_lists_a_pieces_settings_under_their_groups(capsys) -> None:
     """A line per setting: the variable ``--set`` takes, the name the piece gives it, its unit,
-    its default, its choices, its description."""
+    its default, its range, its choices, its description."""
     assert cli.main(["settings", "lag"]) == 0
     lines = capsys.readouterr().out.splitlines()
     assert lines[:3] == ["", "Source", "  wave_run \"Wave run\" = 'results/wave/default.json': "
                                        "The saved wave run whose u drives the lag."]
-    assert "  tau \"τ\" [s] = 0.05: The lag's time constant." in lines
+    assert "  tau \"τ\" [s] = 0.05 in (0 … ∞): The lag's time constant." in lines
     assert ("  hold \"Hold\" = None one of ['exact', 'euler']: How the lag is sampled; none: "
             "exact.") in lines
     groups = [line for line in lines if line and not line.startswith(" ")]
     assert groups[:2] == ["Source", "Lag"]
+    assert cli.main(["settings", "wave"]) == 0
+    wave = {line.split()[0]: line for line in capsys.readouterr().out.splitlines() if line[:2] == "  "}
+    assert " = 40 in [2 … ∞):" in wave["samples"] and " = 0.5 in (0 … 1):" in wave["duty"]
+    assert " in " not in wave["shape"].split(":")[0], "no range, nothing new"
     with pytest.raises(SystemExit):
         cli.main(["settings", "no-such-piece"])
 

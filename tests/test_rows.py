@@ -8,14 +8,16 @@ import json
 from pathlib import Path
 
 import numpy as np
+import param
 import pytest
 
-from runlab import cli, with_overrides
+from runlab import Settings, cli, with_overrides
+from runlab.figure.chart import distinct
 from runlab.lab import jobs, view
 from runlab.lab.app import _Table
 from runlab.lab.form import Form
 from runlab.lab.state import pieces
-from runlab.record.config import fields_of, from_dict, from_saved, saved
+from runlab.record.config import fields_of, from_dict, from_saved, saved, to_dict
 from tests.toy import lag, wave
 
 ROWS = [{"at": 0.25, "shape": "step", "size": 1.0}, {"at": 0.5, "shape": "ramp", "size": -2.0}]
@@ -121,3 +123,47 @@ def test_run_refuses_a_cell_under_the_setting_naming_its_row() -> None:
 def test_the_compare_table_words_a_table_row_by_row() -> None:
     assert view.text(ROWS) == "0.25 · step · 1; 0.5 · ramp · -2"
     assert view.text([]) == ""
+
+
+# --- rows compare by what they hold, carried from BESS's ``tests/test_record_rows.py`` and its
+# battery's tests (2026-11-19) -------------------------------------------------------------------
+
+class _Row(Settings):
+    power = param.Number(1.0, label="power", metadata={"group": "rows", "unit": "kW"})
+    until = param.Selector(default="time", objects=["time", "soc"], label="until",
+                           metadata={"group": "rows"})
+
+
+class _Config(Settings):
+    rows = param.List([_Row(), _Row(power=2.0)], item_type=_Row, bounds=(1, None), label="rows",
+                      metadata={"group": "rows"})
+
+
+class _Gated(Settings):
+    mode = param.Selector(default="a", objects=["a", "b"], label="mode", metadata={"group": "g"})
+    rows = param.List([_Row()], item_type=_Row, label="rows",
+                      metadata={"group": "g", "needs": {"mode": {"in": ["a"]}}})
+
+
+def test_an_empty_list_is_refused_by_its_declared_length() -> None:
+    with pytest.raises(ValueError):
+        with_overrides(_Config(), [("rows", "[]")])
+
+
+def test_a_gated_list_of_rows_at_its_default_is_not_set_behind_its_gate() -> None:
+    """A row object carries an instance name of its own, so a rebuilt default list never matched
+    the declared one (BESS's code review, 2026-10-27)."""
+    back = from_dict(_Gated, {**to_dict(_Gated()), "mode": "b"})
+    assert back.mode == "b"
+    with pytest.raises(ValueError, match="applies only when"):
+        with_overrides(_Gated(), [("mode", "b"), ("rows", '[{"power": 9}]')])
+
+
+def test_runs_whose_rows_are_equal_differ_only_in_what_differs(tmp_path) -> None:
+    """Two runs with equal rows are told apart by their other settings alone (BESS's code
+    review, 2026-10-27: equal rows never compared equal)."""
+    source = str(wave.run(wave.Config()).save(tmp_path / "wave.json"))
+    a, b = (lag.run(with_overrides(lag.Config(wave_run=source),
+                                   [("steps", json.dumps(ROWS)), ("tau", tau)]))
+            for tau in ("0.05", "0.1"))
+    assert distinct([("a", a), ("b", b)]) == ["tau"]

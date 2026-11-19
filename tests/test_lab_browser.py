@@ -15,7 +15,9 @@ showed the value. So these also hold, on the page as served (DeePC's
 or pasted into the form is what the run uses, read off the record it saves; every chart's points
 in the browser are exactly its record's numbers; driving the page raises no error in the browser;
 at half a laptop screen and at full width, nothing runs off the page and no words on a chart sit
-on top of each other; a list setting shows a labelled row per item and takes every key.
+on top of each other; a list setting shows a labelled row per item and takes every key. The page
+needs no internet: every request beyond this computer is refused and counted an error, and its
+fonts load from RunLab's own files.
 
 The browser is Playwright's Chromium: once per computer, ``uv run playwright install chromium``.
 """
@@ -29,6 +31,7 @@ import socket
 import time
 import urllib.request
 from pathlib import Path
+from urllib.parse import urlparse
 
 import numpy as np
 import panel as pn
@@ -76,8 +79,9 @@ def _served(tmp_path, query: str = "", *, width: int = 1440, second: tuple[str, 
     """The Lab served over two toy runs, ``first`` and ``second`` (the defaults, but for the
     settings ``second`` names for it) -- and, with ``lag``, a run ``one`` of the lag on ``first``
     -- and a browser page ``width`` wide on it (``query`` its address's, e.g. ``?shown=first``):
-    ``(page, errors, root, out_dir)``, the errors those the page raises and those it logs to its
-    console."""
+    ``(page, errors, root, out_dir)``, the errors those the page raises, those it logs to its
+    console, and each request it makes beyond this computer, which is refused: the page needs no
+    internet."""
     root, out_dir = str(tmp_path), "results"
     for name, sets in (("first", ()), ("second", second)):
         cli.main(["run", "wave", "--name", name, "--out-dir", str(tmp_path / out_dir),
@@ -111,6 +115,14 @@ def _served(tmp_path, query: str = "", *, width: int = 1440, second: tuple[str, 
             page.on("pageerror", lambda e: errors.append(f"page: {e}"))
             page.on("console",
                     lambda m: errors.append(f"console: {m.text}") if m.type == "error" else None)
+
+            def beyond(route) -> None:
+                if urlparse(route.request.url).hostname in ("127.0.0.1", "localhost"):
+                    route.continue_()
+                else:
+                    errors.append(f"asked beyond this computer: {route.request.url}")
+                    route.abort()
+            page.route("**/*", beyond)
             page.goto(f"http://127.0.0.1:{port}/{query}", wait_until="networkidle")
             yield page, errors, root, out_dir
             browser.close()
@@ -548,3 +560,24 @@ def test_a_matrix_and_a_date_are_typed_refused_run_compared_and_loaded_back(tmp_
         assert page.locator(scale).input_value() == "[[1.0, 0.0], [0.0, 0.5]]"
         assert page.locator(day).input_value() == "2026-02-03"
         assert not errors[switched:], errors[switched:]
+
+
+#: Load each face named (a CSS font, ``"500 16px 'IBM Plex Mono'"``) as the page would; the faces
+#: loaded, as ``"<family> <weight> <status>"``.
+_LOAD = """async named => {
+  const out = [];
+  for (const font of named) (await document.fonts.load(font)).forEach(
+    f => out.push(`${f.family} ${f.weight} ${f.status}`));
+  return out;
+}"""
+
+
+def test_the_page_carries_its_own_fonts_and_asks_nothing_beyond_this_computer(tmp_path) -> None:
+    """Every request beyond this computer is refused (``_served``), and the page's two typefaces
+    at its five weights still load: RunLab's own files, served beside the page."""
+    with _served(tmp_path, "?shown=first,second&open=u,y") as (page, errors, root, out_dir):
+        faces = [("IBM Plex Sans", 400), ("IBM Plex Sans", 500), ("IBM Plex Sans", 600),
+                 ("IBM Plex Mono", 400), ("IBM Plex Mono", 500)]
+        loaded = page.evaluate(_LOAD, [f"{weight} 16px '{family}'" for family, weight in faces])
+        assert loaded == [f"{family} {weight} loaded" for family, weight in faces]
+        assert not errors, errors

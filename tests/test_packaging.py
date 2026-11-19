@@ -1,8 +1,9 @@
-"""The package as a project installs it. RunLab's own words (``runlab/lab/words.toml``) are
-its one file that is not Python, and such a file is left out of a built package unless
-``pyproject.toml`` names it (``[tool.setuptools.package-data]``). Run from the source folder, the
-rest of this suite finds the file whether or not an installed copy would; no project's Lab would
-start without it.
+"""The package as a project installs it. RunLab's own words (``runlab/lab/words.toml``) and the
+page's fonts (``runlab/lab/fonts/``) are its files that are not Python, and such a file is left
+out of a built package unless ``pyproject.toml`` names it (``[tool.setuptools.package-data]``).
+Run from the source folder, the rest of this suite finds them whether or not an installed copy
+would; no project's Lab would start without the words, nor show its fonts with no internet
+without the fonts.
 """
 
 from __future__ import annotations
@@ -15,7 +16,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 
 
-def test_the_built_package_holds_runlabs_own_words_and_no_test(tmp_path) -> None:
+def test_the_built_package_holds_runlabs_own_words_and_fonts_and_no_test(tmp_path) -> None:
     source = tmp_path / "source"
     source.mkdir()
     for name in ("pyproject.toml", "README.md", "LICENSE"):
@@ -29,6 +30,8 @@ def test_the_built_package_holds_runlabs_own_words_and_no_test(tmp_path) -> None
     [wheel] = (tmp_path / "dist").glob("*.whl")
     names = zipfile.ZipFile(wheel).namelist()
     assert "runlab/lab/words.toml" in names
+    fonts = {f"runlab/lab/fonts/{p.name}" for p in (ROOT / "runlab/lab/fonts").iterdir()}
+    assert len(fonts) == 6 and fonts <= set(names), "five fonts and their licence"
     assert {"benchlab/__init__.py", "benchlab/cli.py", "benchlab/lab.py",
             "benchlab/testing.py"} <= set(names), "the old name's stand-in"
     assert wheel.name.startswith("benchlab-"), "the install name until 1.0"

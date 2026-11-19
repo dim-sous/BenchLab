@@ -1892,4 +1892,5 @@ def serve(port: int, root: str, out_dir: str, *, show: bool = True, threaded: bo
     state.pieces()
     return pn.serve({"/": lambda: page(root, out_dir)}, port=port, address="127.0.0.1",
                     websocket_origin=[f"127.0.0.1:{port}", f"localhost:{port}"], show=show,
-                    title=title(), threaded=threaded)
+                    title=title(), threaded=threaded,
+                    static_dirs={skin.FONTS_ROUTE: str(skin.FONTS_DIR)})

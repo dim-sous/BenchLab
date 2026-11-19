@@ -7,6 +7,7 @@ from __future__ import annotations
 import dataclasses
 import json
 import re
+from pathlib import Path
 
 import numpy as np
 import plotly.graph_objects as go
@@ -17,10 +18,11 @@ from runlab import Figure, Series, cli
 from runlab.figure import draw, draw_sweep
 from runlab.figure.chart import INDEX_LABEL, chart_of, sweep_of
 from runlab.figure.own import TEMPLATE, own_figure
-from runlab.figure.render import DASHES, has_legend, log_refusal, render, table_of
+from runlab.figure.render import (DASHES, LEGEND_LINE, SHORT, Axes, Line, Panel, broken,
+                                  has_legend, log_refusal, render, table_of)
 from runlab.figure.twin import figure_of
-from runlab.figure.style import GRID, LINE_WIDTH, SURFACE, series_color, shade
-from runlab.figure.twin import ONE_PX
+from runlab.figure.style import GRID, LINE_WIDTH, SERIES, SURFACE, _hsl, series_color, shade
+from runlab.figure.twin import MORE_ROW_PX, ONE_PX
 from runlab.record import stamp
 from tests.toy import lag, wave
 
@@ -493,3 +495,102 @@ def test_a_draw_with_its_table_writes_the_numbers_every_digit(lags, tmp_path) ->
     assert (tmp_path / "rms_u-vs-amplitude.csv").read_text().splitlines()[:2] == \
         ["trace,point,A,RMS of u [-]", f"RMS of u,A1.0-s0,1.0,{_swept((1.0,))[0][1].numbers['rms_u']!r}"]
 
+
+
+# --- the figure layer's own checks, carried from BESS's ``tests/test_figure.py`` (2026-11-19) ---
+
+ROOT = Path(__file__).resolve().parent.parent
+
+
+def test_every_save_goes_through_the_one_chokepoint() -> None:
+    hits = [str(p.relative_to(ROOT)) for p in sorted((ROOT / "runlab").rglob("*.py"))
+            if "savefig(" in p.read_text() or "csv.writer(" in p.read_text()]
+    assert hits == ["runlab/figure/style.py"], hits
+
+
+def test_the_colours_cycle_and_a_shade_keeps_its_hue() -> None:
+    """Colour goes by position and cycles past the last; a run's traces are shades of its hue:
+    the same hue at another lightness, the zeroth the colour itself."""
+    assert [series_color(i) for i in range(2 * len(SERIES))] == list(SERIES) * 2
+    for c in SERIES:
+        assert shade(c, 0) == c
+        hue, sat, light = _hsl(c)
+        for k in (1, 2, 3):
+            h, _, l = _hsl(shade(c, k))
+            assert l != pytest.approx(light, abs=0.02), (c, k)
+            if sat > 0:
+                assert abs((h - hue + 180) % 360 - 180) < 3, (c, k, h, hue)
+
+
+def test_a_long_legend_name_breaks_at_its_own_separators_and_keeps_every_word() -> None:
+    name = "p-power_kw-100, p-power_kw-50, p-power_kw-20 — estimate +/- its own 1 sigma"
+    lines = broken(name).split("\n")
+    assert len(lines) > 1 and all(len(line) <= LEGEND_LINE for line in lines), lines
+    assert "".join(lines).replace(" ", "") == name.replace(" ", "")
+    assert broken("truth") == "truth"
+
+
+def test_the_twin_keeps_its_legend_small_and_writes_every_name_whole() -> None:
+    pairs = [("a", wave.run(wave.Config())), ("b", wave.run(wave.Config(amplitude=2.0)))]
+    fig = figure_of(chart_of(pairs, "u"))
+    legend = fig["layout"]["legend"]
+    assert legend["maxheight"] <= 0.3 and (legend["xanchor"], legend["yanchor"]) == ("right", "bottom")
+    assert fig["layout"]["hoverlabel"]["namelength"] == -1, "plotly cuts a name at 15 characters"
+    assert all((fig["layout"][a]["exponentformat"], fig["layout"][a]["minexponent"]) ==
+               ("power", 5) for a in ("xaxis", "yaxis")), "powers of ten past 5 decades only"
+    assert not figure_of(chart_of(pairs, "u"), legend=False)["layout"]["showlegend"]
+    # a number card draws no legend: its hover names the run and, beside it, the curve
+    sweep = figure_of(sweep_of(pairs, "rms_u", vs="amplitude"), legend=False)
+    assert all("<extra></extra>" not in t["hovertemplate"] for t in sweep["data"])
+
+
+def test_a_short_line_marks_its_samples() -> None:
+    short = Line("a", list(range(SHORT - 1)), [1.0] * (SHORT - 1), SERIES[0])
+    long = Line("b", list(range(SHORT)), [2.0] * SHORT, SERIES[1])
+    fig = figure_of(Panel("p", "t [s]", (Axes("v [V]", (short, long)),)))
+    assert [t["mode"] for t in fig["data"]] == ["lines+markers", "lines"]
+
+
+def test_a_band_belongs_to_the_longest_trace_its_name_starts_with() -> None:
+    """``x_hat ± 2σ`` is the uncertainty of ``x_hat``, not of ``x`` (BESS's code review,
+    2026-10-27)."""
+    s = Series(name="p", x=[0.0, 1.0], x_label="t [s]", y_label="v [V]",
+               traces=(("x", [0.0, 1.0]), ("x_hat", [0.0, 1.0])),
+               bands=(("x_hat ± 2σ", -1.0, 1.0),))
+    rec = type("OnePanel", (), {"component": "p", "series": lambda self: (s,)})()
+    (band,) = chart_of([("r", rec)], "p").axes[0].bands
+    assert band.color == SERIES[1]
+
+
+def test_a_row_each_keeps_every_row_its_height_however_many_rows() -> None:
+    """A fixed gap between rows left no height for a row from 11 rows on (BESS's code review,
+    2026-10-27)."""
+    one = wave.run(wave.Config())
+    fig = figure_of(chart_of([(f"r{i}", one) for i in range(12)], "u", runs="rows"))
+    domains = [fig["layout"]["yaxis" if i == 0 else f"yaxis{i + 1}"]["domain"] for i in range(12)]
+    assert all(hi > lo for lo, hi in domains), domains
+    assert all(below[1] < above[0] for above, below in zip(domains, domains[1:])), domains
+
+
+def test_a_panel_spec_is_a_value() -> None:
+    assert dataclasses.is_dataclass(Panel) and Panel.__dataclass_params__.frozen
+
+
+def test_a_row_each_is_one_time_axis_with_one_legend_and_the_quantity_said_once() -> None:
+    one, two = wave.run(wave.Config()), wave.run(wave.Config(amplitude=2.0))
+    panel = chart_of([("a", one), ("b", two)], "u", runs="rows")
+    quantity = chart_of([("a", one)], "u").axes[0].y_label
+    assert [ax.y_label for ax in panel.axes] == ["a", "b"] and panel.quantity == quantity
+    fig = figure_of(panel)
+    assert {t["yaxis"] for t in fig["data"]} == {"y", "y2"}
+    assert all(t.get("xaxis", "x") == "x" for t in fig["data"]), "one time axis: zoom follows"
+    assert fig["layout"]["xaxis"]["anchor"] == "y2"
+    assert fig["layout"]["yaxis"]["domain"][0] > fig["layout"]["yaxis2"]["domain"][1], \
+        "the first run is the top row"
+    in_legend = [t for t in fig["data"] if t.get("showlegend")]
+    assert in_legend and all(t["yaxis"] == "y" for t in in_legend), "one legend, from row one"
+    assert all(t["legendgroup"] == t["name"] for t in fig["data"]), "a click toggles every row"
+    # each row's words flat above it, the quantity once up the side
+    assert [a["text"] for a in fig["layout"]["annotations"]] == ["a", "b", quantity]
+    assert [fig["layout"][k]["title"]["text"] for k in ("yaxis", "yaxis2")] == ["", ""]
+    assert fig["layout"]["height"] == ONE_PX + MORE_ROW_PX

@@ -128,6 +128,34 @@ def _type_text(p: param.Parameter) -> str:
         type(p), type(p).__name__)
 
 
+def as_text(value: Any) -> str:
+    """A value as the text ``--set`` reads back: ``true``/``false``, an integral float without
+    its point, a list as JSON (a list of expressions holds quotes ``str`` would write as Python's),
+    else ``str``."""
+    if value is None:
+        return ""
+    if isinstance(value, (list, tuple)):
+        return json.dumps(list(value), ensure_ascii=False)
+    if isinstance(value, dict):
+        return json.dumps(value, ensure_ascii=False)
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, float) and value.is_integer() and abs(value) < 1e15:
+        return str(int(value))
+    return str(value)
+
+
+def interval_ends(f: dict[str, Any]) -> tuple[str, str] | None:
+    """The bounds a number declares (a field of :func:`fields_of`) as the two ends of an
+    interval: ``[`` for an end it may take, ``(`` for one it may not, ``∞`` for no end; ``None``
+    when it declares none (BESS's ``devkit/lab/form.py``, ``hover``, at ``da5b981``)."""
+    if f.get("low") is None and f.get("high") is None:
+        return None
+    low = "(-∞" if f["low"] is None else ("(" if f["low_exclusive"] else "[") + as_text(f["low"])
+    high = "∞)" if f["high"] is None else as_text(f["high"]) + (")" if f["high_exclusive"] else "]")
+    return low, high
+
+
 def fields_of(cls: type) -> list[dict[str, Any]]:
     """One dict per setting -- the one reader every surface (the command line, tests, a form)
     uses. A list of rows carries its row's own settings (``element_fields``, read the same way)

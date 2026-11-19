@@ -42,8 +42,9 @@ _ALLOWED = {# the declared project: its pieces, and its command and title -- wor
             "runlab.record": {"read_header", "FILES_KEY", "COMPONENT_KEY", "PANELS_KEY", "NUMBER_SPECS_KEY",
                                 "PANEL_GROUPS_KEY", "HEADER_KEYS", "capital", "differences"},
             # the settings' declarations; and a typed value read as the run will read it, so
-            # Run refuses what the run would refuse before queueing it (decision 5)
-            "runlab.record.config": {"fields_of", "coerce_value"},
+            # Run refuses what the run would refuse before queueing it (decision 5); a value as
+            # --set reads it back, and a number's range, both shared with the settings command
+            "runlab.record.config": {"fields_of", "coerce_value", "as_text", "interval_ends"},
             "runlab.record.files": {"kept", "discard"},
             # the one constant saying where records live
             # and the folder a draw of some runs writes into, where a card's Save writes too

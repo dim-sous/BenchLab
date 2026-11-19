@@ -10,11 +10,25 @@ its card, unframed, and the two cannot drift apart. The look is RCWS's ``lab/ski
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from runlab.figure.style import FONT as SANS
 from runlab.figure.style import GRID, INK, INK_SECONDARY, MONO, SURFACE
 
-FONTS = ('@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500'
-         '&family=IBM+Plex+Sans:wght@400;500;600&display=swap");')
+#: The page's two typefaces at the weights it uses, carried inside RunLab so that the page looks
+#: the same with no internet: IBM Plex, IBM's own woff2 files (``@ibm/plex-sans`` 2.0.0 and
+#: ``@ibm/plex-mono`` 2.5.0, ``fonts/complete/woff2/``), SIL Open Font Licence 1.1
+#: (``fonts/LICENSE.txt``). The Lab's server serves the folder at ``/FONTS_ROUTE/``.
+FONTS_DIR = Path(__file__).with_name("fonts")
+FONTS_ROUTE = "runlab-fonts"
+_FACES = (("IBM Plex Sans", 400, "IBMPlexSans-Regular"), ("IBM Plex Sans", 500, "IBMPlexSans-Medium"),
+          ("IBM Plex Sans", 600, "IBMPlexSans-SemiBold"), ("IBM Plex Mono", 400, "IBMPlexMono-Regular"),
+          ("IBM Plex Mono", 500, "IBMPlexMono-Medium"))
+# Files at an address, not written into the stylesheet as text: the page reads this stylesheet
+# three times per load (2026-11-19, 0.19.0), so written-in fonts would travel three times.
+FONTS = "".join(f'@font-face {{ font-family: "{family}"; font-style: normal; font-weight: {weight}; '
+                f'font-display: swap; src: url("/{FONTS_ROUTE}/{file}.woff2") format("woff2"); }}\n'
+                for family, weight, file in _FACES)
 
 GROUND, PAPER = "#f3f3f0", SURFACE
 INK2, INK3 = INK_SECONDARY, "#8b8a84"

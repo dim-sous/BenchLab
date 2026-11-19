@@ -52,7 +52,7 @@ from runlab.runner import planned
 
 from . import jobs, shaping, skin, state, view
 from .compare import CompareTable
-from .form import Form, as_text, term
+from .form import Form, as_text, interval, term
 from .runlist import RunList, SavedList
 from .strip import RunsInProgress
 from .words import say, say_n, word
@@ -1510,11 +1510,11 @@ class Lab:
                          margin=(0, 0, 8, 0))
 
     def _field_cells(self, f: dict[str, Any]) -> list[Any]:
-        """A field as the THREE cells of a six-track grid: label, box with its note under it,
-        unit (or nothing). The cells go into the grid themselves rather than into a row of
-        their own, because a row is its own flex box and two rows share no geometry -- which is
-        what left the boxes 196px apart across the sections, measured 2026-10-05. Every cell is
-        margin-free: the spacing is the grid's gaps, so the tracks are what they say they are."""
+        """A field as the THREE cells of a six-track grid: label, box with the range it declares
+        and its note under it, unit (or nothing). The cells go into the grid themselves rather
+        than into a row of their own, because a row is its own flex box and two rows share no
+        geometry -- which is what left the boxes 196px apart across the sections, measured
+        2026-10-05. Every cell is margin-free: the spacing is the grid's gaps, so the tracks are what they say they are."""
         name = f["name"]
         label = _html("", margin=0)
         self._labels[name] = label
@@ -1534,7 +1534,11 @@ class Lab:
                               value=self.form.set.get(name, ""))
             control.param.watch(lambda e, n=name: self._on_pick(n, e.new), "value")
         self._controls[name] = control
-        return [label, pn.Column(control, self._note(name), margin=0,
+        # the range under the box, not beside the unit: units of 11 characters already fill the
+        # 48 px unit track, and one with its range ran to 19 (two projects, 2026-11-19)
+        under = [_html(html.escape(interval(f)), margin=0, style=f"{_MONO};font-size:11px;{_DIM}")
+                 ] if interval(f) else []
+        return [label, pn.Column(control, *under, self._note(name), margin=0,
                                  sizing_mode="stretch_width"), after]
 
     def _note(self, name: str) -> pn.pane.HTML:

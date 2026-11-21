@@ -630,3 +630,55 @@ def test_the_switch_words_a_chart_in_the_browser_keeps_its_choice_and_saves_in_i
         [note] = notes
         assert json.loads(note.read_text())["shaping"]["words"] == "symbols"
         assert not errors[switched:], errors[switched:]
+
+
+#: Mark every chart's plot element (``True``), or read the marks back (``False``): an element the
+#: page drew anew carries none.
+_MARK = """(set) => {
+  const out = [];
+  const walk = root => root.querySelectorAll('*').forEach(el => {
+    if (el.classList && el.classList.contains('js-plotly-plot')) {
+      if (set) el.dataset.kept = 'yes';
+      out.push(el.dataset.kept || '');
+    }
+    if (el.shadowRoot) walk(el.shadowRoot);
+  });
+  walk(document);
+  return out;
+}"""
+
+
+def test_a_charts_plot_is_updated_where_it_stands_through_the_switch_save_and_a_control(
+        tmp_path) -> None:
+    """0.24: a card drawn again keeps its plot's element in the browser and gives it the new
+    figure. Drawn anew on every drawing, a plot the browser was still drawing was destroyed
+    under it: plotly's "_guiEditing" error, 4 of 48 saves under load on 0.23.0."""
+    cli.main(["run", "fit", "--name", "a", "--out-dir", str(tmp_path / "results")])
+    with _served(tmp_path) as (page, errors, root, out_dir):
+        page.locator("select").first.select_option(label="Fit")
+        _shows(page, "1 on disk")
+        page.wait_for_timeout(1500)
+        switched = len(errors)
+        page.get_by_role("button", name="All", exact=True).first.click()
+        deadline = time.time() + 30
+        while page.evaluate(_AXES) != [["Step [-]", "Mean squared error [-]"]]:
+            assert time.time() < deadline, page.evaluate(_AXES)
+            page.wait_for_timeout(200)
+        assert page.evaluate(_MARK, True) == ["yes"]
+        page.get_by_role("button", name="Symbols", exact=True).click()
+        while page.evaluate(_AXES) != [["k [-]", "MSE [-]"]]:
+            assert time.time() < deadline + 30, page.evaluate(_AXES)
+            page.wait_for_timeout(200)
+        assert page.evaluate(_MARK, False) == ["yes"], "the same element, with the new words"
+        page.get_by_role("button", name="Save", exact=True).first.click()
+        notes: list[Path] = []
+        while not notes:
+            assert time.time() < deadline + 60, "no picture saved"
+            page.wait_for_timeout(200)
+            notes = list((Path(root) / out_dir / "fit").rglob("*.png.json"))
+        page.wait_for_timeout(1000)
+        assert page.evaluate(_MARK, False) == ["yes"], "Save drew the cards again, the plot kept"
+        page.get_by_role("button", name="Dots", exact=True).first.click()
+        page.wait_for_timeout(1500)
+        assert page.evaluate(_MARK, False) == ["yes"], "a control drew the card again, kept"
+        assert not errors[switched:], errors[switched:]

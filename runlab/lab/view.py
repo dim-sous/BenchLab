@@ -5,6 +5,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from runlab.record import number_words
+
 from .form import as_text, term
 from .words import say, say_n
 
@@ -133,7 +135,8 @@ SETTINGS = ("none", "differ", "all")
 
 def compare_rows(runs: list[dict[str, Any]], fields: list[dict[str, Any]], *,
                  settings: str = "none", constants: list[Any] | None = None,
-                 declared: list[dict[str, Any]] | None = None) -> list[dict[str, Any]]:
+                 declared: list[dict[str, Any]] | None = None,
+                 words: str = "names") -> list[dict[str, Any]]:
     """The shown runs column by column: the NUMBERS, in the groups their record declares
     (``Number.group``; ``"Numbers"`` for a file written before groups) and the headline ones
     first within a group; then, as ``settings`` asks (:data:`SETTINGS`), the settings group by
@@ -181,9 +184,8 @@ def compare_rows(runs: list[dict[str, Any]], fields: list[dict[str, Any]], *,
                     if (specs[n].get("group") or say("compare.numbers_group")) == group]
         add("head", group, "", group, [])
         for name in in_group:
-            spec = specs[name]
-            unit = spec.get("unit") or ""
-            add("number", group, name, f"{spec['label']} [{unit}]" if unit else spec["label"],
+            label, unit = number_words(specs[name], words)    # by name or by symbol
+            add("number", group, name, f"{label} [{unit}]" if unit else label,
                 [r["numbers"].get(name) for r in runs])
     if settings != "none":
         _settings_rows(add, runs, fields, settings, constants)

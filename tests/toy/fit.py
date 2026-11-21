@@ -23,7 +23,8 @@ __all__ = ["Config", "run", "Record"]
 
 
 #: The loss chart's two quantities, named once: its words in names are the ones it wrote in full
-#: before 0.22 ("Step [-]", "Mean squared error [-]"); its symbols are new.
+#: before 0.22 ("Step [-]", "Mean squared error [-]"); its symbols are new. The final loss is the
+#: statistic final of the second: "Final mean squared error", as written in full before 0.23.
 STEP = Quantity("step", name="Step", symbol="k")
 MSE = Quantity("mse", name="Mean squared error", symbol="MSE")
 
@@ -80,7 +81,7 @@ class Record(_Record):
     def number_specs(self) -> tuple[Number, ...]:
         return (Number("w0", "Fitted intercept", group="Fit"),
                 Number("w1", "Fitted slope", group="Fit"),
-                Number("loss", "Final mean squared error", headline=True, group="Fit"))
+                Number("loss", headline=True, group="Fit", quantity=MSE, statistic="final"))
 
 
 def run(cfg: Config) -> Record:

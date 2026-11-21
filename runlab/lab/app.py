@@ -745,11 +745,12 @@ class Lab:
         self.render()
 
     def _on_wording(self, value: str) -> None:
-        """The switch: every open chart and the chart list in the other words, kept in the
-        address."""
+        """The switch: every open chart and number card, the chart list and the compare table in
+        the other words, kept in the address."""
         self.wording = value
         self._draw_tabs()
         self._draw_cards()
+        self._draw_compare()
         self._draw_url()
 
     def _on_settings(self, value: str) -> None:
@@ -763,7 +764,8 @@ class Lab:
             record, _why = self._record_of(run)
             constants.append(getattr(record, "constants", None) if record is not None else None)
         rows = view.compare_rows(runs, self.form.fields, settings=self.settings_shown,
-                                 constants=constants, declared=self._numbers_declared())
+                                 constants=constants, declared=self._numbers_declared(),
+                                 words=self.wording)
         self.compare_count.object = (f"<span style='{_DIM}'>"
                                      f"{html.escape(view.compare_count(rows, runs, self.form.fields))}"
                                      f"</span>")
@@ -1295,7 +1297,7 @@ class Lab:
         the figure layer from what the card's controls hold."""
         ctx = self._numbers_context(card, pairs)
         spec = next((n for _, r in pairs for n in r.number_specs() if n.name == card.number), None)
-        title = spec.label if spec else card.number
+        title = spec.in_words(self.wording).label if spec else card.number
         fields = {f["name"]: f for f in self.form.fields}
         if card.x:
             title = say("cards.number_title", number=title, setting=fields[card.x]["label"])
@@ -1305,7 +1307,10 @@ class Lab:
         if not card.x:
             foot, warn = say("cards.number_foot"), True
         else:
-            keywords = shaping.draw_keywords(card, ctx)
+            # the words only when they are symbols, as a chart card's (a picture saved in names
+            # and its note are as before)
+            keywords = {**shaping.draw_keywords(card, ctx),
+                        **({"words": self.wording} if self.wording != "names" else {})}
             try:
                 panel = sweep_of(pairs, card.number, **keywords)
             except ValueError as exc:

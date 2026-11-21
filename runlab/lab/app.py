@@ -479,6 +479,16 @@ class Lab:
         #: Each open chart's pane with the words of its bottom axis; and, per bottom axis, the
         #: range a zoom left on it (``None`` once reset): every chart over it is shown at it.
         self._panes: dict[int, tuple[pn.pane.Plotly, str, bool]] = {}
+        #: What each card keeps from one drawing of the cards to the next, by its id and the part
+        #: (its box, top line, title, Save, close, plot; a figure of a piece's own also by the
+        #: run's name), so the browser updates each where it stands. Drawn anew on every drawing,
+        #: a plot the browser was still drawing was destroyed under it: plotly's "_guiEditing"
+        #: error, 4 of 48 saves under load (2026-11-21, 0.23.0); and a button drawn anew inside a
+        #: kept box was sent back by the browser in full when clicked (Bokeh's "reference already
+        #: known" warning, the second Save of the every-card drive, 2026-11-21).
+        self._kept: dict[tuple, Any] = {}
+        #: What each card's Save draws, as the card was last drawn.
+        self._save_args: dict[int, tuple] = {}
         self._ranges: dict[str, Optional[tuple[list[Any], bool]]] = {}
         self._answer: Optional[Callable[[], None]] = None   # what the dialog's yes does
         #: How the charts word a quantity, by name or by symbol (``record.WORDS``): the switch in
@@ -1042,6 +1052,9 @@ class Lab:
         the records declare them."""
         runs = self.shown_runs()
         self.drawn, self._panes = {}, {}
+        live = {card.id for card in self.cards}
+        self._kept = {key: part for key, part in self._kept.items() if key[0] in live}
+        self._save_args = {key: held for key, held in self._save_args.items() if key in live}
         if not runs:
             self.cards_box.objects = [_html(html.escape(say("cards.empty_runs")), style=_DIM)]
             return
@@ -1071,16 +1084,19 @@ class Lab:
         then what it draws; then a foot -- why it could not draw, else what its last Save
         wrote or why that wrote nothing. No hover: the title is the chart's or the number's
         own words."""
-        close = _widget(pn.widgets.Button, label=say("cards.close"), width=34)
-        close.on_click(lambda _e: self._close(card))
+        close, new = self._keep((card.id, "close"), lambda: _widget(
+            pn.widgets.Button, label=say("cards.close"), width=34))
+        if new:
+            close.on_click(lambda _e: self._close(card))
         # the panel's name rides on the title as data-panel: the tests found a card by its
         # title's text, which found none once a title showed words, not the name (2026-10-27)
-        top = pn.FlexBox(_html(f"<b data-panel='{html.escape(card.chart or card.number)}' "
-                               f"style='{_MONO};font-size:15px'>{html.escape(title)}</b>",
-                               stylesheets=[skin.BAR_FILL]),
-                         *([save] if save is not None else []), close,
-                         flex_wrap="nowrap", align_items="center", margin=0,
-                         stylesheets=[skin.BAR], sizing_mode="stretch_width")
+        heading = self._keep((card.id, "title"), lambda: _html("", stylesheets=[skin.BAR_FILL]))[0]
+        heading.object = (f"<span><b data-panel='{html.escape(card.chart or card.number)}' "
+                          f"style='{_MONO};font-size:15px'>{html.escape(title)}</b></span>")
+        top = self._keep((card.id, "top"), lambda: pn.FlexBox(
+            flex_wrap="nowrap", align_items="center", margin=0, stylesheets=[skin.BAR],
+            sizing_mode="stretch_width"))[0]
+        top.objects = [heading, *([save] if save is not None else []), close]
         items: list[Any] = [top]
         if tools:
             items.append(pn.FlexBox(*tools, flex_wrap="wrap", align_items="center", margin=0,
@@ -1091,7 +1107,32 @@ class Lab:
         if words:
             items.append(_html(html.escape(words),
                                style=f"font-size:12.5px;{_RED if red else _DIM}"))
-        return pn.Column(*items, styles=skin.CARD, sizing_mode="stretch_width")
+        return self._box((card.id, "box"), items, styles=skin.CARD)
+
+    def _keep(self, key: tuple, make: Callable[[], Any]) -> tuple[Any, bool]:
+        """The part kept under ``key`` (a card's id first), made by ``make`` the first time; and
+        whether it is new."""
+        part = self._kept.get(key)
+        if part is not None:
+            return part, False
+        part = self._kept[key] = make()
+        return part, True
+
+    def _box(self, key: tuple, items: list[Any], **kw: Any) -> pn.Column:
+        """The box kept under ``key``, holding ``items``: the same box from one drawing to the
+        next, so what it holds that stays the same stays in the browser too."""
+        box = self._keep(key, lambda: pn.Column(sizing_mode="stretch_width", **kw))[0]
+        box.objects = items
+        return box
+
+    def _plot(self, key: tuple, fig: dict[str, Any]) -> tuple[pn.pane.Plotly, bool]:
+        """The plot kept under ``key``, showing ``fig``, and whether it is new: one kept is given
+        the figure where it stands."""
+        pane, new = self._keep(key, lambda: pn.pane.Plotly(
+            fig, config=_PLOT_CONFIG, sizing_mode="stretch_width", height=fig["layout"]["height"]))
+        if not new:
+            pane.param.update(object=fig, height=fig["layout"]["height"])
+        return pane, new
 
     def _toolbar(self, card: shaping.Card, ctx: shaping.Context) -> list[Any]:
         """The card's controls, one per way it shapes what it draws, in the groups and the order
@@ -1257,10 +1298,8 @@ class Lab:
                 rows.append(_html(f"<span style='color:{dot}'>●</span> "
                                   f"<span data-run='{html.escape(name)}'>{html.escape(name)}</span>",
                                   style=_LABEL, margin=(6, 0, 0, 4)))
-            rows.append(pn.pane.Plotly(fig, config=_PLOT_CONFIG, sizing_mode="stretch_width",
-                                       height=fig["layout"]["height"]))
-        body: Any = pn.Column(*rows, margin=0, sizing_mode="stretch_width") if rows \
-            else pn.pane.HTML("")
+            rows.append(self._plot((card.id, "plot", name), fig)[0])
+        body: Any = self._box((card.id, "own"), rows, margin=0) if rows else pn.pane.HTML("")
         words = list(refused)
         if without:
             words.append(say_n("cards.own_without", len(without), runs=", ".join(without)))
@@ -1349,10 +1388,10 @@ class Lab:
         if ends:
             fig["layout"]["xaxis"] = {**fig["layout"]["xaxis"], "range": ends,
                                       "autorange": False}
-        pane = pn.pane.Plotly(fig, config=_PLOT_CONFIG, sizing_mode="stretch_width",
-                              height=fig["layout"]["height"])
+        pane, new = self._plot((card.id, "plot"), fig)
         if linked:
-            pane.param.watch(lambda e, key=card.id: self._on_zoom(key, e.new), "relayout_data")
+            if new:
+                pane.param.watch(lambda e, key=card.id: self._on_zoom(key, e.new), "relayout_data")
             self._panes[card.id] = (pane, key, panel.x_log)
         return pane
 
@@ -1364,9 +1403,11 @@ class Lab:
         controls hold, as the card was just drawn from them. ``axis``, the words of a chart's
         bottom axis: the span the page is on for it is read when Save is pressed, because a
         zoom reaches the chart without building the card again (BESS's ``_save_button``)."""
-        save = _widget(pn.widgets.Button, label=say("cards.save"),
-                       width=_width(say("cards.save")) + 16)
-        save.on_click(lambda _e: self._save(card, names, keywords, panels, number, axis, x_log))
+        self._save_args[card.id] = (names, keywords, panels, number, axis, x_log)
+        save, new = self._keep((card.id, "save"), lambda: _widget(
+            pn.widgets.Button, label=say("cards.save"), width=_width(say("cards.save")) + 16))
+        if new:
+            save.on_click(lambda _e: self._save(card, *self._save_args[card.id]))
         return save
 
     def _save(self, card: shaping.Card, names: list[str], keywords: dict[str, Any],

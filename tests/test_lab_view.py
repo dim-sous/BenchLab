@@ -1388,3 +1388,35 @@ def test_the_switch_words_the_chart_list_the_card_and_its_axes_and_keeps_a_zoom(
     assert seen() == names
     assert lab._chart_cells["loss"].width == app_module._tab_width("Mean squared error"), \
         "the toggle's cell as wide as its title again, set in place"
+
+
+def test_the_switch_words_the_compare_table_a_number_card_and_its_saved_picture(tmp_path) -> None:
+    """0.23: the made-up fit's final loss, made from a quantity and a statistic. The header's
+    switch words it in the compare table, on its number card's title and its chart's axis; a
+    number written in full stays; a picture saved in symbols says so in its note."""
+    for name, rate in (("a", "0.5"), ("b", "0.3")):
+        cli.main(["run", "fit", "--name", name, "--out-dir", str(tmp_path / "results"),
+                  "--set", f"rate={rate}"])
+    lab, *_ = _lab((str(tmp_path), "results"), piece="fit")
+    _tick(lab, "a")
+    _tick(lab, "b")
+    lab.open_number("loss")
+    assert _card_of(lab, number="loss").x == "rate", "the setting that varies"
+
+    def seen() -> tuple:
+        terms = {r["key"]: r["term"] for r in lab.compare_table.rows if r["kind"] == "number"}
+        title = _card(lab, "loss").objects[0].objects[0].object
+        return (terms["loss"], terms["w0"], html.unescape(re.sub(r"<[^>]+>", "", title)),
+                _figure(lab, "loss")["layout"]["yaxis"]["title"]["text"])
+
+    assert seen() == ("Final mean squared error", "Fitted intercept",
+                      "Final mean squared error vs Rate", "Final mean squared error [-]")
+    lab.wording_choice.value = "symbols"
+    assert seen() == ("Final MSE", "Fitted intercept", "Final MSE vs Rate", "Final MSE [-]")
+    save = next(b for b in _card(lab, "loss").objects[0].objects
+                if isinstance(b, pn.widgets.Button) and b.label == "Save")
+    save.clicks += 1
+    [note] = (tmp_path / "results" / "fit").rglob("*.png.json")
+    assert json.loads(note.read_text())["shaping"]["words"] == "symbols"
+    lab.wording_choice.value = "names"
+    assert seen()[0] == "Final mean squared error"

@@ -406,8 +406,9 @@ def _words(f: dict[str, Any], value: Any) -> str:
 
 def sweep_of(pairs: Pairs, number: str, *, vs: str, by: Sequence[str] | None = None,
              runs: str = "each", points: bool = True, x_log: bool = False,
-             y_log: bool = False) -> Panel:
-    """Summary number ``number`` against setting ``vs`` over ``pairs`` (the module). ``by`` are
+             y_log: bool = False, words: str = "names") -> Panel:
+    """Summary number ``number`` against setting ``vs`` over ``pairs`` (the module), its words
+    in ``words`` (``Number.in_words``: by name or by symbol, when made from parts). ``by`` are
     the settings each colour stands for, ``None`` for every one that tells the runs apart
     (:func:`telling`), ``()`` for one colour over every run; ``runs`` is ``"each"`` (a point per
     run) or the statistic of a colour's runs at one value (``"mean"``, ``"rms"``); ``points``
@@ -427,6 +428,7 @@ def sweep_of(pairs: Pairs, number: str, *, vs: str, by: Sequence[str] | None = N
     spec = next((n for n in pairs[0][1].number_specs() if n.name == number), None)
     if spec is None:
         raise ValueError(f"the runs declare no number {number!r}")
+    spec = spec.in_words(words)
     lacking = [run for run, rec in pairs if number not in rec.numbers]
     if lacking:
         raise ValueError(f"{lacking} carry no {number!r}")

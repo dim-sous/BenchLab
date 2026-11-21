@@ -37,8 +37,8 @@ from runlab.project import declared
 from runlab.record.config import Settings, from_saved, saved, setting_names
 from runlab.record.files import files_of, listed, run_files
 
-__all__ = ["Provenance", "stamp", "Quantity", "WORDS", "Series", "Figure", "bound_refs", "Number",
-           "Record", "read_header", "capital",
+__all__ = ["Provenance", "stamp", "Quantity", "WORDS", "STATISTICS", "SHARES", "Series", "Figure",
+           "bound_refs", "Number", "number_words", "Record", "read_header", "capital",
            "run_files", "files_of", "Absent", "AbsentField", "Difference", "differences",
            "COMPONENT_KEY", "PANELS_KEY", "NUMBER_SPECS_KEY", "PANEL_GROUPS_KEY", "FILES_KEY",
            "HEADER_KEYS"]
@@ -126,6 +126,26 @@ class Quantity:
         """The label of an axis it lies along: its word and its unit, "[-]" for none (the
         developer's spelling of a quantity with no unit, 2026-11-21)."""
         return f"{self.word(words)} [{self.unit or '-'}]"
+
+    def inside(self, words: str) -> str:
+        """Its word as it reads inside a phrase ("Final state of charge"): a name with its first
+        letter small, unless it opens with two capitals ("RC1 voltage"); a symbol as written."""
+        word = self.word(words)
+        by_name = word == self.name and not (words == "symbols" and self.symbol)
+        return word[:1].lower() + word[1:] if by_name and not word[:2].isupper() else word
+
+
+#: RunLab's statistics, one spelling each (the developer's design of 2026-11-21, section 3, "As
+#: written"): the words a number is made from its quantity's word by, and whether it keeps the
+#: quantity's unit. A share counts the steps or the time of a condition, and has no quantity.
+STATISTICS: dict[str, tuple[str, bool]] = {
+    "final": ("Final {quantity}", True), "initial": ("Initial {quantity}", True),
+    "max": ("Max {quantity}", True), "min": ("Min {quantity}", True),
+    "mean": ("Mean {quantity}", True), "std": ("{quantity} std", True),
+    "rmse": ("{quantity} RMSE", True), "snr": ("{quantity} SNR", False),
+    "share_of_steps": ("Share of steps {condition}", False),
+    "share_of_time": ("Share of time {condition}", False)}
+SHARES = ("share_of_steps", "share_of_time")
 
 
 @dataclasses.dataclass(frozen=True)
@@ -256,14 +276,79 @@ def bound_refs(bounds: Any, quantity: str, unit: str) -> tuple[tuple[str, float]
 
 @dataclasses.dataclass(frozen=True)
 class Number:
-    """The words and unit of one summary number in ``Record.numbers``."""
+    """The words and unit of one summary number in ``Record.numbers``: written in full
+    (``label``, ``unit``), or made from its ``quantity`` and its ``statistic``
+    (:data:`STATISTICS`; a share from its ``condition``), by name when built and by symbol on
+    asking (:meth:`in_words`). A quantity with no statistic: the number is the quantity."""
 
     name: str
-    label: str
+    label: str = ""
     unit: str = ""          # "" for a dimensionless quantity
     headline: bool = False  # shown first where a listing folds its columns
     doc: str = ""
     group: str = ""         # the heading a listing puts it under
+    #: Last among the fields, so that a number declared by position keeps its meaning.
+    quantity: Quantity | None = None
+    statistic: str = ""
+    condition: str = ""     # what a share counts the steps or the time of ("clipped")
+
+    def __post_init__(self) -> None:
+        made = bool(self.statistic) or self.quantity is not None
+        if made and (self.label or self.unit):
+            raise ValueError(f"number {self.name!r} is made from its quantity and statistic and "
+                             f"writes its words {self.label!r} or its unit {self.unit!r} too; it "
+                             f"says one or the other")
+        if not made and not self.label:
+            raise ValueError(f"number {self.name!r} has neither words nor a quantity")
+        if self.statistic and self.statistic not in STATISTICS:
+            raise ValueError(f"number {self.name!r}: statistic {self.statistic!r} is not one of "
+                             f"{list(STATISTICS)}")
+        share = self.statistic in SHARES
+        if share and (not self.condition or self.quantity is not None):
+            raise ValueError(f"number {self.name!r} is a share: it counts the steps or the time "
+                             f"of a condition, which it names, and names no quantity")
+        if self.condition and not share:
+            raise ValueError(f"number {self.name!r} names a condition; only a share takes one")
+        if self.statistic and not share and self.quantity is None:
+            raise ValueError(f"number {self.name!r}: the statistic {self.statistic!r} is of a "
+                             f"quantity, which it names")
+        if made:
+            self._word("names")
+
+    def _word(self, words: str) -> None:
+        """Fill its words and unit from its parts, in ``words``: the quantity's word inside the
+        statistic's phrase, as written where it opens it; the quantity's unit where the
+        statistic keeps it."""
+        phrase, keeps_unit = STATISTICS[self.statistic] if self.statistic else ("{quantity}", True)
+        q = self.quantity
+        word = "" if q is None else q.word(words) if phrase.startswith("{quantity}") \
+            else q.inside(words)
+        object.__setattr__(self, "label", phrase.format(quantity=word, condition=self.condition))
+        object.__setattr__(self, "unit", q.unit if q is not None and keeps_unit else "")
+
+    def in_words(self, words: str) -> "Number":
+        """The number in ``words`` (:data:`WORDS`): itself in names, as built; a copy in
+        symbols. Words written in full stay as written either way."""
+        if words not in WORDS:
+            raise ValueError(f"words {words!r}: one of {list(WORDS)}")
+        if words == "names" or not (self.statistic or self.quantity is not None):
+            return self
+        other = copy.copy(self)
+        other._word(words)
+        return other
+
+
+def number_words(spec: Mapping[str, Any], words: str) -> tuple[str, str]:
+    """A number's words and unit in ``words``, from its declaration as a run file saves it
+    (``dataclasses.asdict`` of a :class:`Number`): made again from its parts when it holds them,
+    as saved when it does not (a run saved before 0.23)."""
+    if not spec.get("statistic") and not spec.get("quantity"):
+        return spec["label"], spec.get("unit") or ""
+    held = spec.get("quantity")
+    worded = Number(spec["name"], quantity=Quantity(**held) if held else None,
+                    statistic=spec.get("statistic") or "",
+                    condition=spec.get("condition") or "").in_words(words)
+    return worded.label, worded.unit
 
 
 # ---------------------------------------------------------------------------

@@ -238,8 +238,9 @@ def _shared(items: list[tuple[str, tuple, Any]], runs: int) -> list[tuple[str, A
 def chart_of(pairs: Pairs, name: str, *, runs: str = "one", colour_by: str = "run",
              points: bool = False, x: str = "own", x_log: bool | None = None,
              y_log: bool | None = None,
-             x_range: tuple[float, float] | None = None) -> Panel:
-    """Panel ``name`` over ``pairs``, shaped by the keywords (the module): the runs shared as
+             x_range: tuple[float, float] | None = None, words: str = "names") -> Panel:
+    """Panel ``name`` over ``pairs``, in ``words`` (``Series.in_words``: the words its quantities
+    make, by name or by symbol), shaped by the keywords (the module): the runs shared as
     ``runs`` says (:data:`RUNS`), the colour telling apart what ``colour_by`` names
     (:data:`COLOUR_BY`), each sample marked (``points``) or joined, over the bottom axis ``x``
     (:data:`X`). ``x_log`` and ``y_log`` start at what the panel declares (``None``; over the
@@ -250,7 +251,7 @@ def chart_of(pairs: Pairs, name: str, *, runs: str = "one", colour_by: str = "ru
     value at or below zero (:func:`render.log_refusal`), a span that does not run from low to
     high or that a logarithmic axis cannot show."""
     _choice(runs, RUNS, "runs"); _choice(colour_by, COLOUR_BY, "colour_by"); _choice(x, X, "x")
-    held = _held(pairs, name)
+    held = [(run, s.in_words(words)) for run, s in _held(pairs, name)]
     first = held[0][1]
     for what in ("x_label", "y_label"):
         said = {getattr(s, what) for _, s in held}

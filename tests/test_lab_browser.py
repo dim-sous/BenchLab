@@ -581,3 +581,52 @@ def test_the_page_carries_its_own_fonts_and_asks_nothing_beyond_this_computer(tm
         loaded = page.evaluate(_LOAD, [f"{weight} 16px '{family}'" for family, weight in faces])
         assert loaded == [f"{family} {weight} loaded" for family, weight in faces]
         assert not errors, errors
+
+
+#: Every chart's two axis titles, as plotly in the browser holds them.
+_AXES = """() => {
+  const out = [];
+  const walk = root => root.querySelectorAll('*').forEach(el => {
+    if (el.classList && el.classList.contains('js-plotly-plot') && el.layout)
+      out.push([el.layout.xaxis.title.text, el.layout.yaxis.title.text]);
+    if (el.shadowRoot) walk(el.shadowRoot);
+  });
+  walk(document);
+  return out;
+}"""
+
+
+def test_the_switch_words_a_chart_in_the_browser_keeps_its_choice_and_saves_in_it(tmp_path) -> None:
+    """0.22: the made-up fit's loss chart, made from quantities. The header's Symbols turns its
+    axes, in plotly in the browser, to the symbols; the address keeps the choice; Save writes
+    the picture in symbols, its note saying so."""
+    cli.main(["run", "fit", "--name", "a", "--out-dir", str(tmp_path / "results")])
+    with _served(tmp_path) as (page, errors, root, out_dir):
+        page.locator("select").first.select_option(label="Fit")
+        _shows(page, "1 on disk")
+        page.wait_for_timeout(1500)
+        switched = len(errors)
+        page.get_by_role("button", name="All", exact=True).first.click()
+        _shows(page, "Mean squared error")
+        if not page.evaluate(_AXES):
+            page.locator("button:visible", has_text=re.compile(r"^\s*Mean squared error\s*$")) \
+                .first.click()
+        deadline = time.time() + 30
+        while page.evaluate(_AXES) != [["Step [-]", "Mean squared error [-]"]]:
+            assert time.time() < deadline, page.evaluate(_AXES)
+            page.wait_for_timeout(300)
+        page.get_by_role("button", name="Symbols", exact=True).click()
+        while page.evaluate(_AXES) != [["k [-]", "MSE [-]"]]:
+            assert time.time() < deadline + 30, page.evaluate(_AXES)
+            page.wait_for_timeout(300)
+        assert "MSE" in page.evaluate(_TEXT), "the chart list's title and the card's"
+        assert "words=symbols" in page.url
+        page.get_by_role("button", name="Save", exact=True).first.click()
+        notes: list[Path] = []
+        while not notes:
+            assert time.time() < deadline + 60, "no picture saved"
+            page.wait_for_timeout(300)
+            notes = list((Path(root) / out_dir / "fit").rglob("*.png.json"))
+        [note] = notes
+        assert json.loads(note.read_text())["shaping"]["words"] == "symbols"
+        assert not errors[switched:], errors[switched:]

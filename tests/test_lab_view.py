@@ -1353,3 +1353,38 @@ def test_a_shown_run_that_draws_no_such_figure_is_named_on_the_card(lag_runs) ->
     assert _rows_of(lab, "pole") == ["second"] and len(_own_panes(lab, "pole")) == 1
     assert _own_names(lab, "pole") == ["second"], "two runs shown: the one drawn is named"
     assert "first declares no such figure" in _card_words(lab, "pole")
+
+
+def test_the_switch_words_the_chart_list_the_card_and_its_axes_and_keeps_a_zoom(tmp_path) -> None:
+    """0.22, the header's Names / Symbols switch over a chart made from quantities (the made-up
+    fit's loss): the chart list's title, the card's title and both axes in the other words; the
+    line, written in full, the same; a zoom kept across the switch, by its bottom axis's words in
+    names; and back."""
+    for name in ("a", "b"):
+        cli.main(["run", "fit", "--name", name, "--out-dir", str(tmp_path / "results")])
+    lab, *_ = _lab((str(tmp_path), "results"), piece="fit")
+    _tick(lab, "a")
+    if "loss" not in lab.open_charts:
+        _tabs(lab)["loss"].value = True
+
+    def seen() -> tuple:
+        fig = lab._panes[_card_of(lab, "loss").id][0].object
+        title = _card(lab, "loss").objects[0].objects[0].object
+        return (_tabs(lab)["loss"].label, html.unescape(re.sub(r"<[^>]+>", "", title)),
+                fig["layout"]["xaxis"]["title"]["text"], fig["layout"]["yaxis"]["title"]["text"],
+                [t.get("name") for t in fig["data"]])
+
+    names = seen()
+    assert names[:4] == ("Mean squared error", "Mean squared error", "Step [-]",
+                         "Mean squared error [-]")
+    lab._on_zoom(_card_of(lab, "loss").id, {"xaxis.range[0]": 2, "xaxis.range[1]": 5})
+    lab.wording_choice.value = "symbols"
+    symbols = seen()
+    assert symbols[:4] == ("MSE", "MSE", "k [-]", "MSE [-]")
+    assert symbols[4] == names[4], "the line, written in full, the same"
+    xaxis = lab._panes[_card_of(lab, "loss").id][0].object["layout"]["xaxis"]
+    assert list(xaxis["range"]) == [2, 5], "the zoom kept across the switch"
+    lab.wording_choice.value = "names"
+    assert seen() == names
+    assert lab._chart_cells["loss"].width == app_module._tab_width("Mean squared error"), \
+        "the toggle's cell as wide as its title again, set in place"

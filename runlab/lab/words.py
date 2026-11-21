@@ -34,7 +34,7 @@ OWN = Path(__file__).with_name("words.toml")
 #: Every slot, by the part of the page it shows in, and the fields its word may use.
 SLOTS: dict[str, tuple[str, ...]] = {
     # the page's top line
-    "header.refresh": (), "header.new_run": (),
+    "header.refresh": (), "header.new_run": (), "header.names": (), "header.symbols": (),
     "header.where.one": ("folder", "n"), "header.where.many": ("folder", "n"),
     # the runs: the list on the left
     "runs.heading": (), "runs.filter": (), "runs.all": (), "runs.none": (),

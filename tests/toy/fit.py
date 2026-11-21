@@ -16,11 +16,16 @@ import time
 import numpy as np
 import param
 
-from runlab import Number, Provenance, Series, Settings, files_of, run_files, stamp
+from runlab import Number, Provenance, Quantity, Series, Settings, files_of, run_files, stamp
 from runlab import Record as _Record
 
 __all__ = ["Config", "run", "Record"]
 
+
+#: The loss chart's two quantities, named once: its words in names are the ones it wrote in full
+#: before 0.22 ("Step [-]", "Mean squared error [-]"); its symbols are new.
+STEP = Quantity("step", name="Step", symbol="k")
+MSE = Quantity("mse", name="Mean squared error", symbol="MSE")
 
 class Config(Settings):
     slope = param.Number(2.0, label="Slope", doc="The slope of the line the points lie on.",
@@ -69,9 +74,8 @@ class Record(_Record):
     produced_by = "uv run toy run fit"
 
     def series(self) -> tuple[Series, ...]:
-        return (Series(name="loss", x=self.step, x_label="Step [-]",
-                       y_label="Mean squared error [-]", traces=(("loss", self.loss),),
-                       group="Fit", y_log=True),)
+        return (Series(name="loss", x=self.step, x_quantity=STEP, quantity=MSE,
+                       traces=(("loss", self.loss),), group="Fit", y_log=True),)
 
     def number_specs(self) -> tuple[Number, ...]:
         return (Number("w0", "Fitted intercept", group="Fit"),

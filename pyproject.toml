@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 # the name a project installs stays `benchlab` until 1.0; the package
 # it imports is `runlab`, with `benchlab` kept as a stand-in that hands over to it
 name = "benchlab"
-version = "0.21.0"
+version = "0.22.0"
 description = "The bench every project shares: settings and run files, charts, a command line and the Lab's page over a project's pieces"
 readme = "README.md"
 requires-python = ">=3.13"

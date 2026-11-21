@@ -6,13 +6,15 @@ build-backend = "setuptools.build_meta"
 # the name a project installs stays `benchlab` until 1.0; the package
 # it imports is `runlab`, with `benchlab` kept as a stand-in that hands over to it
 name = "benchlab"
-version = "0.20.0"
+version = "0.21.0"
 description = "The bench every project shares: settings and run files, charts, a command line and the Lab's page over a project's pieces"
 readme = "README.md"
 requires-python = ">=3.13"
-# DeePC's own pins, taken with its four layers (2026-11-13)
+# each minimum a version the whole suite passed on, every dependency at its minimum at once, on
+# Python 3.13 (uv's lowest-direct resolution, 2026-11-19: 456 passed). matplotlib 3.7 to 3.9.1
+# have no build for 3.13, and 3.7.0 fails to import beside numpy 2.4.2
 dependencies = [
-    "matplotlib>=3.7",
+    "matplotlib>=3.9.2",
     "numpy>=2.4.2",
     "panel>=1.9.4,<1.10",   # the Lab's page; BESS's Lab runs on 1.9.4
     "param>=2.4.2",

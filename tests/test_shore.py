@@ -19,7 +19,9 @@ README = (Path(__file__).resolve().parent.parent / "README.md").read_text()
 NAMES = {"Settings": config, "with_overrides": config, "Record": record, "Series": record,
          "Number": record, "Provenance": record, "stamp": record, "bound_refs": record,
          # from 0.7: a figure a piece draws itself
-         "Figure": record}
+         "Figure": record,
+         # from 0.22: a quantity named once, whose words a panel is made from
+         "Quantity": record}
 #: Held from 0.8 and not yet promised: built on the made-up project alone, no project having
 #: used them. They may still change; the README says so.
 HELD = {"run_files": files, "files_of": files}

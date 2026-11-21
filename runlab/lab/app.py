@@ -401,16 +401,24 @@ def _tab_cell(toggle: pn.widgets.Toggle, note: str) -> pn.Column:
     cells as wide as the longest name left most of each line empty)."""
     said = ([_html(html.escape(note), style=f"{_DIM};font-size:11px", margin=(1, 0, 0, 6))]
             if note else [])
-    return pn.Column(toggle, *said, margin=(3, 3), width=22 + 8 * len(toggle.label),
+    return pn.Column(toggle, *said, margin=(3, 3), width=_tab_width(toggle.label),
                      sizing_mode="fixed", styles={"flex": "1 1 auto", "max-width": "none"})
 
 
-def _declared(record: Any) -> tuple[list[str], dict[str, str], dict[str, str]]:
+def _tab_width(title: str) -> int:
+    """A chart toggle's cell's width: at least as wide as its title."""
+    return 22 + 8 * len(title)
+
+
+def _declared(record: Any) -> tuple[list[str], dict[str, str], dict[str, str], dict[str, str]]:
     """What a record can draw, as its class declares it now: the names of its charts, then of
-    the figures it draws itself, with each one's group and its title."""
+    the figures it draws itself, with each one's group and its title by name and by symbol (a
+    figure of its own has one title)."""
     panels = [*record.series(), *record.figures()]
     return ([p.name for p in panels], {p.name: p.group for p in panels},
-            {p.name: p.title for p in panels})
+            {p.name: p.title for p in panels},
+            {p.name: p.in_words("symbols").title if hasattr(p, "in_words") else p.title
+             for p in panels})
 
 
 def _colour(i: int) -> str:
@@ -473,6 +481,9 @@ class Lab:
         self._panes: dict[int, tuple[pn.pane.Plotly, str, bool]] = {}
         self._ranges: dict[str, Optional[tuple[list[Any], bool]]] = {}
         self._answer: Optional[Callable[[], None]] = None   # what the dialog's yes does
+        #: How the charts word a quantity, by name or by symbol (``record.WORDS``): the switch in
+        #: the header, kept in the address.
+        self.wording = "names"
         self._read_url()
 
         # -- header
@@ -486,6 +497,11 @@ class Lab:
         self.new_run_btn.on_click(lambda _e: self.open_drawer())
         self.refresh = _widget(pn.widgets.Button, label=say("header.refresh"), width=72)
         self.refresh.on_click(lambda _e: self.reload())
+        self.wording_choice = _tool(pn.widgets.RadioButtonGroup,
+                                    options={say("header.names"): "names",
+                                             say("header.symbols"): "symbols"},
+                                    value=self.wording)
+        self.wording_choice.param.watch(lambda e: self._on_wording(e.new), "value")
 
         # -- the left pane: the runs, the shown ones compared
         self.runs_count = _html("", style=_DIM, stylesheets=[skin.BAR_FILL])
@@ -525,6 +541,7 @@ class Lab:
         self.open_count = _html("", style=_DIM)
         self.tabs = pn.Column(sizing_mode="stretch_width", margin=0)
         self._chart_toggles: dict[str, pn.widgets.Toggle] = {}
+        self._chart_cells: dict[str, pn.Column] = {}     # each toggle's cell, sized to its title
         self._index_toggles: dict[str, pn.widgets.Toggle] = {}
         self._lines: dict[str, Any] = {}
         #: what the list was last built from (:meth:`_draw_tabs`); the groups the index shows,
@@ -727,6 +744,14 @@ class Lab:
         self.shown = [n for n in self.shown if n not in listed]
         self.render()
 
+    def _on_wording(self, value: str) -> None:
+        """The switch: every open chart and the chart list in the other words, kept in the
+        address."""
+        self.wording = value
+        self._draw_tabs()
+        self._draw_cards()
+        self._draw_url()
+
     def _on_settings(self, value: str) -> None:
         self.settings_shown = value
         self._draw_compare()
@@ -828,10 +853,11 @@ class Lab:
             return run
         hit = self._loaded.get(run["path"])
         if hit is not None and hit[1] is record:
-            panels, groups, titles = hit[3]          # read once with the record
+            panels, groups, titles, symbols = hit[3]          # read once with the record
         else:
-            panels, groups, titles = _declared(record)
-        return {**run, "panels": panels, "panel_groups": groups, "panel_titles": titles}
+            panels, groups, titles, symbols = _declared(record)
+        return {**run, "panels": panels, "panel_groups": groups, "panel_titles": titles,
+                "panel_symbols": symbols}
 
     def _shown_drawable(self) -> list[dict[str, Any]]:
         return [self._drawable(run) for run in self.shown_runs()]
@@ -843,11 +869,14 @@ class Lab:
         re-sorts nothing.
 
         The toggles are built again only when what the list holds changes -- its charts, their
-        groups and notes, whether a run is shown; anything else sets the toggles already there.
-        Built again on every click, a click landing while the page drew the new ones was lost:
-        2 of 5 charts clicked 80 ms apart in headless Chromium (2026-10-27; RCWS #256, 4 of 5)."""
-        rows = view.chart_rows(self._shown_drawable(), self.open_charts)
-        holds = tuple((r["name"], r["title"], r["group"], r["sub"]) for r in rows)
+        groups and notes, whether a run is shown; anything else, their titles among it, sets the
+        toggles already there. Built again on every click, a click landing while the page drew
+        the new ones was lost: 2 of 5 charts clicked 80 ms apart in headless Chromium
+        (2026-10-27; RCWS #256, 4 of 5). Built again on the Names / Symbols switch, a Save
+        pressed as the switch drew raised plotly's "_guiEditing" error in the browser, 3 of 8
+        tries (2026-11-21); set in place, none of 6."""
+        rows = view.chart_rows(self._shown_drawable(), self.open_charts, words=self.wording)
+        holds = tuple((r["name"], r["group"], r["sub"]) for r in rows)
         if holds != self._tabs_hold:
             self._tabs_hold = holds
             self._build_tabs(rows)
@@ -859,14 +888,15 @@ class Lab:
         until the line is full; each group on lines of its own, its words in a column before it
         (RCWS ``_build_tabs``, the developer's: groups flowing on from one another mixed on a
         line)."""
-        self._chart_toggles, self._lines, self._index_toggles = {}, {}, {}
+        self._chart_toggles, self._chart_cells, self._lines, self._index_toggles = {}, {}, {}, {}
         cells: dict[str, list[Any]] = {}
         for group, in_group in view.grouped(rows):
             for row in in_group:
                 toggle = _tab(row["title"], row["open"])
                 toggle.param.watch(lambda e, n=row["name"]: self._on_chart(n, e.new), "value")
                 self._chart_toggles[row["name"]] = toggle
-                cells.setdefault(group, []).append(_tab_cell(toggle, row["sub"]))
+                self._chart_cells[row["name"]] = cell = _tab_cell(toggle, row["sub"])
+                cells.setdefault(group, []).append(cell)
         named = [group for group in cells if group]
         self.show_all.visible = self.hide_all.visible = bool(named)
         if not rows:
@@ -890,7 +920,11 @@ class Lab:
         how many charts are open of how many. A toggle set to what its card already is changes
         nothing (:meth:`_on_chart`, :meth:`_on_group` return)."""
         for row in rows:
-            self._chart_toggles[row["name"]].value = row["open"]
+            toggle = self._chart_toggles[row["name"]]
+            if toggle.label != row["title"]:          # the switch: other words, the same list
+                toggle.label = row["title"]
+                self._chart_cells[row["name"]].width = _tab_width(row["title"])
+            toggle.value = row["open"]
         if self._index_toggles:
             shown = self._groups_on_show(rows)
             for group, toggle in self._index_toggles.items():
@@ -1148,7 +1182,7 @@ class Lab:
         held = [(n, r) for n, r in pairs if series_of(r, card.chart) is not None]
         if not held:
             return shaping.Context("chart", runs=0)
-        first = series_of(held[0][1], card.chart)
+        first = series_of(held[0][1], card.chart).in_words(self.wording)
         pool = {how: pool_refusal(held, card.chart, how) for how in ("mean", "rms")}
         axes = {first.x_label: "own"}
         axes.setdefault(INDEX_LABEL, "index")
@@ -1182,20 +1216,25 @@ class Lab:
             words.append(say_n("cards.chart_without", len(without), runs=", ".join(without)))
         foot, warn = " · ".join(words), bool(words)
         if ctx.runs:
-            keywords = shaping.draw_keywords(card, ctx)
+            # the words only when they are symbols: a picture saved in names, and its note, are
+            # what they were before the switch
+            keywords = {**shaping.draw_keywords(card, ctx),
+                        **({"words": self.wording} if self.wording != "names" else {})}
+            # a zoom is kept by the bottom axis's words in names, so the switch keeps it
+            axis = declared.x_label if (card.x or "own") == "own" else INDEX_LABEL
             try:
                 panel = chart_of(held, card.chart, **keywords)
             except ValueError as exc:
                 foot, warn = capital(str(exc)), True
             else:
-                body = self._body(card, panel)
+                body = self._body(card, panel, axis=axis)
                 self.drawn[card.id] = [n for n, _ in held]
                 save = self._save_button(card, [n for n, _ in held], keywords,
-                                         panels=(card.chart,), axis=panel.x_label,
+                                         panels=(card.chart,), axis=axis,
                                          x_log=panel.x_log)
         # a card no shown run draws has nothing to shape: no controls, where an X with no
         # axis to offer would be an empty list
-        return self._frame(card, declared.title if declared else card.chart,
+        return self._frame(card, declared.in_words(self.wording).title if declared else card.chart,
                            self._toolbar(card, ctx) if ctx.runs else [], body, foot, warn, save)
 
     def _own_view(self, card: shaping.Card, pairs: list[tuple[str, Any]],
@@ -1278,7 +1317,7 @@ class Lab:
                                          number=card.number)
         return self._frame(card, title, self._toolbar(card, ctx), body, foot, warn, save)
 
-    def _body(self, card: shaping.Card, panel: Any) -> Any:
+    def _body(self, card: shaping.Card, panel: Any, axis: str = "") -> Any:
         """What a card shows: the figure layer's chart, as its live twin, or -- its table
         picked -- the numbers on it, read off the same panel (``figure.render.table_of``), at
         six significant digits (BESS's ``_body``). A chart is drawn at the span a zoom left on
@@ -1300,7 +1339,8 @@ class Lab:
         # a number card draws no legend: the hover names each point's run (RCWS)
         fig = figure_of(panel, legend=card.kind != "numbers")
         linked = card.kind == "chart"
-        ends = _span_on(self._ranges.get(panel.x_label), panel.x_log) if linked else None
+        key = axis or panel.x_label          # the words a zoom on this chart is kept by
+        ends = _span_on(self._ranges.get(key), panel.x_log) if linked else None
         if ends:
             fig["layout"]["xaxis"] = {**fig["layout"]["xaxis"], "range": ends,
                                       "autorange": False}
@@ -1308,7 +1348,7 @@ class Lab:
                               height=fig["layout"]["height"])
         if linked:
             pane.param.watch(lambda e, key=card.id: self._on_zoom(key, e.new), "relayout_data")
-            self._panes[card.id] = (pane, panel.x_label, panel.x_log)
+            self._panes[card.id] = (pane, key, panel.x_log)
         return pane
 
     # ------------------------------------------------------------------ save: the card, as shown
@@ -1412,13 +1452,15 @@ class Lab:
         query = location.query_params or {}
         self.shown = [n for n in str(query.get("shown", "")).split(",") if n]
         self._asked_open = [p for p in str(query.get("open", "")).split(",") if p]
+        self.wording = "symbols" if query.get("words") == "symbols" else "names"
 
     def _draw_url(self) -> None:
         location = pn.state.location
         if location is None:
             return
         try:
-            location.update_query(shown=",".join(self.shown), open=",".join(self.open_charts))
+            location.update_query(shown=",".join(self.shown), open=",".join(self.open_charts),
+                                  words=self.wording)
         except Exception as exc:  # noqa: BLE001         # the address bar is a convenience
             print(f"lab: the address could not be updated: {exc!r}", file=sys.stderr)
 
@@ -1837,7 +1879,7 @@ class Lab:
             _html(f"<b style='font-size:15px;letter-spacing:.01em'>"
                   f"{html.escape(title())}</b>"),
             self.piece_select,
-            pn.layout.HSpacer(), self.where, self.refresh, self.new_run_btn,
+            pn.layout.HSpacer(), self.wording_choice, self.where, self.refresh, self.new_run_btn,
             styles=skin.TOP, stylesheets=[skin.BAR], sizing_mode="stretch_width")
         left = pn.Column(
             pn.Row(_h2(say("runs.heading")), self.runs_count, stylesheets=[skin.BAR],

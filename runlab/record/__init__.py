@@ -16,6 +16,7 @@ written with Python's shortest exact repr, so an array loads back bit for bit.
 
 from __future__ import annotations
 
+import copy
 import dataclasses
 import json
 import math
@@ -36,7 +37,8 @@ from runlab.project import declared
 from runlab.record.config import Settings, from_saved, saved, setting_names
 from runlab.record.files import files_of, listed, run_files
 
-__all__ = ["Provenance", "stamp", "Series", "Figure", "bound_refs", "Number", "Record", "read_header", "capital",
+__all__ = ["Provenance", "stamp", "Quantity", "WORDS", "Series", "Figure", "bound_refs", "Number",
+           "Record", "read_header", "capital",
            "run_files", "files_of", "Absent", "AbsentField", "Difference", "differences",
            "COMPONENT_KEY", "PANELS_KEY", "NUMBER_SPECS_KEY", "PANEL_GROUPS_KEY", "FILES_KEY",
            "HEADER_KEYS"]
@@ -93,16 +95,51 @@ def capital(words: str) -> str:
     return words[:1].upper() + words[1:]
 
 
+#: The two ways the page words a quantity: by its name or by its symbol (the switch in its header).
+WORDS = ("names", "symbols")
+
+
+@dataclasses.dataclass(frozen=True)
+class Quantity:
+    """One quantity a project measures or sets, named once: ``key``, how it is found (kebab or
+    snake case, never shown); ``name`` and ``symbol``, the two words the page chooses between
+    ("State of charge", "SOC"), either of which may be left out, the other then shown both ways;
+    ``unit``, "" for none."""
+
+    key: str
+    name: str = ""
+    symbol: str = ""
+    unit: str = ""
+
+    def __post_init__(self) -> None:
+        if not (self.name or self.symbol):
+            raise ValueError(f"quantity {self.key!r} has neither a name nor a symbol; it needs "
+                             f"one of them")
+
+    def word(self, words: str) -> str:
+        """Its word in ``words`` (:data:`WORDS`); the other one when it has not this one."""
+        if words not in WORDS:
+            raise ValueError(f"words {words!r}: one of {list(WORDS)}")
+        return (self.symbol or self.name) if words == "symbols" else (self.name or self.symbol)
+
+    def axis(self, words: str) -> str:
+        """The label of an axis it lies along: its word and its unit, "[-]" for none (the
+        developer's spelling of a quantity with no unit, 2026-11-21)."""
+        return f"{self.word(words)} [{self.unit or '-'}]"
+
+
 @dataclasses.dataclass(frozen=True)
 class Series:
     """One panel: an abscissa, one or more traces on one ordinate unit, optional references and
-    bands. The unit lives in the axis label -- one unit per panel."""
+    bands. The unit lives in the axis label -- one unit per panel. An axis or a line may be a
+    :class:`Quantity` instead of words: the panel's words are then made from it, in names when it
+    is built, in symbols on asking (:meth:`in_words`)."""
 
     name: str                                        # the figure's file stem, kebab-case
     x: Any                                           # (M,)
-    x_label: str                                     # with its unit
-    y_label: str                                     # with its unit
-    traces: tuple[tuple[str, Any], ...]              # (legend label, (M,) values)
+    x_label: str = ""                                # with its unit; "" when ``x_quantity`` says it
+    y_label: str = ""                                # with its unit; "" when ``quantity`` says it
+    traces: tuple[tuple[str | Quantity, Any], ...] = ()   # (legend label or quantity, (M,) values)
     refs: tuple[tuple[str, float], ...] = ()         # (label, constant value)
     bands: tuple[tuple[str, Any, Any], ...] = ()     # (label, lo, hi): scalars or (M,) arrays
     doc: str = ""
@@ -123,10 +160,24 @@ class Series:
     #: decades (a Bode plot's ω and |G|): what a card's Log x and Log y open on.
     x_log: bool = False
     y_log: bool = False
+    #: The quantity along the ordinate, and the one along the abscissa: each writes its axis's
+    #: label, and the ordinate's the title when none is written. Last among the fields, so that a
+    #: panel built by position keeps its meaning.
+    quantity: Quantity | None = None
+    x_quantity: Quantity | None = None
 
     def __post_init__(self) -> None:
-        if not self.title:
-            object.__setattr__(self, "title", self.name)
+        for axis, quantity, label in (("x", self.x_quantity, self.x_label),
+                                      ("y", self.quantity, self.y_label)):
+            if quantity is not None and label:
+                raise ValueError(f"panel {self.name!r} names the quantity {quantity.key!r} for its "
+                                 f"{axis} axis and writes that axis's label {label!r} too; it "
+                                 f"says one or the other")
+        # what in_words words again: whether the title was written in full, and each line's own
+        # label (a quantity, or words); kept beside the fields, which hold the words in names
+        object.__setattr__(self, "_parts", (bool(self.title),
+                                            tuple(label for label, _ in self.traces)))
+        self._word("names")
         if not self.traces:
             raise ValueError(f"panel {self.name!r} declares no trace")
         unknown = sorted(set(self.pooled) - {"mean", "rms"})
@@ -148,6 +199,32 @@ class Series:
                 if np.ndim(edge) and len(edge) != n:
                     raise ValueError(f"panel {self.name!r}: band {label!r} edge has "
                                      f"{len(edge)} values against {n}")
+
+    def _word(self, words: str) -> None:
+        """Fill the words its quantities make, in ``words``: the title when not written in full,
+        each axis a quantity lies along, each line that is a quantity."""
+        titled, lines = self._parts
+        if not titled:
+            object.__setattr__(self, "title", self.quantity.word(words) if self.quantity
+                               else self.name)
+        if self.quantity is not None:
+            object.__setattr__(self, "y_label", self.quantity.axis(words))
+        if self.x_quantity is not None:
+            object.__setattr__(self, "x_label", self.x_quantity.axis(words))
+        object.__setattr__(self, "traces", tuple(
+            (label.word(words) if isinstance(label, Quantity) else label, y)
+            for label, (_, y) in zip(lines, self.traces)))
+
+    def in_words(self, words: str) -> "Series":
+        """The panel in ``words`` (:data:`WORDS`): itself in names, as built; a copy in symbols.
+        Words written in full stay as written either way."""
+        if words not in WORDS:
+            raise ValueError(f"words {words!r}: one of {list(WORDS)}")
+        if words == "names":
+            return self
+        other = copy.copy(self)
+        other._word(words)
+        return other
 
 
 @dataclasses.dataclass(frozen=True)

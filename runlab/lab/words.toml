@@ -10,6 +10,9 @@
 [header]
 refresh = "Refresh"
 new_run = "New run"
+# the switch: a quantity by its name or by its symbol, on every chart
+names = "Names"
+symbols = "Symbols"
 where.one = "{folder} · {n} record"
 where.many = "{folder} · {n} records"
 

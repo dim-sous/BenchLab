@@ -77,10 +77,13 @@ def _in_declared_order(runs: list[dict[str, Any]], key: str, name_of) -> list[st
     return order
 
 
-def chart_rows(runs: list[dict[str, Any]], open_names: list[str]) -> list[dict[str, Any]]:
+def chart_rows(runs: list[dict[str, Any]], open_names: list[str],
+               words: str = "names") -> list[dict[str, Any]]:
     """One row per panel the shown runs declare, in the first group a run declaring it puts it in
     (``""`` when none does), plus any chart already open that none of them declares -- an open
-    card must always keep the control that closes it."""
+    card must always keep the control that closes it. Each titled in ``words``: by name, or by
+    symbol (a run's ``panel_symbols``)."""
+    titles_key = "panel_symbols" if words == "symbols" else "panel_titles"
     declared = _in_declared_order(runs, "panels", lambda p: p)
     rows = []
     for panel in declared + [p for p in open_names if p not in declared]:
@@ -95,7 +98,7 @@ def chart_rows(runs: list[dict[str, Any]], open_names: list[str]) -> list[dict[s
         # must not blank the chart's group for the runs that do (code review, 2026-10-27)
         group = next((g for r in holders if (g := (r.get("panel_groups") or {}).get(panel, ""))),
                      "")
-        title = next((w for r in holders if (w := (r.get("panel_titles") or {}).get(panel, ""))),
+        title = next((w for r in holders if (w := (r.get(titles_key) or {}).get(panel, ""))),
                      panel)
         rows.append({"name": panel, "title": title, "open": panel in open_names, "sub": sub,
                      "group": group})

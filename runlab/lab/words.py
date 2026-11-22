@@ -55,8 +55,6 @@ SLOTS: dict[str, tuple[str, ...]] = {
     # the compare table
     "compare.heading": (), "compare.settings": (),
     "compare.settings_none": (), "compare.settings_differing": (), "compare.settings_all": (),
-    "compare.numbers": (), "compare.numbers_heading": (), "compare.numbers_quantity": (),
-    "compare.numbers_statistic": (),
     "compare.empty": (), "compare.corner": (), "compare.no_value": (),
     "compare.numbers_group": (), "compare.constants": (),
     "compare.files": (), "compare.file_gone": ("size",),

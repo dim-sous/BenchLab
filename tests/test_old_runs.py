@@ -32,17 +32,26 @@ NOTES = {"v0.1.0": ["predates the settings delay, draws, duty, fail, noisy: toda
 _DRAWS = ["predates the setting draws: today's default is read"]
 
 
-#: Every release in order: 0.1.0 to 0.27.0, then 1.0.0 on.
-RELEASES = [(0, minor, 0) for minor in range(1, 28)] + [(1, minor, 0) for minor in range(100)]
+#: The releases before 1.0, every one a minor: 0.1.0 to 0.27.0.
+BEFORE_ONE = [(0, minor, 0) for minor in range(1, 28)]
+
+
+def _next(release: tuple[int, ...]) -> set[tuple[int, ...]]:
+    """The releases that may follow ``release`` from 1.0 on: a fix, a minor or a major."""
+    major, minor, patch = release
+    return {(major, minor, patch + 1), (major, minor + 1, 0), (major + 1, 0, 0)}
 
 
 def test_the_archive_holds_the_release_before_this_one() -> None:
-    """Every release from 0.1.0, none skipped; the newest is this version or the one before it,
-    so a version raised without its predecessor's run archived fails here."""
+    """Every release from 0.1.0, none skipped: 0.1.0 to 0.27.0, then 1.0.0, each later one a fix,
+    a minor or a major after the one before it; the newest is this version or the one before
+    it, so a version raised without its predecessor's run archived fails here."""
     held = [_release(path) for path in RUNS]
-    assert held == RELEASES[:len(held)], held
+    after = held[len(BEFORE_ONE):]
+    assert held[:len(BEFORE_ONE)] == BEFORE_ONE and after[:1] in ([], [(1, 0, 0)]), held
+    assert all(b in _next(a) for a, b in zip(after, after[1:])), held
     this = tuple(int(part) for part in version("runlab").split("."))
-    assert held[-1] in {this, RELEASES[RELEASES.index(this) - 1]}, \
+    assert held[-1] == this or this in _next(held[-1]), \
         f"this is {this}; the newest run archived is of {held[-1]}"
 
 

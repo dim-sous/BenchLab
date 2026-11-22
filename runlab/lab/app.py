@@ -84,6 +84,9 @@ _INDEX_COLUMNS = 3
 #: The compare table's settings choice: each choice's slot, and what it asks for (``view.SETTINGS``).
 _SETTINGS = {"compare.settings_none": "none", "compare.settings_differing": "differ",
              "compare.settings_all": "all"}
+#: What the compare table groups its numbers by: each choice's slot, and its ``view.BY``.
+_NUMBERS_BY = {"compare.numbers_heading": "heading", "compare.numbers_quantity": "quantity",
+               "compare.numbers_statistic": "statistic"}
 
 
 def _shown_in_page(exc: BaseException) -> None:
@@ -470,6 +473,9 @@ class Lab:
         self._seq = 0
         self._asked_open: list[str] = []            # what the address asked to open
         self.settings_shown = "none"
+        #: What the compare table groups its numbers by (``view.BY``): the switch under Settings,
+        #: kept in the address.
+        self.numbers_by = "heading"
         #: path -> (mtime, record): a loaded record is read once per version of its file
         #: per file: the version read, the record (``None`` when refused, with the words why) and
         #: what it draws -- its charts and their groups, read once with it (``_drawable``)
@@ -534,6 +540,14 @@ class Lab:
                                      options={say(slot): v for slot, v in _SETTINGS.items()},
                                      value="none")
         self.settings_choice.param.watch(lambda e: self._on_settings(e.new), "value")
+        self.numbers_choice = _tool(pn.widgets.RadioButtonGroup,
+                                    options={say(slot): v for slot, v in _NUMBERS_BY.items()},
+                                    value=self.numbers_by)
+        self.numbers_choice.param.watch(lambda e: self._on_numbers_by(e.new), "value")
+        # shown only while a shown run's numbers name a quantity or a statistic (_draw_compare)
+        self.numbers_row = pn.Row(_html(html.escape(say("compare.numbers")), style=_LABEL),
+                                  self.numbers_choice, stylesheets=[skin.BAR],
+                                  sizing_mode="stretch_width", visible=False)
         self.compare_table = CompareTable(sizing_mode="stretch_width",
                                           empty=say("compare.empty"),
                                           corner=say("compare.corner"),
@@ -767,15 +781,24 @@ class Lab:
         self.settings_shown = value
         self._draw_compare()
 
+    def _on_numbers_by(self, value: str) -> None:
+        """The table's numbers by heading, by quantity or by statistic, kept in the address."""
+        self.numbers_by = value
+        self._draw_compare()
+        self._draw_url()
+
     def _draw_compare(self) -> None:
         runs = self.shown_runs()
         constants = []
         for run in runs:
             record, _why = self._record_of(run)
             constants.append(getattr(record, "constants", None) if record is not None else None)
+        declared = self._numbers_declared()
         rows = view.compare_rows(runs, self.form.fields, settings=self.settings_shown,
-                                 constants=constants, declared=self._numbers_declared(),
-                                 words=self.wording)
+                                 constants=constants, declared=declared,
+                                 words=self.wording, by=self.numbers_by)
+        specs = [*(declared or []), *(spec for run in runs for spec in run["number_specs"])]
+        self.numbers_row.visible = any(s.get("quantity") or s.get("statistic") for s in specs)
         self.compare_count.object = (f"<span style='{_DIM}'>"
                                      f"{html.escape(view.compare_count(rows, runs, self.form.fields))}"
                                      f"</span>")
@@ -1499,6 +1522,7 @@ class Lab:
         self.shown = [n for n in str(query.get("shown", "")).split(",") if n]
         self._asked_open = [p for p in str(query.get("open", "")).split(",") if p]
         self.wording = "symbols" if query.get("words") == "symbols" else "names"
+        self.numbers_by = str(query.get("by")) if query.get("by") in view.BY else "heading"
 
     def _draw_url(self) -> None:
         location = pn.state.location
@@ -1506,7 +1530,7 @@ class Lab:
             return
         try:
             location.update_query(shown=",".join(self.shown), open=",".join(self.open_charts),
-                                  words=self.wording)
+                                  words=self.wording, by=self.numbers_by)
         except Exception as exc:  # noqa: BLE001         # the address bar is a convenience
             print(f"lab: the address could not be updated: {exc!r}", file=sys.stderr)
 
@@ -1937,6 +1961,7 @@ class Lab:
                    sizing_mode="stretch_width", margin=(14, 0, 0, 0)),
             pn.Row(_html(html.escape(say("compare.settings")), style=_LABEL), self.settings_choice,
                    stylesheets=[skin.BAR], sizing_mode="stretch_width"),
+            self.numbers_row,
             self.compare_table,
             pn.Row(_h2(say("saved.heading")), self.saved_count, stylesheets=[skin.BAR],
                    sizing_mode="stretch_width", margin=(14, 0, 0, 0)),

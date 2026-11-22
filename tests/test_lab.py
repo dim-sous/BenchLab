@@ -39,10 +39,11 @@ _ALLOWED = {# the declared project: its pieces, and its command and title -- wor
             # a record's header keys, how every word the page shows begins (the developer's
             # rule, 2026-10-27), and the record layer's own statement of how a file departs
             # from what its piece reads, which the list words; a saved number's words, by name or
-            # by symbol, made from its parts (0.23)
+            # by symbol, made from its parts (0.23); and the word it is grouped under by one of
+            # them (0.26)
             "runlab.record": {"read_header", "FILES_KEY", "COMPONENT_KEY", "PANELS_KEY", "NUMBER_SPECS_KEY",
                                 "PANEL_GROUPS_KEY", "HEADER_KEYS", "capital", "differences",
-                                "number_words"},
+                                "number_words", "part_word"},
             # the settings' declarations; and a typed value read as the run will read it, so
             # Run refuses what the run would refuse before queueing it (decision 5); a value as
             # --set reads it back, and a number's range, both shared with the settings command

@@ -19,7 +19,7 @@ import time
 import numpy as np
 import param
 
-from runlab import Figure, Number, Provenance, Series, Settings, bound_refs, stamp
+from runlab import Figure, Number, Provenance, Quantity, Series, Settings, bound_refs, stamp
 from runlab import Record as _Record
 
 from . import wave
@@ -27,6 +27,11 @@ from . import wave
 __all__ = ["Config", "run", "Record"]
 
 _TRACES = ("u", "y")
+
+
+#: The lag's output, named once for its bound lines: by its symbol alone, so its words are the ones
+#: it wrote in full before 0.25 ("Lower bound of y [-]").
+Y = Quantity("y", symbol="y")
 
 
 class Step(Settings):
@@ -86,7 +91,7 @@ class Record(_Record):
         held = {"u": self.u, "y": self.y}
         return (Series(name="output", x=self.t, x_label="t [s]", y_label="y [-]",
                        traces=tuple((k, held[k]) for k in self.config.keep),
-                       refs=bound_refs(self.config.limits, "y", "-"), group="Time"),
+                       refs=bound_refs(self.config.limits, Y), group="Time"),
                 Series(name="bode-magnitude", x=self.omega, x_label="ω [rad/s]", y_label="|G| [-]",
                        traces=(("|G|", self.magnitude),), group="Frequency", x_log=True,
                        y_log=True),

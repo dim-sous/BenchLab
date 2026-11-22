@@ -991,6 +991,28 @@ def test_the_settings_are_shown_when_asked_and_a_number_never_hidden(two_runs) -
     assert "RMS of y" in [r["term"] for r in lab.compare_table.rows]
 
 
+def test_a_piece_pick_reaches_the_browser_as_one_batch(lag_runs, monkeypatch) -> None:
+    """1.0.1: sent change by change, a pick's new form made Panel's plotly view schedule a resize
+    of the old piece's plot, the old card was removed first, and the resize raised plotly's
+    "_guiEditing" in the browser (7 of 10 picks on a project's page; held, 0 of 10). The pick's
+    cards are drawn while the page's document holds every change, to send them as one."""
+    from bokeh.document import Document
+    from panel.io.state import set_curdoc
+    doc, held = Document(), []
+    with set_curdoc(doc):
+        lab, *_ = _lab(lag_runs)
+        draw = lab._draw_cards
+
+        def recorded() -> None:
+            held.append(doc.callbacks.hold_value)
+            draw()
+
+        monkeypatch.setattr(lab, "_draw_cards", recorded)
+        lab.piece_select.value = "lag"
+    assert held and set(held) == {"combine"}, held
+    assert lab.piece["name"] == "lag" and lab.shown == ["second"], "the pick itself as before"
+
+
 def test_the_constants_a_run_used_are_compared_too(lag_runs) -> None:
     """What a run used beyond its Config -- what independent truth needs when a number is judged
     -- read off the loaded record."""

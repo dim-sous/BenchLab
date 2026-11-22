@@ -1799,17 +1799,25 @@ class Lab:
         self._fill_controls()
 
     def _on_piece(self, name: str) -> None:
-        self.piece = next(p for p in self.pieces if p["name"] == name)
-        self.form = Form(self.piece)
-        # every one of these is keyed by a bare run name, which belongs to the piece it came from
-        self.shown, self.cards, self._loaded, self._from = [], [], {}, None
-        self._groups_shown, self._groups_met, self._tabs_hold = set(), set(), None
-        self._unfolded, self._ranges = set(), {}
-        self._draw_form()
-        # the name and sweep boxes outlive a form: unwritten, they kept the last piece's words,
-        # which the next Run no longer used (2026-11-14, found driving 2b's hand-off)
-        self._clear()
-        self.reload()
+        # Sent to the browser as one batch. Sent change by change, the new form's layout made
+        # Panel's plotly view schedule a resize of the old piece's plot 25 ms later, the old card
+        # was removed and its plot cleared first, and the resize then raised plotly's
+        # "_guiEditing" in the browser: 7 of 10 picks on a project's page; held, 0 of 10, and
+        # 15 WebSocket frames a pick instead of 162 (Panel 1.9.4, ``panel/models/plotly.ts``;
+        # 2026-11-22).
+        with pn.io.hold():
+            self.piece = next(p for p in self.pieces if p["name"] == name)
+            self.form = Form(self.piece)
+            # every one of these is keyed by a bare run name, which belongs to the piece it came
+            # from
+            self.shown, self.cards, self._loaded, self._from = [], [], {}, None
+            self._groups_shown, self._groups_met, self._tabs_hold = set(), set(), None
+            self._unfolded, self._ranges = set(), {}
+            self._draw_form()
+            # the name and sweep boxes outlive a form: unwritten, they kept the last piece's
+            # words, which the next Run no longer used (2026-11-14, found driving 2b's hand-off)
+            self._clear()
+            self.reload()
 
     # ------------------------------------------------------------------ running
     def _say(self, words: str) -> None:

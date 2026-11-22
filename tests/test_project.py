@@ -37,8 +37,7 @@ def test_runlab_itself_declares_no_project() -> None:
     """RunLab is installed beside every project it serves: a declaration of its own would make
     every project's environment declare two, which is refused. Read off the installed metadata,
     not the stand-in ``tests/conftest.py`` puts in its place."""
-    for group in project.GROUPS:
-        assert list(importlib.metadata.entry_points(group=group)) == []
+    assert list(importlib.metadata.entry_points(group=project.GROUP)) == []
 
 
 def test_the_declared_module_is_found_once_and_kept(monkeypatch) -> None:
@@ -46,7 +45,7 @@ def test_the_declared_module_is_found_once_and_kept(monkeypatch) -> None:
     assert project.declared() is toy
     assert project.piece_names() == ("wave", "lag", "fit")
     assert project.get_component("wave") is sys.modules["tests.toy.wave"]
-    assert asked == list(project.GROUPS), "looked up once, in its group and its old one"
+    assert asked == [project.GROUP], "looked up once, in its group"
 
 
 def test_no_project_declared_is_refused_naming_what_to_declare(monkeypatch) -> None:
@@ -90,10 +89,10 @@ def test_a_module_lacking_a_declared_name_is_refused_naming_each(monkeypatch) ->
 
 def test_a_record_is_stamped_with_python_the_projects_libraries_then_runlab() -> None:
     prov = stamp(0.5)
-    # Python's own version first, then the project's, then RunLab's by its install name until 1.0
-    assert list(prov.versions) == ["python", *toy.LIBRARIES, "benchlab"]
+    # Python's own version first, then the project's, then RunLab's by its install name
+    assert list(prov.versions) == ["python", *toy.LIBRARIES, "runlab"]
     assert prov.versions["python"] == platform.python_version()
-    assert prov.versions["benchlab"] == importlib.metadata.version("benchlab")
+    assert prov.versions["runlab"] == importlib.metadata.version("runlab")
     head = subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=toy.ROOT, check=True,
                           capture_output=True, text=True).stdout.strip()
     assert prov.git_sha == head and prov.duration_s == 0.5

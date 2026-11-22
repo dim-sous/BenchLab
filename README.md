@@ -1,11 +1,9 @@
 # RunLab
 
-**Named Benchlab until 0.10.** The package a project imports is `runlab`. Until 1.0 two things
-keep the old name, so that a project written for Benchlab needs no change: the name it is
-installed by (`benchlab`, in a project's `dependencies` and its `uv` source), and `benchlab`
-itself, which still imports and hands over to `runlab` (`from benchlab import Settings`,
-`benchlab.cli:main`, `benchlab.lab:main`, `benchlab.testing`), as does a declaration made in the
-entry-point group `benchlab`.
+**Named Benchlab until 0.10, and installed as `benchlab` until 1.0.** From 1.0 it is `runlab`
+everywhere: the name a project installs, imports, names its two commands from and declares
+itself under. A project on an earlier version moves by changing those (`benchlab` to `runlab`)
+with its dependency line; every run it saved before still reads.
 
 The bench every project shares. A project brings its pieces: for each one its settings, its
 `run(settings) -> record`, and what the record keeps and can draw. RunLab brings the rest:
@@ -45,7 +43,7 @@ names that module:
 
 ```toml
 [project]
-dependencies = ["benchlab>=0.5,<1", ...]      # the install name, until 1.0
+dependencies = ["runlab>=1,<2", ...]
 
 [project.scripts]
 deepc = "runlab.cli:main"
@@ -55,11 +53,11 @@ lab = "runlab.lab:main"
 project = "harness"
 
 [tool.uv.sources]
-benchlab = { git = "https://github.com/dim-sous/BenchLab", branch = "main" }
+runlab = { git = "https://github.com/dim-sous/RunLab", branch = "main" }
 ```
 
 then `uv sync`. The project's `uv.lock` holds the exact commit, and `uv lock --upgrade-package
-benchlab` raises it, as for any other library. The range is the promise of "What a project may
+runlab` raises it, as for any other library. The range is the promise of "What a project may
 use", written down: uv 0.10.10 does not hold a git source to it (measured 2026-11-16: a commit at
 version 0.4.0 resolved under `>=0.5,<1`), so the lock file does the pinning. RunLab refuses, in words, an environment where no project
 declares itself, where two do, or where the module lacks one of these names (`WORDS` it may
@@ -76,21 +74,21 @@ field its slot does not offer) is left out, the page keeps RunLab's word, and th
 once in its terminal.
 
 While RunLab and a project are worked on together on one computer, the project points at the
-local copy instead, `runlab = { path = "../BenchLab", editable = true }`, and that line is never
+local copy instead, `runlab = { path = "../RunLab", editable = true }`, and that line is never
 committed. `uv` writes the path into the project's `uv.lock` as well: after switching back to the
-git source, run `uv lock` before committing, and `git diff uv.lock` holds no `../BenchLab`.
+git source, run `uv lock` before committing, and `git diff uv.lock` holds no `../RunLab`.
 
 ## What a project may use
 
 A project uses RunLab the way it uses numpy: it touches what is listed here and nothing deeper.
-**From 0.5 until 1.0 nothing on this list is removed, renamed or changed in meaning; things may be
-added.** Everything else in RunLab is its own and may change in any version.
+**From 1.0 until 2.0 nothing on this list is removed, renamed or changed in meaning; things may be
+added** (as from 0.5 until 1.0). Everything else in RunLab is its own and may change in any version.
 `tests/test_shore.py` holds the list, and the made-up project the suite runs on uses nothing else.
 
 | | what a project may use |
 |---|---|
 | the names `runlab` holds | `Settings`, `with_overrides`, `Record`, `Series`, `Quantity`, `Figure`, `Number`, `Provenance`, `stamp`, `bound_refs`, `Role`, `ci`, `TIME`, as `from runlab import Settings, Record` |
-| a setting | a `param` parameter on a `Settings`, of any kind `param` offers: a whole number, a number, yes/no, text, a choice and a list are read and written by RunLab; any other (a matrix, a date, a pair, a table) is typed as the text `param` reads (`[[1, 2], [3, 4]]`, `2026-02-03`), saved as `param` writes it and loaded as the real thing (from 0.9). A list of rows, a table, is a `param.List` whose `item_type` is a `Settings` of its own (from 0.13): each row its own settings, shown as a table on the form, saved as a list of rows, and one cell of one row set from the command line by its path (`--set segments.1.power_kw=20`, the rows numbered from 0). Its `metadata` carries `group` (required) and any of `unit`, `lines`, `needs`, `replicate`, `draws`, `record_of`, `folded`, `rows` (`runlab/record/config.py` says what each is) |
+| a setting | a `param` parameter on a `Settings`, of any kind `param` offers: a whole number, a number, yes/no, text, a choice and a list are read and written by RunLab; any other (a matrix, a date, a pair, a table) is typed as the text `param` reads (`[[1, 2], [3, 4]]`, `2026-02-03`), saved as `param` writes it and loaded as the real thing (from 0.9; **not promised**: no project has used one, so it may still change). A list of rows, a table, is a `param.List` whose `item_type` is a `Settings` of its own (from 0.13): each row its own settings, shown as a table on the form, saved as a list of rows, and one cell of one row set from the command line by its path (`--set segments.1.power_kw=20`, the rows numbered from 0). Its `metadata` carries `group` (required) and any of `unit`, `lines`, `needs`, `replicate`, `draws`, `record_of`, `folded`, `rows` (`runlab/record/config.py` says what each is) |
 | a piece | a module holding `Config` (a `Settings`), `run` (`run(config) -> record`) and `Record` (a frozen dataclass on RunLab's `Record`, its `component` the piece's registered name). The record declares what it can draw: `series()`, its charts, lines against an axis; and `figures()`, the plotly figures it draws itself, each a `Figure`. A chart whose traces are each a mean of several independent draws (a statistic averaged over a run's seeds) may say how many, `averaged`, and give the band of a mean of `n` draws, `mean_band(n) -> (label, lo, hi)` (from 0.14): runs that differ in their seed alone, pooled by their mean, are then weighted by their draws and drawn inside the band of all of them. The band's formula is the piece's own. A chart may name the `Quantity` it draws (`quantity`), the one along its bottom axis (`x_quantity`), and a line may be one (from 0.22): a quantity is named once, `Quantity(key, name, symbol, unit)`, and the chart's title, axes and legend are then made from it, by name or by symbol as the page's Names / Symbols switch says; an axis reads "word [unit]", "word [-]" with no unit. A chart that names a quantity for an axis writes no label for it; a title written in full stays. A number may name its quantity and a statistic (from 0.23): `Number(name, quantity=..., statistic="final")`, the statistics `final`, `initial`, `max`, `min`, `mean` ("Final state of charge"), `std`, `rmse`, `snr` ("State of charge RMSE"), each keeping the quantity's unit but `snr`, and the shares `share_of_steps` and `share_of_time` of a `condition` the number names, with no quantity and no unit ("Share of steps clipped"); a quantity with no statistic is the number itself. Its words and unit are then RunLab's, a name inside the phrase starting small unless it opens with two capitals, and follow the switch; a run file saves them with the parts beside them. A number made from parts writes neither words nor unit. A line, a reference line or a band may also name what it is (from 0.25): a `Role` (`Role.TRUTH`, `ESTIMATE`, `MEASURED`, `ESTIMATION_ERROR`, `MEASUREMENT_ERROR`, `SETPOINT`, `APPLIED`, the same by name and by symbol), a bound of a quantity (`bound_refs(bounds, quantity)`, "Lower bound of state of charge [-]"; `bound_refs(bounds, words, unit)` as before), a band's confidence interval (`ci(of, level=95)`, "Estimate 95% CI"); and `TIME`, time in seconds, is a quantity RunLab offers ("Time [s]", "t [s]") |
 | the declaration | the entry point in the group `runlab`, and the module it names, holding `NAMES`, `get_component`, `COMMAND`, `TITLE`, `ROOT` and `LIBRARIES`, and `WORDS` if it changes a word |
 | the words | a words file naming the words of the page the project changes, by the slots of `runlab/lab/words.toml`. A slot's name is not promised: an entry RunLab cannot use is left out and said, never refused |

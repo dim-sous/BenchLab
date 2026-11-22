@@ -49,14 +49,15 @@ before it plans anything.
 - **RunLab is used like numpy** (the developer, 2026-11-15; it was named Benchlab until 0.10).
   A change in a project never needs a change here, and a new version here never needs a change
   in a project that does not want what is new. Branch R1 (`v0.5.0`) named what a project may use
-  and promised it until 1.0; R2 to R6 follow, and 2d and 2e wait for them (the notes'
-  `design.md` §10).
+  and promised it until 1.0; R2 to R6 follow (the notes' `design.md` §10).
   R2 (`v0.6.0`) put the page's words here; R3 (`v0.7.0`) lets a piece hand the page a figure
   it draws itself; R4 (`v0.8.0`) gives each run a folder for the files it writes, built on
   the made-up project alone and so not yet promised; R5 (`v0.9.0`) takes a setting of any
   kind `param` offers, written and read by `param` itself, built on the made-up project too;
   R6 (`v0.10.0`) is the rename, the old name still importing and installing until 1.0.
-  ([L2]; RCWS `[A9]`)
+  1.0 (the developer, 2026-11-22: "a library is independent of its users") installs as
+  `runlab`, drops the old name, and promises what a project may use until 2.0; R4's run folder
+  and R5's other kinds of setting stay unpromised. ([L2]; RCWS `[A9]`)
 - **RunLab names no project.** Its code and the words its page shows reach a project only
   through the project's declaration (`runlab/project.py`); what a test can hold of this,
   `tests/test_layers.py` holds. RunLab holds the page's own words (`runlab/lab/words.toml`),
@@ -64,7 +65,7 @@ before it plans anything.
   file, over the slot RunLab names for it (the notes' `design.md` §10, R2).
 - **The run file is a contract with every project.** A change to what a record saves, or how it
   loads, is a new RunLab version, and every project takes it by raising its lock
-  (`uv lock --upgrade-package benchlab`: the install name until 1.0) and running its own suite. A run saved before the
+  (`uv lock --upgrade-package runlab`) and running its own suite. A run saved before the
   change is still listed and drawn (the notes' `design.md` §4), and so is one saved
   before its piece's `Record` changed (the developer, 2026-11-17: "a run should be readable no
   matter the version it is coming from"; `README.md`, "When a piece's `Record` changes").

@@ -51,8 +51,9 @@ PANEL_GROUPS_KEY = "panel_groups"
 #: The files the run wrote beside its run file, ``[{name, bytes}]``; left out when it wrote none.
 FILES_KEY = "files"
 HEADER_KEYS = (COMPONENT_KEY, PANELS_KEY, NUMBER_SPECS_KEY, PANEL_GROUPS_KEY, FILES_KEY)
-#: The name RunLab is installed by, and so stamped under, until 1.0 (``pyproject.toml``).
-INSTALLED = "benchlab"
+#: The name RunLab is installed by, and so stamped under (``pyproject.toml``); a run saved before
+#: 1.0 holds its version under ``benchlab``, the name it was installed by then.
+INSTALLED = "runlab"
 _NONFINITE = {"nan": math.nan, "inf": math.inf, "-inf": -math.inf}
 
 

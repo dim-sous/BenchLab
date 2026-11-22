@@ -32,14 +32,18 @@ NOTES = {"v0.1.0": ["predates the settings delay, draws, duty, fail, noisy: toda
 _DRAWS = ["predates the setting draws: today's default is read"]
 
 
+#: Every release in order: 0.1.0 to 0.27.0, then 1.0.0 on.
+RELEASES = [(0, minor, 0) for minor in range(1, 28)] + [(1, minor, 0) for minor in range(100)]
+
+
 def test_the_archive_holds_the_release_before_this_one() -> None:
     """Every release from 0.1.0, none skipped; the newest is this version or the one before it,
     so a version raised without its predecessor's run archived fails here."""
     held = [_release(path) for path in RUNS]
-    assert held == [(0, minor, 0) for minor in range(1, len(held) + 1)], held
-    major, minor = (int(part) for part in version("benchlab").split(".")[:2])
-    assert held[-1][:2] in {(major, minor), (major, minor - 1)}, \
-        f"this is {major}.{minor}; the newest run archived is of {held[-1]}"
+    assert held == RELEASES[:len(held)], held
+    this = tuple(int(part) for part in version("runlab").split("."))
+    assert held[-1] in {this, RELEASES[RELEASES.index(this) - 1]}, \
+        f"this is {this}; the newest run archived is of {held[-1]}"
 
 
 @pytest.mark.parametrize("path", RUNS, ids=[path.stem for path in RUNS])
@@ -52,7 +56,8 @@ def test_a_run_of_a_release_is_listed_read_and_drawn(path: Path, tmp_path) -> No
     assert row["notes"] == NOTES.get(path.stem, _DRAWS if _release(path) < (0, 14, 0) else [])
     assert row["panels"] == ["u", "y"]
     raw = json.loads(held.read_text())
-    assert raw["provenance"]["versions"]["benchlab"] == path.stem.removeprefix("v"), \
+    stamped = "benchlab" if _release(path) < (1, 0, 0) else "runlab"   # installed as, then
+    assert raw["provenance"]["versions"][stamped] == path.stem.removeprefix("v"), \
         "made by the release it is named after"
     assert raw["provenance"]["git_dirty"] is False
     record = get_component("wave").Record.load(held)

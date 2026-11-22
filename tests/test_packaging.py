@@ -21,9 +21,8 @@ def test_the_built_package_holds_runlabs_own_words_and_fonts_and_no_test(tmp_pat
     source.mkdir()
     for name in ("pyproject.toml", "README.md", "LICENSE"):
         shutil.copy(ROOT / name, source / name)
-    for package in ("runlab", "benchlab"):
-        shutil.copytree(ROOT / package, source / package,
-                        ignore=shutil.ignore_patterns("__pycache__"))
+    shutil.copytree(ROOT / "runlab", source / "runlab",
+                    ignore=shutil.ignore_patterns("__pycache__"))
     built = subprocess.run(["uv", "build", "--wheel", "--out-dir", str(tmp_path / "dist"),
                             str(source)], capture_output=True, text=True)
     assert built.returncode == 0, built.stderr
@@ -32,7 +31,7 @@ def test_the_built_package_holds_runlabs_own_words_and_fonts_and_no_test(tmp_pat
     assert "runlab/lab/words.toml" in names
     fonts = {f"runlab/lab/fonts/{p.name}" for p in (ROOT / "runlab/lab/fonts").iterdir()}
     assert len(fonts) == 6 and fonts <= set(names), "five fonts and their licence"
-    assert {"benchlab/__init__.py", "benchlab/cli.py", "benchlab/lab.py",
-            "benchlab/testing.py"} <= set(names), "the old name's stand-in"
-    assert wheel.name.startswith("benchlab-"), "the install name until 1.0"
+    assert {n.split("/")[0] for n in names if "/" in n and ".dist-info/" not in n} == {"runlab"}, \
+        "one package: the old name's stand-in left at 1.0"
+    assert wheel.name.startswith("runlab-"), "installed as runlab from 1.0"
     assert not [n for n in names if n.startswith("tests/")]

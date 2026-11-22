@@ -40,7 +40,7 @@ from runlab.record.files import files_of, listed, run_files
 
 __all__ = ["Provenance", "stamp", "Quantity", "WORDS", "STATISTICS", "SHARES", "TIME", "Role", "ci",
            "Series", "Figure",
-           "bound_refs", "Number", "number_words", "part_word", "Record", "read_header", "capital",
+           "bound_refs", "Number", "number_words", "Record", "read_header", "capital",
            "run_files", "files_of", "Absent", "AbsentField", "Difference", "differences",
            "COMPONENT_KEY", "PANELS_KEY", "NUMBER_SPECS_KEY", "PANEL_GROUPS_KEY", "FILES_KEY",
            "HEADER_KEYS"]
@@ -422,24 +422,6 @@ def number_words(spec: Mapping[str, Any], words: str) -> tuple[str, str]:
                     statistic=spec.get("statistic") or "",
                     condition=spec.get("condition") or "").in_words(words)
     return worded.label, worded.unit
-
-
-def part_word(spec: Mapping[str, Any], part: str, words: str) -> str:
-    """The word a listing groups a saved number under by one of its parts (``spec`` as for
-    :func:`number_words`): its quantity's word in ``words`` (``part`` "quantity"), or its
-    statistic's, the statistic's phrase in :data:`STATISTICS` without its quantity or condition
-    ("RMSE", "Final", "Share of steps"). ``""`` when the number names no such part: its words
-    written in full, or a run saved before 0.23."""
-    if words not in WORDS:
-        raise ValueError(f"words {words!r}: one of {list(WORDS)}")
-    if part == "quantity":
-        held = spec.get("quantity")
-        return Quantity(**held).word(words) if held else ""
-    if part == "statistic":
-        statistic = spec.get("statistic") or ""
-        phrase = STATISTICS[statistic][0] if statistic else ""
-        return capital(phrase.replace("{quantity}", "").replace("{condition}", "").strip())
-    raise ValueError(f"part {part!r}: one of ['quantity', 'statistic']")
 
 
 # ---------------------------------------------------------------------------

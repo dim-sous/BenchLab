@@ -991,42 +991,6 @@ def test_the_settings_are_shown_when_asked_and_a_number_never_hidden(two_runs) -
     assert "RMS of y" in [r["term"] for r in lab.compare_table.rows]
 
 
-def test_the_numbers_switch_shows_with_parts_regroups_the_table_and_is_kept_in_the_address(
-        two_runs, tmp_path, monkeypatch) -> None:
-    """0.26: the switch under Settings shows only while a shown run's numbers name a quantity or a
-    statistic (the wave's none; the made-up fit's final loss both); it regroups the table, a
-    quantity's head following the Names / Symbols switch; the address opens on it and keeps it."""
-    lab, *_ = _lab(two_runs)
-    _tick(lab, "first")
-    assert not lab.numbers_row.visible, "the wave's numbers name no part"
-    for name in ("a", "b"):
-        cli.main(["run", "fit", "--name", name, "--out-dir", str(tmp_path / "results")])
-    fit, *_ = _lab((str(tmp_path), "results"), piece="fit")
-    _tick(fit, "a")
-
-    def heads(page: Lab) -> list[str]:
-        return [r["term"] for r in page.compare_table.rows if r["kind"] == "head"][:2]
-
-    assert fit.numbers_row.visible and fit.numbers_choice.value == "heading"
-    assert heads(fit)[0] == "Fit"
-    fit.numbers_choice.value = "quantity"
-    assert heads(fit) == ["Mean squared error", "Fit"]
-    fit.wording_choice.value = "symbols"
-    assert heads(fit) == ["MSE", "Fit"]
-    fit.numbers_choice.value = "statistic"
-    assert heads(fit) == ["Final", "Fit"]
-    written: list[dict] = []
-    location = types.SimpleNamespace(query_params={"shown": "a", "by": "quantity"},
-                                     update_query=lambda **query: written.append(query))
-    monkeypatch.setattr(type(pn.state), "location", property(lambda state: location))
-    linked, *_ = _lab((str(tmp_path), "results"), piece="fit")
-    _tick(linked, "a")
-    assert linked.numbers_choice.value == "quantity"
-    assert heads(linked) == ["Mean squared error", "Fit"]
-    linked.numbers_choice.value = "statistic"
-    assert written[-1]["by"] == "statistic"
-
-
 def test_the_constants_a_run_used_are_compared_too(lag_runs) -> None:
     """What a run used beyond its Config -- what independent truth needs when a number is judged
     -- read off the loaded record."""

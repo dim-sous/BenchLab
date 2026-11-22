@@ -12,9 +12,9 @@ any version. ``run_files`` and ``files_of`` (from 0.8) are held and not yet prom
 has used them yet.
 """
 
-from runlab.record import (Figure, Number, Provenance, Quantity, Record, Series, bound_refs,
-                             files_of, run_files, stamp)
+from runlab.record import (TIME, Figure, Number, Provenance, Quantity, Record, Role, Series,
+                             bound_refs, ci, files_of, run_files, stamp)
 from runlab.record.config import Settings, with_overrides
 
 __all__ = ["Settings", "with_overrides", "Record", "Series", "Quantity", "Figure", "Number",
-           "Provenance", "stamp", "bound_refs", "run_files", "files_of"]
+           "Provenance", "stamp", "bound_refs", "Role", "ci", "TIME", "run_files", "files_of"]

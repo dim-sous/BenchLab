@@ -2,7 +2,9 @@
 its lines, by name as the chart is built, by symbol when the page's Names / Symbols switch asks.
 Words a project writes in full stay as written either way, and a chart built by position, as a
 project builds one, keeps its meaning. A number made from a quantity and a statistic (0.23): its
-words and unit RunLab's, saved with its parts; a number saved before shows its words as saved."""
+words and unit RunLab's, saved with its parts; a number saved before shows its words as saved.
+A line's role, a bound line, a band's confidence interval and the time axis (0.25): RunLab's
+words, worded by the switch where a quantity is in them."""
 
 from __future__ import annotations
 
@@ -15,12 +17,11 @@ import pytest
 from runlab import cli
 from runlab.figure.chart import chart_of, sweep_of
 from runlab.lab import state, view
-from runlab.record import Number, Quantity, Series, number_words
+from runlab.record import TIME, Number, Quantity, Role, Series, bound_refs, ci, number_words
 from tests.toy import fit
 
 T = np.arange(4.0)
 SOC = Quantity("soc", name="State of charge", symbol="SOC")
-TIME = Quantity("time", name="Time", symbol="t", unit="s")
 
 
 def _words(s: Series) -> tuple:
@@ -170,3 +171,59 @@ def test_a_run_saves_its_numbers_parts_and_the_table_and_the_number_chart_word_t
     pairs = [(n, fit.Record.load(tmp_path / "results" / "fit" / f"{n}.json")) for n in "ab"]
     assert sweep_of(pairs, "loss", vs="rate").axes[0].y_label == "Final mean squared error [-]"
     assert sweep_of(pairs, "loss", vs="rate", words="symbols").axes[0].y_label == "Final MSE [-]"
+
+
+def _lines(s: Series) -> tuple:
+    return ([label for label, _ in s.traces], [label for label, _ in s.refs],
+            [label for label, *_ in s.bands])
+
+
+def test_every_role_has_one_spelling_the_same_by_name_and_by_symbol() -> None:
+    assert [(r.word("names"), r.word("symbols")) for r in Role] == [
+        (w, w) for w in ("Truth", "Estimate", "Measured", "Estimation error",
+                         "Measurement error", "Setpoint", "Applied")]
+    misspelt = "ESTIMAT"
+    with pytest.raises(AttributeError):
+        getattr(Role, misspelt)                        # a misspelt role fails where it is written
+    with pytest.raises(ValueError, match="one of"):
+        Role.TRUTH.word("both")
+
+
+def test_a_chart_s_lines_bounds_and_bands_are_worded_from_their_parts() -> None:
+    s = Series("soc", T, quantity=SOC, x_quantity=TIME,
+               traces=((Role.TRUTH, T), (Role.ESTIMATE, T), ("Mine", T)),
+               refs=bound_refs([0.1, 0.9], SOC) + ((Role.SETPOINT, 0.5),),
+               bands=((ci(Role.ESTIMATE), T, T), (ci(SOC, 99), T, T), ("Own band", T, T)))
+    assert (s.x_label, s.in_words("symbols").x_label) == ("Time [s]", "t [s]")
+    assert _lines(s) == (["Truth", "Estimate", "Mine"],
+                         ["Lower bound of state of charge [-]", "Upper bound of state of charge [-]",
+                          "Setpoint"],
+                         ["Estimate 95% CI", "State of charge 99% CI", "Own band"])
+    assert _lines(s.in_words("symbols")) == (["Truth", "Estimate", "Mine"],
+                                             ["Lower bound of SOC [-]", "Upper bound of SOC [-]",
+                                              "Setpoint"],
+                                             ["Estimate 95% CI", "SOC 99% CI", "Own band"])
+
+
+def test_bound_refs_in_words_keeps_its_meaning_and_a_quantity_holds_its_unit() -> None:
+    assert bound_refs([-1.0, float("inf")], "y", "-") == (("Lower bound of y [-]", -1.0),)
+    t_c = [ref for ref, _ in bound_refs([0.0, 40.0], T_C)]
+    assert [b.word("names") for b in t_c] == ["Lower bound of temperature [°C]",
+                                             "Upper bound of temperature [°C]"]
+    assert [b.word("symbols") for b in t_c] == ["Lower bound of T [°C]", "Upper bound of T [°C]"]
+    with pytest.raises(ValueError, match="holds its unit"):
+        bound_refs([0.0, 1.0], SOC, "V")
+    with pytest.raises(ValueError, match="its unit is needed"):
+        bound_refs([0.0, 1.0], "y")
+
+
+def test_the_made_up_lag_s_bound_lines_read_as_before(tmp_path) -> None:
+    from tests.toy import lag
+    cli.main(["run", "wave", "--name", "w", "--out-dir", str(tmp_path / "results")])
+    cli.main(["run", "lag", "--name", "one", "--out-dir", str(tmp_path / "results"),
+              "--set", f"wave_run={tmp_path / 'results' / 'wave' / 'w.json'}"])
+    output = next(s for s in lag.Record.load(tmp_path / "results" / "lag" / "one.json").series()
+                  if s.name == "output")
+    for words in ("names", "symbols"):
+        assert [label for label, _ in output.in_words(words).refs] == \
+            [f"{side} bound of y [-]" for side in ("Lower", "Upper")][:len(output.refs)]

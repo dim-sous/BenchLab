@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import copy
 import dataclasses
+import enum
 import json
 import math
 import os
@@ -37,7 +38,8 @@ from runlab.project import declared
 from runlab.record.config import Settings, from_saved, saved, setting_names
 from runlab.record.files import files_of, listed, run_files
 
-__all__ = ["Provenance", "stamp", "Quantity", "WORDS", "STATISTICS", "SHARES", "Series", "Figure",
+__all__ = ["Provenance", "stamp", "Quantity", "WORDS", "STATISTICS", "SHARES", "TIME", "Role", "ci",
+           "Series", "Figure",
            "bound_refs", "Number", "number_words", "Record", "read_header", "capital",
            "run_files", "files_of", "Absent", "AbsentField", "Difference", "differences",
            "COMPONENT_KEY", "PANELS_KEY", "NUMBER_SPECS_KEY", "PANEL_GROUPS_KEY", "FILES_KEY",
@@ -147,6 +149,63 @@ STATISTICS: dict[str, tuple[str, bool]] = {
     "share_of_time": ("Share of time {condition}", False)}
 SHARES = ("share_of_steps", "share_of_time")
 
+#: The time a run's samples are taken at, in seconds: "Time [s]" by name, "t [s]" by symbol. A
+#: project whose time is in other units names its own.
+TIME = Quantity("time", name="Time", symbol="t", unit="s")
+
+
+class Role(enum.Enum):
+    """What a line is among the lines of one quantity, one spelling each (the developer's design of
+    2026-11-21, section 3, "As written"): its words the same by name and by symbol."""
+
+    TRUTH = "Truth"
+    ESTIMATE = "Estimate"
+    MEASURED = "Measured"
+    ESTIMATION_ERROR = "Estimation error"
+    MEASUREMENT_ERROR = "Measurement error"
+    SETPOINT = "Setpoint"
+    APPLIED = "Applied"
+
+    def word(self, words: str) -> str:
+        """Its words, in ``words`` (:data:`WORDS`): the same either way."""
+        if words not in WORDS:
+            raise ValueError(f"words {words!r}: one of {list(WORDS)}")
+        return self.value
+
+
+@dataclasses.dataclass(frozen=True)
+class _Bound:
+    """A reference line's words: the lower or upper bound of a quantity, with its unit."""
+
+    side: str
+    quantity: Quantity
+
+    def word(self, words: str) -> str:
+        return f"{self.side} bound of {self.quantity.inside(words)} [{self.quantity.unit or '-'}]"
+
+
+@dataclasses.dataclass(frozen=True)
+class _Band:
+    """A band's words: the confidence interval, at ``level`` percent, of what it is about."""
+
+    of: Any
+    level: float
+
+    def word(self, words: str) -> str:
+        return f"{_said(self.of, words)} {self.level:g}% CI"
+
+
+def ci(of: Any, level: float = 95) -> _Band:
+    """A band's words, the ``level`` percent confidence interval of ``of``: a :class:`Role`
+    ("Estimate 95% CI"), a :class:`Quantity`, worded by the switch, or words in full."""
+    return _Band(of, float(level))
+
+
+def _said(part: Any, words: str) -> Any:
+    """A chart's part in ``words``: one that knows its words in names and in symbols (a
+    quantity, a role, a bound, a band) says them; words in full are as written."""
+    return part.word(words) if hasattr(part, "word") else part
+
 
 @dataclasses.dataclass(frozen=True)
 class Series:
@@ -196,7 +255,9 @@ class Series:
         # what in_words words again: whether the title was written in full, and each line's own
         # label (a quantity, or words); kept beside the fields, which hold the words in names
         object.__setattr__(self, "_parts", (bool(self.title),
-                                            tuple(label for label, _ in self.traces)))
+                                            tuple(label for label, _ in self.traces),
+                                            tuple(label for label, _ in self.refs),
+                                            tuple(label for label, *_ in self.bands)))
         self._word("names")
         if not self.traces:
             raise ValueError(f"panel {self.name!r} declares no trace")
@@ -221,9 +282,9 @@ class Series:
                                      f"{len(edge)} values against {n}")
 
     def _word(self, words: str) -> None:
-        """Fill the words its quantities make, in ``words``: the title when not written in full,
-        each axis a quantity lies along, each line that is a quantity."""
-        titled, lines = self._parts
+        """Fill the words its parts make, in ``words``: the title when not written in full, each
+        axis a quantity lies along, each line, reference line and band that knows its words."""
+        titled, lines, refs, bands = self._parts
         if not titled:
             object.__setattr__(self, "title", self.quantity.word(words) if self.quantity
                                else self.name)
@@ -232,8 +293,11 @@ class Series:
         if self.x_quantity is not None:
             object.__setattr__(self, "x_label", self.x_quantity.axis(words))
         object.__setattr__(self, "traces", tuple(
-            (label.word(words) if isinstance(label, Quantity) else label, y)
-            for label, (_, y) in zip(lines, self.traces)))
+            (_said(label, words), y) for label, (_, y) in zip(lines, self.traces)))
+        object.__setattr__(self, "refs", tuple(
+            (_said(label, words), v) for label, (_, v) in zip(refs, self.refs)))
+        object.__setattr__(self, "bands", tuple(
+            (_said(label, words), lo, hi) for label, (_, lo, hi) in zip(bands, self.bands)))
 
     def in_words(self, words: str) -> "Series":
         """The panel in ``words`` (:data:`WORDS`): itself in names, as built; a copy in symbols.
@@ -265,13 +329,22 @@ class Figure:
             object.__setattr__(self, "title", self.name)
 
 
-def bound_refs(bounds: Any, quantity: str, unit: str) -> tuple[tuple[str, float], ...]:
-    """A panel's reference lines for ``quantity``'s ``[lower, upper]`` bounds in ``unit``, each a
-    finite one (an infinite bound is no line), named with the quantity and its unit (CLAUDE.md:
-    "A bound names the quantity it bounds, with its unit", D7)."""
-    return tuple((f"{side} bound of {quantity} [{unit}]", float(v))
-                 for side, v in zip(("Lower", "Upper"), np.asarray(bounds, dtype=float))
-                 if np.isfinite(v))
+def bound_refs(bounds: Any, quantity: str | Quantity,
+               unit: str | None = None) -> tuple[tuple[Any, float], ...]:
+    """A panel's reference lines for ``quantity``'s ``[lower, upper]`` bounds, each a finite one
+    (an infinite bound is no line), named with the quantity and its unit (CLAUDE.md: "A bound
+    names the quantity it bounds, with its unit", D7): ``quantity`` its words and ``unit`` its
+    unit, or a :class:`Quantity`, which holds its unit and whose words follow the switch (0.25)."""
+    held = [(side, float(v)) for side, v in zip(("Lower", "Upper"), np.asarray(bounds, dtype=float))
+            if np.isfinite(v)]
+    if isinstance(quantity, Quantity):
+        if unit is not None:
+            raise ValueError(f"quantity {quantity.key!r} holds its unit; bound_refs takes none "
+                             f"beside it, {unit!r} given")
+        return tuple((_Bound(side, quantity), v) for side, v in held)
+    if unit is None:
+        raise ValueError(f"bound_refs of {quantity!r} in words: its unit is needed too")
+    return tuple((f"{side} bound of {quantity} [{unit}]", v) for side, v in held)
 
 
 @dataclasses.dataclass(frozen=True)

@@ -4,12 +4,15 @@ Words a project writes in full stay as written either way, and a chart built by 
 project builds one, keeps its meaning. A number made from a quantity and a statistic (0.23): its
 words and unit RunLab's, saved with its parts; a number saved before shows its words as saved.
 A line's role, a bound line, a band's confidence interval and the time axis (0.25): RunLab's
-words, worded by the switch where a quantity is in them."""
+words, worded by the switch where a quantity is in them. The compare table's numbers grouped
+by their quantity or their statistic (0.26), a number with no such part under its heading."""
 
 from __future__ import annotations
 
 import dataclasses
 import json
+import shutil
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -17,7 +20,8 @@ import pytest
 from runlab import cli
 from runlab.figure.chart import chart_of, sweep_of
 from runlab.lab import state, view
-from runlab.record import TIME, Number, Quantity, Role, Series, bound_refs, ci, number_words
+from runlab.record import (STATISTICS, TIME, Number, Quantity, Role, Series, bound_refs, ci,
+                           number_words, part_word)
 from tests.toy import fit
 
 T = np.arange(4.0)
@@ -227,3 +231,88 @@ def test_the_made_up_lag_s_bound_lines_read_as_before(tmp_path) -> None:
     for words in ("names", "symbols"):
         assert [label for label, _ in output.in_words(words).refs] == \
             [f"{side} bound of y [-]" for side in ("Lower", "Upper")][:len(output.refs)]
+
+
+def test_each_statistic_has_one_head_word_and_a_number_in_full_none() -> None:
+    """The word the compare table groups a saved number under by one of its parts: its quantity's
+    by the switch, or its statistic's phrase without the quantity or the condition."""
+    heads = {s: part_word({"statistic": s}, "statistic", "names") for s in STATISTICS}
+    assert heads == {"final": "Final", "initial": "Initial", "max": "Max", "min": "Min",
+                     "mean": "Mean", "std": "Std", "rmse": "RMSE", "snr": "SNR",
+                     "share_of_steps": "Share of steps", "share_of_time": "Share of time"}
+    rmse = dataclasses.asdict(Number("rmse_soc", quantity=SOC, statistic="rmse"))
+    assert [part_word(rmse, "quantity", w) for w in ("names", "symbols")] == \
+        ["State of charge", "SOC"]
+    assert [part_word(rmse, "statistic", w) for w in ("names", "symbols")] == ["RMSE", "RMSE"]
+    in_full = dataclasses.asdict(Number("clips", "Clips per run"))
+    saved_before = {"name": "clips", "label": "Clips per run"}        # a run saved before 0.23
+    assert {part_word(spec, part, "names") for spec in (in_full, saved_before)
+            for part in ("quantity", "statistic")} == {""}
+    with pytest.raises(ValueError, match="one of"):
+        part_word(rmse, "unit", "names")
+    with pytest.raises(ValueError, match="one of"):
+        part_word(rmse, "statistic", "both")
+
+
+def _grouped(rows: list[dict]) -> list[tuple[str, list[str]]]:
+    """The table's numbers under their heads, each by its key."""
+    out: dict[str, list[str]] = {}
+    for row in rows:
+        if row["kind"] == "number":
+            out.setdefault(row["group"], []).append(row["key"])
+    return list(out.items())
+
+
+def test_the_table_groups_the_made_up_fit_s_numbers_by_heading_quantity_or_statistic(
+        tmp_path) -> None:
+    cli.main(["run", "fit", "--name", "a", "--out-dir", str(tmp_path / "results")])
+    runs = [r for r in state.records(str(tmp_path), "results") if r["piece"] == "fit"]
+
+    def by(how: str, words: str = "names") -> list:
+        return _grouped(view.compare_rows(runs, [], words=words, by=how))
+
+    assert by("heading") == by("heading", "symbols") == [("Fit", ["loss", "w0", "w1"])]
+    assert by("quantity") == [("Mean squared error", ["loss"]), ("Fit", ["w0", "w1"])]
+    assert by("quantity", "symbols") == [("MSE", ["loss"]), ("Fit", ["w0", "w1"])]
+    assert by("statistic") == by("statistic", "symbols") == [("Final", ["loss"]),
+                                                              ("Fit", ["w0", "w1"])]
+    with pytest.raises(ValueError, match="by is one of"):
+        view.compare_rows(runs, [], by="unit")
+
+
+def test_the_regrouped_numbers_come_first_and_a_heading_left_empty_is_not_shown() -> None:
+    """BESS's estimator's mix, as measured on its numbers moved to parts (0.23.0's hand-off):
+    RMSEs under Errors; a mean NIS and a mean NEES in full under Consistency; a share and a
+    count in full under Estimator."""
+    nis, soh = Quantity("nis", name="NIS", symbol="NIS"), Quantity("soh", name="State of health",
+                                                                    symbol="SOH")
+    specs = [Number("rmse_soc", group="Errors", quantity=SOC, statistic="rmse"),
+             Number("rmse_soh", group="Errors", quantity=soh, statistic="rmse"),
+             Number("nees_mean_soc", "SOC mean NEES", group="Consistency"),
+             Number("nis_mean", group="Consistency", quantity=nis, statistic="mean"),
+             Number("changed", group="Estimator", statistic="share_of_steps",
+                    condition="power changed"),
+             Number("clips", "Clips per run", group="Estimator")]
+    run = {"name": "r", "number_specs": [dataclasses.asdict(n) for n in specs],
+           "numbers": {n.name: 1.0 for n in specs}}
+
+    def by(how: str) -> list:
+        return _grouped(view.compare_rows([run], [], by=how))
+
+    assert by("quantity") == [("State of charge", ["rmse_soc"]), ("State of health", ["rmse_soh"]),
+                              ("NIS", ["nis_mean"]), ("Consistency", ["nees_mean_soc"]),
+                              ("Estimator", ["changed", "clips"])]
+    assert by("statistic") == [("RMSE", ["rmse_soc", "rmse_soh"]), ("Mean", ["nis_mean"]),
+                               ("Share of steps", ["changed"]), ("Consistency", ["nees_mean_soc"]),
+                               ("Estimator", ["clips"])]
+
+
+def test_a_run_saved_before_numbers_had_parts_reads_the_same_whatever_it_is_grouped_by(
+        tmp_path) -> None:
+    folder = tmp_path / "results" / "wave"
+    folder.mkdir(parents=True)
+    shutil.copy(Path(__file__).parent / "runs" / "v0.22.0.json", folder / "old.json")
+    runs = state.records(str(tmp_path), "results")
+    heading, *others = [view.compare_rows(runs, [], by=how) for how in view.BY]
+    assert any(row["kind"] == "number" for row in heading)
+    assert others == [heading, heading]

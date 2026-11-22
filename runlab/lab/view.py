@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from runlab.record import number_words
+from runlab.record import number_words, part_word
 
 from .form import as_text, term
 from .words import say, say_n
@@ -131,15 +131,20 @@ def _flat(held: Any, prefix: str = "") -> dict[str, Any]:
 
 #: What the compare table shows beside the numbers: no settings, the ones that differ, or all.
 SETTINGS = ("none", "differ", "all")
+#: What the compare table groups its numbers by: the heading each is declared under, or the
+#: quantity or the statistic it is made from (0.26).
+BY = ("heading", "quantity", "statistic")
 
 
 def compare_rows(runs: list[dict[str, Any]], fields: list[dict[str, Any]], *,
                  settings: str = "none", constants: list[Any] | None = None,
                  declared: list[dict[str, Any]] | None = None,
-                 words: str = "names") -> list[dict[str, Any]]:
+                 words: str = "names", by: str = "heading") -> list[dict[str, Any]]:
     """The shown runs column by column: the NUMBERS, in the groups their record declares
     (``Number.group``; ``"Numbers"`` for a file written before groups) and the headline ones
-    first within a group; then, as ``settings`` asks (:data:`SETTINGS`), the settings group by
+    first within a group; or, as ``by`` asks (:data:`BY`), each number that names a quantity or a
+    statistic under that part's word (:func:`record.part_word`), those groups first, and every
+    other number under its heading after them; then, as ``settings`` asks (:data:`SETTINGS`), the settings group by
     group and the CONSTANTS a run used beyond its Config (``constants``: one dict per run, read
     off the loaded record, ``None`` for a run that carries none; nested dicts read
     ``group · key``). Each group opens with a ``head`` row of its own name.
@@ -161,6 +166,8 @@ def compare_rows(runs: list[dict[str, Any]], fields: list[dict[str, Any]], *,
     """
     if settings not in SETTINGS:
         raise ValueError(f"settings is one of {SETTINGS}; {settings!r} given")
+    if by not in BY:
+        raise ValueError(f"by is one of {BY}; {by!r} given")
     held = ([{**run, "number_specs": declared} for run in runs[:1]] + runs[1:]
             if declared is not None and runs else runs)
     specs: dict[str, dict[str, Any]] = {}
@@ -169,8 +176,19 @@ def compare_rows(runs: list[dict[str, Any]], fields: list[dict[str, Any]], *,
             specs.setdefault(spec["name"], spec)
     declared_order = _in_declared_order(held, "number_specs", lambda s: s["name"])
     order = sorted(declared_order, key=lambda n: not specs[n].get("headline"))  # headline first
-    groups = list(dict.fromkeys(specs[n].get("group") or say("compare.numbers_group")
-                                for n in declared_order))
+
+    def placed(name: str) -> tuple[bool, str, str]:
+        """Where a number goes: (whether under its heading, the group's key, its head's words)."""
+        spec = specs[name]
+        word = part_word(spec, by, words) if by != "heading" else ""
+        if word:
+            return False, spec["quantity"]["key"] if by == "quantity" else spec["statistic"], word
+        group = spec.get("group") or say("compare.numbers_group")
+        return True, group, group
+
+    places = {name: placed(name) for name in declared_order}
+    # the parts' groups, then the headings', each in the order its first number is declared
+    groups = sorted(dict.fromkeys(places[n] for n in declared_order), key=lambda g: g[0])
 
     rows: list[dict[str, Any]] = []
 
@@ -179,13 +197,12 @@ def compare_rows(runs: list[dict[str, Any]], fields: list[dict[str, Any]], *,
                      "values": [text(v) for v in held],
                      "differs": len({as_text(v) for v in held}) > 1})
 
-    for group in groups:
-        in_group = [n for n in order
-                    if (specs[n].get("group") or say("compare.numbers_group")) == group]
-        add("head", group, "", group, [])
-        for name in in_group:
+    for place in groups:
+        head = place[2]
+        add("head", head, "", head, [])
+        for name in (n for n in order if places[n] == place):
             label, unit = number_words(specs[name], words)    # by name or by symbol
-            add("number", group, name, f"{label} [{unit}]" if unit else label,
+            add("number", head, name, f"{label} [{unit}]" if unit else label,
                 [r["numbers"].get(name) for r in runs])
     if settings != "none":
         _settings_rows(add, runs, fields, settings, constants)

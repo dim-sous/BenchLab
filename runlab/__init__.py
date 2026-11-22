@@ -6,10 +6,10 @@ the project makes (:mod:`runlab.project`; ``README.md`` says how).
 
 What a project may use is what this module holds, :mod:`runlab.testing`, and the two commands
 its ``pyproject.toml`` names (``runlab.cli:main``, ``runlab.lab:main``). Nothing here is
-removed, renamed or changed in meaning before 1.0 (``README.md``, "What a project may use";
+removed, renamed or changed in meaning before 2.0 (``README.md``, "What a project may use";
 ``tests/test_shore.py`` holds the list). Everything deeper is RunLab's own and may change in
-any version. ``run_files`` and ``files_of`` (from 0.8) are held and not yet promised: no project
-has used them yet.
+any version. ``run_files`` and ``files_of`` (from 0.8) are held and not promised: no project has
+used them yet.
 """
 
 from runlab.record import (TIME, Figure, Number, Provenance, Quantity, Record, Role, Series,

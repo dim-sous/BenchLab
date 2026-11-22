@@ -41,12 +41,9 @@ _SHORE = tuple(runlab.__all__)
 #: The modules of RunLab a project file may import from, each with the names it may take
 #: (``None``: any): the package's own names, this module, and the two commands its
 #: ``pyproject.toml`` names.
-#: The names RunLab is imported by: its own, and the stand-in it had until 0.10.
-_NAMES = (_OWN, "benchlab")
 _OPEN: dict[str, set[str] | None] = {
-    key: names for own in _NAMES for key, names in (
-        (own, {*_SHORE, "testing"}), (f"{own}.testing", None),
-        (f"{own}.cli", {"main"}), (f"{own}.lab", {"main"}))}
+    _OWN: {*_SHORE, "testing"}, f"{_OWN}.testing": None,
+    f"{_OWN}.cli": {"main"}, f"{_OWN}.lab": {"main"}}
 _PIECE = ("Config", "run", "Record")
 
 
@@ -140,10 +137,9 @@ def _beyond(node: ast.AST) -> list[str]:
     """What an import statement takes from RunLab that a project may not use."""
     if isinstance(node, ast.Import):
         return [a.name for a in node.names
-                if (own := a.name.split(".")[0]) in _NAMES
-                and a.name not in (own, f"{own}.testing")]
+                if a.name.split(".")[0] == _OWN and a.name not in (_OWN, f"{_OWN}.testing")]
     if isinstance(node, ast.ImportFrom) and not node.level \
-            and (node.module or "").split(".")[0] in _NAMES:
+            and (node.module or "").split(".")[0] == _OWN:
         allowed = _OPEN.get(node.module, set())
         if allowed is not None:
             return [f"{node.module}.{a.name}" for a in node.names if a.name not in allowed]

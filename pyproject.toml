@@ -3,10 +3,9 @@ requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [project]
-# the name a project installs stays `benchlab` until 1.0; the package
-# it imports is `runlab`, with `benchlab` kept as a stand-in that hands over to it
-name = "benchlab"
-version = "0.27.0"
+# installed and imported as `runlab` (installed as `benchlab` until 1.0)
+name = "runlab"
+version = "1.0.0"
 description = "The bench every project shares: settings and run files, charts, a command line and the Lab's page over a project's pieces"
 readme = "README.md"
 requires-python = ">=3.13"
@@ -41,9 +40,8 @@ select = ["F", "E4", "E7", "E9", "W6", "B", "BLE", "RUF100"]
 ignore = ["E731", "E741", "E702", "B905"]
 
 [tool.setuptools.packages.find]
-# runlab/ and its stand-in benchlab/ only: tests/ (and the made-up project inside it) is never
-# installed
-include = ["runlab*", "benchlab*"]
+# runlab/ only: tests/ (and the made-up project inside it) is never installed
+include = ["runlab*"]
 
 [tool.setuptools.package-data]
 # the page's own words and its fonts: the files of the package that are not Python, left out of

@@ -3,8 +3,6 @@
     [project.entry-points.runlab]
     project = "harness"            # the module holding its registry and its declaration
 
-(or, as a project that declared itself before 0.10 does, ``[project.entry-points.benchlab]``).
-
 That module holds the project's registry -- ``NAMES``, its pieces in the order every surface shows
 them, and ``get_component(name)``, a piece's module -- and its declaration: ``COMMAND``, the
 command its ``pyproject.toml`` installs (the side door; the Lab prints its line beside each run),
@@ -24,13 +22,11 @@ from importlib.metadata import EntryPoint, entry_points
 from pathlib import Path
 from types import ModuleType
 
-__all__ = ["GROUP", "GROUPS", "DECLARED", "declared", "piece_names", "get_component", "command", "title",
+__all__ = ["GROUP", "DECLARED", "declared", "piece_names", "get_component", "command", "title",
            "words_path"]
 
 #: The entry-point group a project declares itself in.
 GROUP = "runlab"
-#: Every group a project is found in: :data:`GROUP`, and the name RunLab had until 0.10.
-GROUPS = (GROUP, "benchlab")
 #: The names the declared module must hold (the module docstring says what each is).
 DECLARED = ("NAMES", "get_component", "COMMAND", "TITLE", "ROOT", "LIBRARIES")
 
@@ -39,7 +35,7 @@ DECLARED = ("NAMES", "get_component", "COMMAND", "TITLE", "ROOT", "LIBRARIES")
 def declared() -> ModuleType:
     """The declared project's module. Refused, naming the cause: no project declared, more than
     one, or a module missing a name of :data:`DECLARED`."""
-    found = _once([ep for group in GROUPS for ep in entry_points(group=group)])
+    found = list(entry_points(group=GROUP))
     if not found:
         raise LookupError(f"no project declares itself to RunLab: the project's pyproject.toml "
                           f"needs [project.entry-points.{GROUP}] project = \"<its registry "
@@ -54,16 +50,6 @@ def declared() -> ModuleType:
         raise LookupError(f"{found[0].value}, the module declared to RunLab, does not hold "
                           f"{', '.join(missing)}")
     return module
-
-
-def _once(found: list[EntryPoint]) -> list[EntryPoint]:
-    """``found`` with a project declared under both names counted once: one module, declared
-    by one distribution."""
-    seen: dict[tuple[str, str], EntryPoint] = {}
-    for ep in found:
-        dist = getattr(ep, "dist", None)
-        seen.setdefault((ep.value, dist.name if dist is not None else ""), ep)
-    return list(seen.values())
 
 
 def _where(entry_point: EntryPoint) -> str:

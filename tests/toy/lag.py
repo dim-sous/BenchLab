@@ -3,7 +3,8 @@ saved wave run and sampled at the wave's own step under a zero-order hold -- exa
 y[k+1] = a y[k] + (1 - a) K u[k] with a = exp(-Δt/τ), or by forward Euler, a = 1 - Δt/τ.
 
 It holds what the wave does not, each for a test that needs one: a setting naming another piece's
-saved run; two defaults the code resolves (K: none is 1; the hold: none is exact); a list of
+saved run; another piece's whole settings, the wave's, of which it composes the Wave group alone
+(the wave it builds when it is not driven by a saved run, from 1.2); two defaults the code resolves (K: none is 1; the hold: none is exact); a list of
 numbers (the limits y is drawn against, as references named by what they bound) and a list of
 text (the traces the output chart draws), a row each in the form; a list of rows, a table (the
 steps and ramps added to the input, each row a time, a shape and a size; none by default, so a
@@ -49,9 +50,18 @@ class Step(Settings):
 
 
 class Config(Settings):
+    drive = param.Selector(default="saved", objects=["saved", "built"], label="Drive",
+                           doc="The u that drives the lag: a saved wave run's, or a wave built "
+                               "here.", metadata={"group": "Source"})
     wave_run = param.String("results/wave/default.json", label="Wave run",
                             doc="The saved wave run whose u drives the lag.",
-                            metadata={"group": "Source", "record_of": "wave"})
+                            metadata={"group": "Source", "record_of": "wave",
+                                      "needs": {"drive": {"in": ["saved"]}}})
+    wave = param.ClassSelector(class_=wave.Config, default=wave.Config(), label="Built wave",
+                               doc="The wave built here: its shape alone; its noise is the "
+                                   "lag's to leave out.",
+                               metadata={"group": "Source", "composes": ("Wave",),
+                                         "needs": {"drive": {"in": ["built"]}}})
     steps = param.List([], item_type=Step, label="Additions",
                        doc="What is added to the wave's u, in order: each row a step or a ramp "
                            "from its time on.", metadata={"group": "Source"})
@@ -118,7 +128,7 @@ def run(cfg: Config) -> Record:
     if unknown:
         raise ValueError(f"the lag keeps the traces {' and '.join(_TRACES)}; it holds no "
                          f"{', '.join(unknown)}")
-    source = wave.Record.load(cfg.wave_run)
+    source = wave.Record.load(cfg.wave_run) if cfg.drive == "saved" else wave.run(cfg.wave)
     gain = 1.0 if cfg.gain is None else cfg.gain
     hold = cfg.hold or "exact"
     step = float(source.t[1] - source.t[0])

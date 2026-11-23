@@ -16,7 +16,7 @@ from typing import Any
 from runlab.project import get_component, piece_names
 from runlab.record import (COMPONENT_KEY, FILES_KEY, NUMBER_SPECS_KEY, PANEL_GROUPS_KEY,
                              PANELS_KEY, differences, read_header)
-from runlab.record.config import fields_of
+from runlab.record.config import fields_of, flat
 from runlab.record.files import kept
 
 from .words import say, say_n
@@ -95,13 +95,26 @@ def _read(path: Path, piece: str, mtime: float) -> dict[str, Any]:
         "panel_groups": _groups(header.get(PANEL_GROUPS_KEY), panels),
         "number_specs": specs,
         "numbers": dict(raw.get("numbers", {})),
-        "config": dict(raw.get("config", {})),
+        "config": _settings(piece, raw.get("config", {})),
         "provenance": dict(raw.get("provenance", {})),
         "files": _files(header.get(FILES_KEY)),
         "stale": "; ".join(w for w in (_stale(piece, raw), panel_words, spec_words) if w),
         "notes": _notes(piece, raw),
     })
     return row
+
+
+def _settings(piece: str, held: Any) -> dict[str, Any]:
+    """A run file's settings as the form and the compare table name them: a part's spread out
+    by dotted names (:func:`record.config.flat`). Settings of another shape are left as they are,
+    for the run's notes to say."""
+    if not isinstance(held, dict):
+        return {}
+    try:
+        cls = get_component(piece).Config
+    except (KeyError, LookupError, ImportError):
+        return dict(held)
+    return flat(cls, held)
 
 
 def _panels(held: Any) -> tuple[list[str], str]:

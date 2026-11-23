@@ -63,6 +63,10 @@ def build_parser() -> argparse.ArgumentParser:
     r.add_argument("--name", default=None,
                    help="the record's name; default: the config file's stem, else 'default'")
     r.add_argument("--out-dir", default=DEFAULT_OUT_DIR)
+    r.add_argument("--refly", nargs="+", default=None, metavar="record.json",
+                   help="fly each saved run again from its own settings and seed, in turn; when "
+                        "every value it holds comes back the same, add what its file lacks; "
+                        "otherwise write nothing and say what differs (exit 3)")
     r.set_defaults(func=run_command)
 
     d = sub.add_parser("draw", help="draw the panels records declare, or a number against a "
@@ -109,7 +113,37 @@ def _setting_line(f: dict) -> None:
     print(f"  {f['name']}{named}{unit} = {f['default']!r}{within}{choices}: {f['doc']}")
 
 
+def refly_command(args: argparse.Namespace) -> int:
+    """``run <piece> --refly <record.json> ...``: each saved run flown again (``runlab.refly``)."""
+    if args.config or args.overrides or args.sweeps or args.name:
+        raise SystemExit("--refly flies each run from its own settings and under its own name; "
+                         "give it no config, --set, --sweep or --name")
+    from runlab.refly import refly
+
+    code = 0
+    for path in args.refly:
+        with open(path) as fh:
+            piece = json.load(fh).get("component")
+        if piece != args.piece:
+            raise SystemExit(f"{path} is a run of {piece!r}, not {args.piece!r}")
+        found = refly(path)
+        if not found.matches:
+            code = 3
+            print(f"{path}: not written -- the re-flight differs from what it holds:")
+            for words in found.differs:
+                print(f"  {words}")
+            continue
+        said = ([f"added {', '.join(found.fields)}"] if found.fields else []) + \
+            ([f"added settings {', '.join(found.settings)}"] if found.settings else []) + \
+            ([f"numbers now today's: {', '.join(found.numbers)}"] if found.numbers else [])
+        print(f"{path}: " + ("; ".join(said) if said else "every value came back the same; "
+                                                           "nothing to add"))
+    return code
+
+
 def run_command(args: argparse.Namespace) -> int:
+    if args.refly:
+        return refly_command(args)
     component = get_component(args.piece)
     if args.config:
         with open(args.config) as fh:

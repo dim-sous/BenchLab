@@ -38,6 +38,9 @@ class RunList(JSComponent):
     words = param.Dict(default={})
 
     on_use: Optional[Callable[[str], None]] = None
+    #: A click on ``re-fly`` (from 1.12), offered on a readable run whose file departs from what
+    #: its piece reads now: the run's name, as a message.
+    on_refly: Optional[Callable[[str], None]] = None
     on_delete: Optional[Callable[[str], None]] = None
 
     _stylesheets = [LIST]
@@ -59,6 +62,8 @@ class RunList(JSComponent):
           row.append(dot, main);
           if (!r.stale) {
             row.append(action('use', model.words.use, { use: r.name }));
+            if ((r.notes || []).length && model.words.refly)
+              main.append(action('refly', model.words.refly, { refly: r.name }));
             row.addEventListener('click', () => {
               const s = model.shown.slice(); const i = s.indexOf(r.name);
               if (i >= 0) s.splice(i, 1); else s.push(r.name);
@@ -83,6 +88,8 @@ class RunList(JSComponent):
             return
         if isinstance(msg.get("use"), str) and self.on_use is not None:
             self.on_use(msg["use"])
+        if isinstance(msg.get("refly"), str) and self.on_refly is not None:
+            self.on_refly(msg["refly"])
         elif isinstance(msg.get("delete"), str) and self.on_delete is not None:
             self.on_delete(msg["delete"])
 

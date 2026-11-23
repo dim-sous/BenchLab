@@ -241,6 +241,8 @@ class Run:
     saved: str = ""
     error: str = ""
     process: Optional[subprocess.Popen] = field(default=None, repr=False)
+    #: A saved run's path, for a run that re-flies it (from 1.12); ``""`` for a new run.
+    refly: str = ""
 
     @property
     def finished(self) -> bool:
@@ -261,8 +263,9 @@ class Run:
 
 def start_process(run: Run) -> subprocess.Popen:
     """``run`` as its own program: the runner, under this interpreter, in the project root."""
-    argv = [sys.executable, "-m", "runlab.runner", run.piece, run.name, run.out_dir,
-            json.dumps(run.pairs)]
+    argv = ([sys.executable, "-m", "runlab.runner", "--refly", run.refly] if run.refly else
+            [sys.executable, "-m", "runlab.runner", run.piece, run.name, run.out_dir,
+             json.dumps(run.pairs)])
     return subprocess.Popen(argv, cwd=run.root, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                             text=True, errors="replace")
 
@@ -334,6 +337,18 @@ class Queue:
             self._fill()
             self.version += 1
         return runs
+
+    def submit_refly(self, piece: str, name: str, path: str, *, root: str,
+                     out_dir: str = DEFAULT_OUT_DIR) -> Run:
+        """Queue a re-flight of the saved run ``name`` at ``path`` (:mod:`runlab.refly`), refused
+        while a run of that name is queued or running."""
+        with self._lock:
+            self._refuse_busy(piece, [name], root, out_dir)
+            run = Run(next(self._ids), piece, name, [], root, out_dir, refly=path)
+            self._runs.append(run)
+            self._fill()
+            self.version += 1
+        return run
 
     def stop(self, run_id: int) -> bool:
         """Stop one run: a queued one never starts, a running one's process is terminated, and a

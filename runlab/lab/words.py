@@ -40,7 +40,7 @@ SLOTS: dict[str, tuple[str, ...]] = {
     "runs.heading": (), "runs.filter": (), "runs.all": (), "runs.none": (),
     "runs.count": ("on_disk", "shown"), "runs.count_listed": ("on_disk", "shown", "listed"),
     "runs.empty": ("command",), "runs.none_listed": (),
-    "runs.use": (), "runs.delete": (), "runs.delete_label": ("name",),
+    "runs.use": (), "runs.refly": (), "runs.delete": (), "runs.delete_label": ("name",),
     "runs.stale.piece": ("held", "piece"),
     "runs.stale.predates.one": ("fields",), "runs.stale.predates.many": ("fields",),
     "runs.stale.gone.one": ("fields",), "runs.stale.gone.many": ("fields",),

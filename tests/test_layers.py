@@ -25,8 +25,10 @@ SOURCES = sorted(p for p in PACKAGE.rglob("*.py") if "__pycache__" not in p.part
 #: (``figure.chart``, ``figure.twin``); that every chart on the page IS the figure layer's is held
 #: by ``tests/test_lab.py``, not by this table.
 _MAY_IMPORT = {"project": set(), "record": {"project"}, "figure": {"record"},
-               "runner": {"project", "record"},
-               "cli": {"project", "record", "figure", "runner"},
+               # a saved run flown again, its file completed when it comes back the same (1.12)
+               "refly": {"project", "record"},
+               "runner": {"project", "record", "refly"},
+               "cli": {"project", "record", "figure", "runner", "refly"},
                "lab": {"project", "record", "figure", "runner", "cli"},
                # the names a project may use, and the check it calls (tests/test_shore.py)
                "__init__": {"record"}, "testing": {"project", "record", "figure", "lab"}}

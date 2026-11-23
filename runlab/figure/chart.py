@@ -506,6 +506,9 @@ def sweep_of(pairs: Pairs, number: str, *, vs: str, by: Sequence[str] | None = N
     lacking = [run for run, rec in pairs if number not in rec.numbers]
     if lacking:
         raise ValueError(f"{lacking} carry no {number!r}")
+    # the numbers declared the reference of this one that every run carries
+    references = [n.in_words(words) for n in pairs[0][1].number_specs()
+                  if n.reference_of == number and all(n.name in rec.numbers for _, rec in pairs)]
 
     values = [_value(rec, vs) for _, rec in pairs]
     numeric = all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in values)
@@ -550,6 +553,25 @@ def sweep_of(pairs: Pairs, number: str, *, vs: str, by: Sequence[str] | None = N
                 spread.append(xv * (10.0 ** k - 1.0) if geometric else k)
         lines.append(Line(label, px, py, series_color(g), points=bool(points),
                           texts=tuple(texts), spread=tuple(spread)))
+        # the numbers this one is the published or stated value of: dashed in its colour, at
+        # the same places, by the same statistic
+        for ref in references:
+            words = ref.label
+            rx, ry, rspread = [], [], []
+            for xv in sorted(at):
+                here = at[xv]
+                vals = np.array([rec.numbers[ref.name] for _, rec in here], dtype=float)
+                if runs != "each" and len(here) > 1:
+                    rx.append(xv); rspread.append(0.0)
+                    ry.append(float(vals.mean() if runs == "mean"
+                                    else np.sqrt(np.mean(vals ** 2))))
+                    continue
+                for i, v in enumerate(vals):
+                    k = (i - (len(here) - 1) / 2) * step
+                    rx.append(xv); ry.append(float(v))
+                    rspread.append(xv * (10.0 ** k - 1.0) if geometric else k)
+            lines.append(Line(f"{label}: {words}" if by else words, rx, ry, series_color(g),
+                              dash=DASHES[1], points=bool(points), spread=tuple(rspread)))
     f = fields[vs]
     x_label = f["label"] + (f" [{f['unit']}]" if f["unit"] else "")
     y_label = spec.label + (f" [{spec.unit}]" if spec.unit else " [-]")

@@ -428,6 +428,17 @@ def _declared(record: Any) -> tuple[list[str], dict[str, str], dict[str, str], d
     return names, groups, titles, symbols
 
 
+def _piece_options(pieces: list[dict[str, Any]]) -> dict[str, Any]:
+    """The piece list's options: flat, or -- once a piece declares a group (``Record.group``) --
+    under headings, in the order the pieces come, a piece of no group under its own name."""
+    if not any(p.get("group") for p in pieces):
+        return {"options": {p["label"]: p["name"] for p in pieces}}
+    groups: dict[str, dict[str, str]] = {}
+    for p in pieces:
+        groups.setdefault(p.get("group") or p["label"], {})[p["label"]] = p["name"]
+    return {"groups": groups}
+
+
 def _colour(i: int) -> str:
     """The colour the i-th shown run's lines wear on one plot (``figure.style.series_color``)."""
     return series_color(i)
@@ -504,9 +515,8 @@ class Lab:
         self._read_url()
 
         # -- header
-        self.piece_select = _widget(pn.widgets.Select, width=170,
-                                    options={p["label"]: p["name"] for p in self.pieces},
-                                    value=self.piece["name"])
+        self.piece_select = _widget(pn.widgets.Select, width=170, value=self.piece["name"],
+                                    **_piece_options(self.pieces))
         self.piece_select.param.watch(lambda e: self._on_piece(e.new), "value")
         self.where = _html("")
         self.new_run_btn = _widget(pn.widgets.Button, label=say("header.new_run"), color="primary",

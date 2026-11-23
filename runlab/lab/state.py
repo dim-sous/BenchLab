@@ -38,6 +38,7 @@ def pieces() -> list[dict[str, Any]]:
         out.append({"name": name, "label": component.Record.label or name,
                     "produced_by": component.Record.produced_by,
                     "provides": tuple(component.Record.provides),
+                    "group": component.Record.group,
                     "fields": fields_of(component.Config)})
     return out
 

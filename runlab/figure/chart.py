@@ -209,8 +209,15 @@ def _trace_x(s: Series, xs: np.ndarray, j: int, x: str) -> np.ndarray:
 
 
 def _rings(s: Series) -> tuple[Ring, ...]:
-    return tuple(Ring(label, float(r), INK_SECONDARY, _ref_dash(k))
-                 for k, (label, r) in enumerate(s.rings))
+    """A ring in the colour it names (from 1.10), else the reference ink."""
+    return tuple(Ring(label, float(r), colour[0] if colour else INK_SECONDARY, _ref_dash(k))
+                 for k, (label, r, *colour) in enumerate(s.rings))
+
+
+def _hue(s: Series, j: int) -> str:
+    """Trace ``j``'s colour: its own where the chart names one (``Series.colours``), else the
+    ``j``-th of the cycle."""
+    return s.colours[j] if s.colours else series_color(j)
 
 
 def _marks(s: Series, colour: str, prefix: str = "") -> tuple[Mark, ...]:
@@ -226,14 +233,14 @@ def _alone(s: Series, xs: np.ndarray, points: bool, stack: str = "",
     neutral; a reference line its trace's when it names one. A stacked panel's lines are
     stacked under ``stack``."""
     n = len(xs)
-    lines = tuple(Line(label, _trace_x(s, xs, i, x), np.asarray(y, float), series_color(i),
+    lines = tuple(Line(label, _trace_x(s, xs, i, x), np.asarray(y, float), _hue(s, i),
                        points=points, stack=stack if s.stacked else "")
                   for i, (label, y) in enumerate(s.traces))
     bands = tuple(Band(label, xs, _edge(lo, n), _edge(hi, n),
                        NEUTRAL if (owner := _band_owner(s, label, of)) is None
-                       else series_color(owner))
+                       else _hue(s, owner))
                   for label, lo, hi, *of in s.bands)
-    refs = tuple(Ref(label, float(v), _ref_colour(s, of, series_color), _ref_dash(r))
+    refs = tuple(Ref(label, float(v), _ref_colour(s, of, lambda j: _hue(s, j)), _ref_dash(r))
                  for r, (label, v, *of) in enumerate(s.refs))
     return lines, bands, refs, _rings(s), _marks(s, INK)
 
@@ -375,15 +382,16 @@ def _drawn(pairs: Pairs, name: str, held: list[tuple[str, Series]], runs: str, c
             ys = np.array([np.asarray(s.traces[j][1], float) for _, s in held])
             y = (w @ ys) / w.sum() if runs == "mean" else np.sqrt((w @ ys ** 2) / w.sum())
             lines.append(Line(f"{capital(_POOL_WORDS[runs])} of {len(held)} runs · {label}", xs, y,
-                              series_color(j), points=dots,
+                              _hue(first, j), points=dots,
                               stack="pooled" if first.stacked else ""))
         said = mean_band_of(first, int(w.sum())) if runs == "mean" else ()
         # a band of a mean wears its trace's colour only where it names the trace (from 1.8); one
         # naming none is about the panel, in the neutral, as before
         bands = tuple(Band(label, xs, lo, hi,
-                           series_color(_band_owner(first, label, of)) if of else NEUTRAL)
+                           _hue(first, _band_owner(first, label, of)) if of else NEUTRAL)
                       for label, lo, hi, *of in said)
-        refs = tuple(Ref(label, float(v), _ref_colour(first, of, series_color), _ref_dash(r))
+        refs = tuple(Ref(label, float(v), _ref_colour(first, of, lambda j: _hue(first, j)),
+                         _ref_dash(r))
                      for r, (label, v, *of) in enumerate(first.refs))
         panel = Panel(name, x_label,
                       (Axes(first.y_label, tuple(lines), bands, refs, _rings(first)),),
@@ -402,7 +410,10 @@ def _drawn(pairs: Pairs, name: str, held: list[tuple[str, Series]], runs: str, c
 
         def colour(i: int, j: int) -> str:
             """Run ``i``'s quantity ``j``: the run's hue in the quantity's shade, or the
-            transpose when colour carries the quantity (RCWS ``overlay._axes``)."""
+            transpose when colour carries the quantity (RCWS ``overlay._axes``); a quantity that
+            names its colour keeps it, each run a shade of it (from 1.10)."""
+            if first.colours:
+                return shade(first.colours[j], i)
             return shade(series_color(i), j) if colour_by == "run" else shade(series_color(j), i)
 
         def dash(i: int, j: int) -> str:
@@ -427,6 +438,7 @@ def _drawn(pairs: Pairs, name: str, held: list[tuple[str, Series]], runs: str, c
                     if k == 0:
                         lines.append(Line(f"{every} — {label} (identical)", xs,
                                           np.asarray(y, float),
+                                          s.colours[j] if s.colours else
                                           series_color(after + same_lines.index(label)),
                                           points=dots))
                     continue

@@ -1269,7 +1269,8 @@ class Lab:
                               declared_points=first.points,
                               declared_split=first.split and not first.rows,
                               declared_rows=bool(first.rows),
-                              declared_cold_start=first.cold_start_end is not None)
+                              declared_cold_start=first.cold_start_end is not None,
+                              declared_colours=bool(first.colours))
         base = {**shaping.draw_keywords(card, ctx), "x_log": False, "y_log": False}
         try:
             plain = chart_of(held, card.chart, **base)

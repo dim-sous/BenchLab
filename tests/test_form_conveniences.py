@@ -156,3 +156,21 @@ def test_a_parts_looked_up_setting_follows_its_sibling_in_the_part() -> None:
     assert form.shown_default(f) == "250"
     form.type_or_pick("flight.vehicle", "drone")
     assert form.shown_default(f) == "50"
+
+
+def test_a_rows_choice_worded_by_a_function_is_drawn() -> None:
+    """1.14, found driving the other project's flight form: a row's choice whose lines are a
+    function (read off a registry) is read at declaration, as ``stands_for`` and ``row_words``
+    are; the table drew it as a mapping and the piece's form failed to open."""
+    class _Segment(Settings):
+        until = param.Selector(default="time", objects=["time", "speed"],
+                               metadata={"group": "g",
+                                         "lines": lambda: {"time": "time in the segment"}})
+
+    class _Plan(Settings):
+        segments = param.List([_Segment()], item_type=_Segment, metadata={"group": "g"})
+
+    f = next(x for x in fields_of(_Plan) if x["name"] == "segments")
+    assert f["element_fields"][0]["lines"] == {"time": "time in the segment"}
+    table = _Table(f, on_edit=lambda text: None)
+    assert "time in the segment" in table._cells[0].options

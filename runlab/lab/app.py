@@ -348,7 +348,7 @@ class _Table:
                     words = sub.get("lines") or {}
                     cell = pn.widgets.Select(
                         width=self._width(sub), margin=(2, 4), value=held,
-                        options={words.get(c, as_text(c)): as_text(c) for c in sub["choices"]},
+                        options={words.get(as_text(c), as_text(c)): as_text(c) for c in sub["choices"]},
                         disabled=self._disabled, stylesheets=self._stylesheets)
                     cell.param.watch(lambda e, i=i, sub=sub: self._typed(i, sub, e.new), "value")
                 else:

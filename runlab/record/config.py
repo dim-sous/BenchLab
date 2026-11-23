@@ -8,7 +8,8 @@ outside the choices in its own words. What param has no slot for rides in ``meta
 
 - ``group`` (required): the heading a form puts the setting under;
 - ``unit``: the unit a person types it in;
-- ``lines``: each choice's own line, ``{choice: one line}``; none here yet;
+- ``lines``: each choice's own line, ``{choice: one line}``, or a function returning it (read
+  now, from 1.14);
 - ``needs``: what switches the setting on -- ``{other_setting: {"in": [named values]}}``. A value
   set behind a closed gate is refused on construction (:func:`gated`), because the run would
   ignore it and the saved config would claim it;
@@ -263,7 +264,7 @@ def fields_of(cls: type) -> list[dict[str, Any]]:
             "element_fields": fields_of(row) if row else None,
             "element_default": saved(row()) if row else None,
             "label": p.label or name, "unit": meta.get("unit", ""), "group": meta["group"],
-            "doc": (p.doc or "").strip(), "lines": meta.get("lines"),
+            "doc": (p.doc or "").strip(), "lines": _read_now(meta.get("lines")),
             "choices": list(p.objects) if isinstance(p, param.Selector) else None,
             "low": bounds[0], "high": bounds[1], "code_default": p.default is None,
             "low_exclusive": bounds[0] is not None and not incl[0],

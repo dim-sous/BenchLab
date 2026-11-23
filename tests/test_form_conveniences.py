@@ -92,3 +92,67 @@ def test_a_table_of_named_rows_labels_each_by_its_words() -> None:
     table.value = json.dumps([{"mode": "cv", "ca": 0.1}, {"mode": "ca", "ca": None}])
     assert [table._row_label(i, r) for i, r in enumerate(table._rows)] == [
         "constant velocity", "ca"]
+
+
+# --- 1.14: a table looked up, and a part's looked-up setting --------------------------------
+
+_BY_FORM = {"slow": [{"mode": "cv", "ca": 0.1}, {"mode": "ct", "ca": 0.2}],
+            "fast": [{"mode": "cv", "ca": 0.5}]}
+
+
+class _Bank(Settings):
+    form = param.Selector(default="slow", objects=list(_BY_FORM), metadata={"group": "g"})
+    rows = param.List([], item_type=_Switch,
+                      metadata={"group": "g", "by_name": "mode",
+                                "default_from": ("form", lambda: _BY_FORM),
+                                "row_words": {"cv": {"label": "constant velocity"}}})
+    once = param.List([], item_type=_Switch,
+                      metadata={"group": "g", "by_name": "mode",
+                                "default_from": (None, {"": [{"mode": "cv", "ca": 0.9}]})})
+
+
+def test_a_looked_up_table_shows_the_rows_registered_now_and_holds_only_what_is_set() -> None:
+    """1.14, carried from RCWS's tracker and fit: a list of rows called by name whose rows are
+    registered against another setting's value -- or once, against none -- shows each
+    registered row, every cell empty with its registered value as the placeholder; a cell set
+    here makes the value hold that row with that cell alone; another value of the other
+    setting shows its own rows, keeping what was set."""
+    form = Form({"name": "bank", "fields": fields_of(_Bank)})
+    f = form.by_name["rows"]
+    assert form.shown_default(f) == "[]", "a table is no placeholder of its own"
+    edits = []
+    table = _Table(f, on_edit=edits.append, registered=lambda: form.registered_rows(f))
+    table.value = ""
+    labels = [o.object for row in table.view.objects[1:] for o in row.objects[:1]]
+    assert ["constant velocity" in a for a in labels] == [True, False] and "ct" in labels[1]
+    assert [c.placeholder for c in table._cells] == ["0.1", "0.2"]
+    assert all(c.value == "" for c in table._cells)
+    assert not table._buttons, "which rows there are is what is registered"
+    table._cells[1].value_input = "0.3"
+    assert json.loads(edits[-1]) == [{"mode": "ct", "ca": 0.3}]
+    form.set["rows"] = edits[-1]
+    form.type_or_pick("form", "fast")
+    table.refresh()
+    assert [c.placeholder for c in table._cells] == ["0.5", ""], \
+        "the fast form's one row, then the row set here that it does not register"
+    assert table._cells[1].value == "0.3"
+    table._cells[1].value_input = "0.4"
+    assert json.loads(edits[-1]) == [{"mode": "ct", "ca": 0.4}]
+    table._cells[1].value_input = ""
+    assert json.loads(edits[-1]) == [], "a cell emptied runs as registered"
+    once = form.by_name["once"]
+    table = _Table(once, on_edit=edits.append, registered=lambda: form.registered_rows(once))
+    assert [c.placeholder for c in table._cells] == ["0.9"]
+
+
+def test_a_parts_looked_up_setting_follows_its_sibling_in_the_part() -> None:
+    """1.14: inside a part, the setting an empty one is looked up off is the part's own."""
+    class _Holder(Settings):
+        flight = param.ClassSelector(class_=_Flight, default=_Flight(), metadata={"group": "h"})
+
+    form = Form({"name": "holder", "fields": fields_of(_Holder)})
+    f = form.by_name["flight.speed"]
+    assert f["default_from"]["field"] == "flight.vehicle"
+    assert form.shown_default(f) == "250"
+    form.type_or_pick("flight.vehicle", "drone")
+    assert form.shown_default(f) == "50"

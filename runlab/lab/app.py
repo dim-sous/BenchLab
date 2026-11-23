@@ -234,14 +234,45 @@ class _Table:
     #: box's width "time in the segment [min]" was cut to "time in the").
     BOX, PICK = 110, 250
 
-    def __init__(self, f: dict[str, Any], on_edit: Callable[[str], None]) -> None:
+    def __init__(self, f: dict[str, Any], on_edit: Callable[[str], None],
+                 registered: Optional[Callable[[], Optional[list[dict[str, Any]]]]] = None) -> None:
         self.f, self._on_edit = f, on_edit
+        #: The rows registered for it now (from 1.14; ``Form.registered_rows``), for a table
+        #: looked up off another setting; ``None`` for any other table.
+        self._registered = registered or (lambda: None)
         self.view = pn.Column(sizing_mode="stretch_width", margin=0)
         self._disabled, self._stylesheets = False, [skin.WIDGET]
         self._cells: list[Any] = []
         self._buttons: list[Any] = []
         self._rows: list[dict[str, Any]] = copy.deepcopy(f["default"] or [])
+        self._held: list[dict[str, Any]] = []
+        self._shown: Optional[list[dict[str, Any]]] = None
         self._draw()
+
+    def refresh(self) -> None:
+        """Drawn again when the rows registered for it changed (another setting moved); left
+        as it is otherwise, so a cell being typed in keeps its cursor."""
+        if self._registered() != self._shown:
+            self._draw()
+
+    def _looked_up(self) -> Optional[list[dict[str, Any]]]:
+        """For a table looked up off another setting (from 1.14), the rows it shows: each row
+        registered now, as the value holds it or with every cell empty, then each row the value
+        holds that is not registered now; ``self._held`` becomes those rows, and each one's
+        registered row is kept for its cells' placeholders. ``None`` for any other table."""
+        registered = self._registered()
+        self._shown = registered
+        if registered is None:
+            return None
+        by = self.f["by_name"]
+        held = {as_text(r.get(by)): r for r in self._rows}
+        names = [as_text(r.get(by)) for r in registered]
+        empty = {s["name"]: None for s in self.f["element_fields"]}
+        self._held = [held.get(n) or {**empty, by: r.get(by)} for n, r in zip(names, registered)]
+        self._held += [r for n, r in held.items() if n not in names]
+        self._defaults = [*registered, *({**empty, by: r.get(by)} for n, r in held.items()
+                                         if n not in names)]
+        return self._held
 
     @property
     def value(self) -> str:
@@ -295,10 +326,14 @@ class _Table:
         """A row label's width: a number's, or the longest name's."""
         if not self.f.get("by_name"):
             return 28
-        longest = max((len(self._row_label(i, r)) for i, r in enumerate(self._rows)), default=2)
+        rows = self._held if self._shown is not None else self._rows
+        longest = max((len(self._row_label(i, r)) for i, r in enumerate(rows)), default=2)
         return min(200, 8 * longest + 8)
 
     def _draw(self) -> None:
+        looked = self._looked_up()
+        if looked is not None:
+            return self._draw_looked_up(looked)
         subs = self.f["element_fields"]
         head = pn.Row(_html("", width=28, margin=(0, 4)),
                       *[_html(html.escape(term(s)), width=self._width(s), margin=(0, 4),
@@ -341,11 +376,67 @@ class _Table:
         self._buttons.append(more)
         self.view.objects = lines + [more]
 
+    def _draw_looked_up(self, rows: list[dict[str, Any]]) -> None:
+        """A looked-up table (from 1.14): a line per registered row, labelled by its name, each
+        cell empty unless set here, its placeholder (a pick's empty option) the registered
+        value; no row is added or taken out, as which rows there are is what is registered."""
+        by = self.f["by_name"]
+        subs = [s for s in self.f["element_fields"] if s["name"] != by]
+        width = self._label_width()
+        head = pn.Row(_html("", width=width, margin=(0, 4)),
+                      *[_html(html.escape(term(s)), width=self._width(s), margin=(0, 4),
+                              style=f"{_DIM};font-size:12px") for s in subs], margin=0)
+        lines: list[Any] = [head]
+        self._cells, self._buttons = [], []
+        for i, row in enumerate(rows):
+            shown = self._defaults[i]
+            cells = []
+            for sub in subs:
+                held = "" if row.get(sub["name"]) is None else as_text(row.get(sub["name"]))
+                if sub.get("choices") or sub["type"] == "bool":
+                    words = sub.get("lines") or {}
+                    values = ([as_text(c) for c in sub["choices"]] if sub.get("choices")
+                              else ["true", "false"])
+                    options = {say("form.default", value=as_text(shown.get(sub["name"]))): ""}
+                    options.update({words.get(v, v): v for v in values})
+                    cell = pn.widgets.Select(width=self._width(sub), margin=(2, 4), value=held,
+                                             options=options, disabled=self._disabled,
+                                             stylesheets=self._stylesheets)
+                    cell.param.watch(lambda e, i=i, sub=sub: self._typed(i, sub, e.new), "value")
+                else:
+                    cell = pn.widgets.TextInput(
+                        width=self._width(sub), margin=(2, 4), value=held,
+                        placeholder=as_text(shown.get(sub["name"])),
+                        disabled=self._disabled, stylesheets=self._stylesheets)
+                    cell.param.watch(lambda e, i=i, sub=sub: self._typed(i, sub, e.new),
+                                     "value_input")
+                cells.append(cell)
+            self._cells += cells
+            lines.append(pn.Row(_html(html.escape(self._row_label(i, row)), width=width,
+                                      margin=(0, 4),
+                                      style=f"{_MONO};{_DIM};font-size:12.5px;"
+                                            f"line-height:{skin.BOX_PX}px"),
+                                *cells, margin=0))
+        self.view.objects = lines
+
+    def _set_looked_up(self) -> None:
+        """The value of a looked-up table: the rows with a cell set here, each holding only
+        those cells and its name -- an empty cell runs as registered."""
+        by = self.f["by_name"]
+        self._rows = [r for r in self._held
+                      if any(v is not None for k, v in r.items() if k != by)]
+
     def _typed(self, i: int, sub: dict[str, Any], text: str) -> None:
         """One cell of row ``i``: a choice as picked, a number as typed (any other text is kept
         as typed, and Run refuses it under the setting), an emptied cell back at its row's
-        default."""
+        default -- in a looked-up table, empty: what is registered (from 1.14)."""
         name, text = sub["name"], (text or "").strip()
+        if self._shown is not None:
+            row = self._held[i]
+            row[name] = None if text == "" else self._cell(sub, text)
+            self._set_looked_up()
+            self._on_edit(self.value)
+            return
         if text == "":
             self._rows[i][name] = self._row_default(i)[name]
         elif sub.get("choices"):
@@ -358,6 +449,21 @@ class _Table:
         else:
             self._rows[i][name] = text
         self._on_edit(self.value)
+
+    @staticmethod
+    def _cell(sub: dict[str, Any], text: str) -> Any:
+        """A cell's typed text as its value: a choice as picked, yes/no, a number as typed
+        (any other text kept as typed, refused by Run under the setting)."""
+        if sub.get("choices"):
+            return next((c for c in sub["choices"] if as_text(c) == text), text)
+        if sub["type"] == "bool":
+            return {"true": True, "false": False}.get(text, text)
+        if sub["type"] in ("float", "int"):
+            try:
+                return float(text) if sub["type"] == "float" else int(text)
+            except ValueError:
+                return text
+        return text
 
     def _drop(self, i: int) -> None:
         del self._rows[i]
@@ -1723,8 +1829,10 @@ class Lab:
         name = f["name"]
         label = _html("", margin=0)
         self._labels[name] = label
-        editor = (_Table if f.get("element_fields") else _Rows)(
-            f, on_edit=lambda text, n=name: self._on_type(n, text))
+        editor = (_Table(f, on_edit=lambda text, n=name: self._on_type(n, text),
+                         registered=lambda f=f: self.form.registered_rows(f))
+                  if f.get("element_fields") else
+                  _Rows(f, on_edit=lambda text, n=name: self._on_type(n, text)))
         editor.value = self.form.set.get(name, "")
         self._controls[name] = editor
         return pn.Column(label, editor.view, self._note(name), sizing_mode="stretch_width",
@@ -1918,6 +2026,8 @@ class Lab:
             control = self._controls.get(f["name"])
             if isinstance(control, pn.widgets.TextInput):
                 control.placeholder = self.form.shown_default(f)
+            elif isinstance(control, _Table):
+                control.refresh()
 
     def _on_sweep(self, *, field: Optional[str] = None, values: Optional[str] = None) -> None:
         if self._filling:

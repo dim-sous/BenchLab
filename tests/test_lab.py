@@ -40,7 +40,9 @@ _ALLOWED = {# the declared project: its pieces, and its command and title -- wor
             # rule, 2026-10-27), and the record layer's own statement of how a file departs
             # from what its piece reads, which the list words; a saved number's words, by name or
             # by symbol, made from its parts (0.23)
+            # and the name the page opens a run's messages by, beside its charts (1.3)
             "runlab.record": {"read_header", "FILES_KEY", "COMPONENT_KEY", "PANELS_KEY", "NUMBER_SPECS_KEY",
+                                "MESSAGES",
                                 "PANEL_GROUPS_KEY", "HEADER_KEYS", "capital", "differences",
                                 "number_words"},
             # the settings' declarations; and a typed value read as the run will read it, so

@@ -6,7 +6,8 @@ run whose weights it starts from, read out of that run's folder; and two setting
 six, a matrix (the 2 by 2 ``scale`` each step is multiplied by; the identity leaves the step as
 it is) and a calendar date (``day``, only saved). Its Run group is test machinery:
 a wait after its files are written, and a crash there. And a figure of its own that PLAYS: the
-descent, the loss as a point moving down its curve, with a script its page runs."""
+descent, the loss as a point moving down its curve, with a script its page runs; and what the run
+says in words about how it ended (1.3)."""
 
 from __future__ import annotations
 
@@ -17,8 +18,8 @@ import time
 import numpy as np
 import param
 
-from runlab import (Figure, Number, Provenance, Quantity, Series, Settings, files_of, run_files,
-                    stamp)
+from runlab import (Figure, Message, Number, Provenance, Quantity, Series, Settings, files_of,
+                    run_files, stamp)
 from runlab import Record as _Record
 
 __all__ = ["Config", "run", "Record"]
@@ -100,6 +101,15 @@ class Record(_Record):
                            {"label": str(int(k)), "method": "animate",
                             "args": [[str(int(k))], {"mode": "immediate"}]} for k in kept]}]}},
             script="document.getElementById('{plot_id}').dataset.scripted = 'yes';"),)
+
+    def messages(self) -> tuple[Message, ...]:
+        """How the descent ended, in words: where it stopped, and whether it started from an
+        earlier fit's weights."""
+        said = [Message("the descent", f"stopped after {len(self.step)} steps at a loss of "
+                                       f"{float(self.loss[-1]):.3g}")]
+        if self.config.start_from:
+            said.append(Message("the start", f"from the weights of {self.config.start_from}"))
+        return tuple(said)
 
     def number_specs(self) -> tuple[Number, ...]:
         return (Number("w0", "Fitted intercept", group="Fit"),

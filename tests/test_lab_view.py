@@ -884,7 +884,7 @@ def _older(record):
     refuses to compare runs of two pieces)."""
     keep = [s for s in record.series() if s.name == "u"]
     older = type("Older", (), {"component": type(record).component})()
-    for name, value in (("series", lambda: tuple(keep)), ("figures", tuple),
+    for name, value in (("series", lambda: tuple(keep)), ("figures", tuple), ("messages", tuple),
                         ("config", record.config), ("numbers", record.numbers),
                         ("number_specs", record.number_specs)):
         setattr(older, name, value)
@@ -1413,6 +1413,51 @@ def test_a_figure_that_plays_is_shown_in_a_frame_per_run_and_kept_while_it_is_th
     page_a = frames.page_of(_framed(lab, "descent")[1][0])
     assert page_a != page_b, "each run's own descent: their rates differ"
     assert lab.page().get_root() is not None, "the page builds with it"
+
+
+def test_a_runs_messages_are_listed_beside_its_charts_and_shown_on_a_card_of_their_own(
+        tmp_path) -> None:
+    """1.3: the made-up fit says how its descent ended. The chart list offers "Messages", in no
+    group, once a shown run says any; its card shows each shown run's titles and texts, under
+    its name when two are shown, and names in its foot a shown run that says nothing."""
+    out = tmp_path / "results"
+    cli.main(["run", "fit", "--name", "a", "--out-dir", str(out)])
+    cli.main(["run", "fit", "--name", "b", "--out-dir", str(out),
+              "--set", f"start_from={out / 'fit' / 'a.json'}"])
+    lab, *_ = _lab((str(tmp_path), "results"), piece="fit")
+    lab.run_list.shown = ["a"]
+    assert "messages" in lab.toggles() and lab.toggles()["messages"].name == "Messages"
+    _tabs(lab)["messages"].value = True
+    card = _card(lab, "messages")
+    said = " ".join(o.object for o in card.select(pn.pane.HTML))
+    assert "the descent" in said and "stopped after 40 steps at a loss of" in said
+    assert "the start" not in said and _own_names(lab, "messages") == []
+    assert not [o for o in card.objects[1:] if isinstance(o, pn.FlexBox)], \
+        "nothing to shape: no row of controls"
+    _tick(lab, "b")
+    said = " ".join(o.object for o in _card(lab, "messages").select(pn.pane.HTML))
+    assert "from the weights of" in said and _own_names(lab, "messages") == ["a", "b"]
+    # a run that says nothing is named in the foot
+    real = lab._record_of
+    lab._record_of = lambda run: ((_older(real(run)[0]), "") if run["name"] == "a"
+                                  else real(run))
+    lab._loaded.clear()
+    _tick(lab, "a", False)
+    _tick(lab, "a")
+    assert any("a says nothing" in w for w in _card_words(lab, "messages"))
+
+
+def test_a_chart_may_not_take_the_name_the_page_opens_messages_by() -> None:
+    from runlab import Record, Series
+
+    class Named(Record):
+        component = "named"
+
+        def series(self):
+            return (Series(name="messages", x=[0, 1], x_label="t", y_label="y",
+                           traces=(("y", [0, 1]),)),)
+    with pytest.raises(ValueError, match="declares a panel named 'messages'"):
+        Named().header()
 
 
 def test_the_labs_server_answers_for_a_playing_figures_page_and_for_plotlys_library(

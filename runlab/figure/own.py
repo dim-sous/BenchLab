@@ -20,13 +20,17 @@ drawn for that template's grey-blue plot; on the card's paper they did not show.
 
 from __future__ import annotations
 
+import json
+import shutil
+import sys
 from pathlib import Path
 from typing import Any
 
 from runlab.figure.style import FONT, GRID, INK, INK_SECONDARY, MONO, NEUTRAL, SURFACE, series_color
 from runlab.figure.twin import ONE_PX
+from runlab.record import stamp
 
-__all__ = ["own_figure", "own_page", "library_dir", "TEMPLATE"]
+__all__ = ["own_figure", "own_page", "save_page", "library_dir", "TEMPLATE"]
 
 _AXIS = {"gridcolor": GRID, "linecolor": GRID, "zerolinecolor": NEUTRAL, "zerolinewidth": 1,
          "title": {"font": {"size": 12, "color": INK}, "standoff": 8}, "tickfont": {"size": 11}}
@@ -107,3 +111,28 @@ def library_dir() -> Path:
     import plotly
 
     return Path(plotly.__file__).parent / "package_data"
+
+
+def save_page(record: Any, name: str, out_dir: Path, stem: str,
+              facts: dict[str, Any]) -> Path | None:
+    """The figure ``name`` that ``record`` draws itself and that plays, written as a page of its
+    own (from 1.13): ``<out_dir>/<stem>.html``, plotly's library beside it once
+    (``plotly.min.js``), so the page plays opened from the folder with no internet, and a JSON
+    note beside it saying what produced it, as a still's. ``None`` for a figure that does not
+    play. The note is stamped as a still's is, once per page."""
+
+    page = own_page(record, name, "plotly.min.js")
+    if page is None:
+        return None
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    library = out_dir / "plotly.min.js"
+    if not library.exists():
+        shutil.copyfile(library_dir() / "plotly.min.js", library)
+    path = out_dir / f"{stem}.html"
+    path.write_text(page, encoding="utf-8")
+    prov = stamp(0.0)
+    note = {"figure": path.name, "git_sha": prov.git_sha, "git_dirty": prov.git_dirty,
+            "date": prov.date, "command": " ".join(sys.argv), **facts}
+    (out_dir / f"{stem}.html.json").write_text(json.dumps(note, indent=1) + "\n")
+    return path

@@ -166,16 +166,17 @@ def run_argv(piece: str, overrides: Sequence[str] = (), name: str = "",
 
 #: A folder of saved pictures: record names joined by '+' (``cli.folder_of``).
 _FOLDER = re.compile(r"[A-Za-z0-9][A-Za-z0-9._+-]*\Z")
-#: What a Save or a draw writes into a folder: a still, a table, and each one's sidecar.
-_DRAWN = (".png", ".csv", ".png.json", ".csv.json")
+#: What a Save or a draw writes into a folder: a still, a table, and each one's sidecar; a
+#: figure that plays, as its page with its note, and plotly's library it reads (from 1.13).
+_DRAWN = (".png", ".csv", ".png.json", ".csv.json", ".html", ".html.json", "plotly.min.js")
 
 
 def delete(piece: str, records: Sequence[str] = (), folders: Sequence[str] = (), *,
            root: str, out_dir: str = DEFAULT_OUT_DIR) -> list[str]:
     """Delete the named records (``<out_dir>/<piece>/<name>.json``), each with the folder of
     files its run wrote (``<name>.files/``), and the named folders of saved pictures
-    (``<out_dir>/<piece>/<name>/``, which hold only what a Save writes: ``.png``, ``.csv`` and
-    their ``.json`` sidecars), and return what went, as paths under ``root``. Anything else is
+    (``<out_dir>/<piece>/<name>/``, which hold only what a Save writes: ``.png``, ``.csv``,
+    ``.html`` and their ``.json`` sidecars, and ``plotly.min.js``), and return what went, as paths under ``root``. Anything else is
     refused in words and nothing is deleted: a name that is not a record's, a path outside the
     out-dir, a run's own folder of files named as pictures, a folder holding a file no Save
     writes (BESS's ``lab/jobs.py``)."""

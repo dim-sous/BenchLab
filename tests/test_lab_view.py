@@ -1417,6 +1417,45 @@ def test_a_figure_that_plays_is_shown_in_a_frame_per_run_and_kept_while_it_is_th
     assert lab.page().get_root() is not None, "the page builds with it"
 
 
+def test_save_on_a_figure_that_plays_writes_its_page_beside_the_runs(tmp_path, capsys) -> None:
+    """1.13, carried from RCWS's scene written as a file: Save on the card of a figure that plays
+    writes its page into the folder named after the shown runs -- one page per run, named after
+    it when several are shown -- with plotly's library beside it, so it plays opened from the
+    folder; a JSON note beside each says what produced it. The folder is listed, and goes whole
+    when deleted. A figure that does not play has no such Save."""
+    out = tmp_path / "results"
+    for name in ("a", "b"):
+        cli.main(["run", "fit", "--name", name, "--out-dir", str(out)])
+    lab, *_ = _lab((str(tmp_path), "results"), piece="fit")
+    lab.run_list.shown = ["b"]
+    _tabs(lab)["descent"].value = True
+    _save_button(lab, "descent").clicks += 1
+    folder = out / "fit" / "b"
+    assert sorted(p.name for p in folder.iterdir()) == ["descent.html", "descent.html.json",
+                                                        "plotly.min.js"]
+    page = (folder / "descent.html").read_text()
+    assert "Plotly.addFrames" in page and "src=\"plotly.min.js\"" in page, \
+        "the page reads the library beside it, not the Lab's server"
+    assert (folder / "plotly.min.js").stat().st_size > 1_000_000
+    assert json.loads((folder / "descent.html.json").read_text())["runs"] == ["b"]
+    assert _foot(lab, "descent") == ("Wrote results/fit/b/descent.html", False)
+    assert "lab: wrote results/fit/b/descent.html" in capsys.readouterr().out
+    [row] = lab.saved_list.rows
+    assert (row["name"], row["pictures"]) == ("b", "descent.html")
+    _tick(lab, "a")
+    _save_button(lab, "descent").clicks += 1
+    both = out / "fit" / "b+a"
+    assert sorted(p.name for p in both.iterdir() if p.suffix == ".html") == [
+        "descent-a.html", "descent-b.html"]
+    from runlab.lab import jobs
+    assert jobs.delete("fit", folders=["b+a"], root=str(tmp_path), out_dir="results")
+    assert not both.exists()
+    _tabs(lab)["loss"].value = True
+    assert _save_button(lab, "loss") is not None, "a chart card keeps the still's Save"
+    lab.run_list.shown = ["b"]
+    assert lab.page().get_root() is not None
+
+
 def test_a_runs_messages_are_listed_beside_its_charts_and_shown_on_a_card_of_their_own(
         tmp_path) -> None:
     """1.3: the made-up fit says how its descent ended. The chart list offers "Messages", in no

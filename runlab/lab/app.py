@@ -42,7 +42,7 @@ from runlab.cli import folder_of
 from runlab.figure.chart import (INDEX_LABEL, chart_of, distinct, pool_refusal, series_of,
                                  sweep_of, telling)
 from runlab.figure.draw import draw, draw_sweep
-from runlab.figure.own import library_dir, own_figure, own_page
+from runlab.figure.own import library_dir, own_figure, own_page, save_page
 from runlab.figure.render import log_refusal, table_of
 from runlab.figure.style import series_color
 from runlab.figure.twin import figure_of
@@ -1349,6 +1349,7 @@ class Lab:
         title = next((f.title for _, record in pairs for f in record.figures()
                       if f.name == card.chart), card.chart)
         rows: list[Any] = []
+        plays = False
         for name, fig in drawn:
             if len(pairs) > 1:
                 dot = _colour(self.shown.index(name)) if name in self.shown else ""
@@ -1357,6 +1358,7 @@ class Lab:
                                   style=_LABEL, margin=(6, 0, 0, 4)))
             # a figure that plays is plotly's own page in a frame; any other, the page's plot
             page = own_page(dict(pairs)[name], card.chart, frames.LIBRARY)
+            plays = plays or page is not None
             rows.append(self._plot((card.id, "plot", name), fig)[0] if page is None else
                         self._framed((card.id, "frame", name), name, page,
                                      int(fig["layout"]["height"])))
@@ -1366,8 +1368,42 @@ class Lab:
             words.append(say_n("cards.own_without", len(without), runs=", ".join(without)))
         self.drawn[card.id] = [name for name, _ in drawn]
         ctx = shaping.Context("own", runs=len(drawn))
+        # a figure that plays is saved as its page (from 1.13); any other own figure is not
+        save = self._page_save_button(card) if plays else None
         return self._frame(card, title, self._toolbar(card, ctx), body, " · ".join(words),
-                           bool(words))
+                           bool(words), save)
+
+    def _page_save_button(self, card: shaping.Card) -> Any:
+        """Save on a figure that plays: its page written for each shown run that draws it."""
+        save, new = self._keep((card.id, "save"), lambda: _widget(
+            pn.widgets.Button, label=say("cards.save"), width=_width(say("cards.save")) + 16))
+        if new:
+            save.on_click(lambda _e: self._save_pages(card))
+        return save
+
+    def _save_pages(self, card: shaping.Card) -> None:
+        """Write the page of the figure ``card`` shows for each shown run that draws it, into the
+        folder beside the runs named after them (``cli.folder_of``), with plotly's library and a
+        note beside it; a run's own page is called ``<figure>-<run>`` where several are shown.
+        What it wrote, or why it wrote nothing, stands under the card."""
+        piece = self.piece["name"]
+        pairs = [(n, r) for n, r in self._pairs()[0] if n in self.drawn.get(card.id, [])]
+        names = [n for n, _ in pairs]
+        folder = os.path.join(self.root, self.out_dir, piece, folder_of(names))
+        try:
+            paths = [save_page(record, card.chart, folder,
+                               card.chart if len(pairs) == 1 else f"{card.chart}-{name}",
+                               {"runs": [name]})
+                     for name, record in pairs]
+        except OSError as exc:
+            card.saved, card.save_failed = say("cards.not_saved", words=exc), True
+        else:
+            wrote = " ".join(os.path.relpath(str(p), self.root) for p in paths if p)
+            print(f"lab: wrote {wrote}")
+            card.saved, card.save_failed = say("cards.wrote", files=wrote), False
+        self.folders = state.folders(self.root, self.out_dir, piece)
+        self._draw_saved()
+        self._draw_cards()
 
     def _messages_view(self, card: shaping.Card, pairs: list[tuple[str, Any]],
                        refused: list[str]) -> pn.Column:

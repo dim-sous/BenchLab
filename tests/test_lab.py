@@ -77,8 +77,9 @@ _ALLOWED = {# the declared project: its pieces, and its command and title -- wor
             "runlab.figure.draw": {"draw", "draw_sweep"},
             # a figure the piece draws itself, as the page's pane takes it: passed through;
             # one that plays, as the page plotly writes for it, and where the installed plotly
-            # keeps the library that page reads, both answered by the Lab's server (1.1)
-            "runlab.figure.own": {"own_figure", "own_page", "library_dir"},
+            # keeps the library that page reads, both answered by the Lab's server (1.1);
+            # that page written beside the runs by the card's Save (1.13)
+            "runlab.figure.own": {"own_figure", "own_page", "library_dir", "save_page"},
             "runlab.figure.style": {"series_color", "FONT", "MONO", "SURFACE", "INK",
                                       "INK_SECONDARY", "GRID"}}
 _THIRD_PARTY = {"panel", "param"}

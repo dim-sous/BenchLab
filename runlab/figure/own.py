@@ -8,6 +8,11 @@ sits on its card as the layer's own charts do. A template fills only what a figu
 whatever the piece set is kept, and its title, labels and legend are its own. A piece that
 chose a template of its own keeps it.
 
+A figure that holds frames, or carries a script, is handed over a second way as well
+(:func:`own_page`): as the page plotly itself writes for it, which the Lab's page shows in a
+frame. Observed 2026-11-22 (Panel 1.9.4): a figure with frames in the page's Plotly pane showed
+its play button and its slider, held no frames, and did not move.
+
 Observed 2026-11-17, driving DeePC's pole map: under plotly's stock template, which its classes
 give every figure and the page's pane gives a plain dict, the grid and the zero lines are white,
 drawn for that template's grey-blue plot; on the card's paper they did not show.
@@ -15,12 +20,13 @@ drawn for that template's grey-blue plot; on the card's paper they did not show.
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 from runlab.figure.style import FONT, GRID, INK, INK_SECONDARY, MONO, NEUTRAL, SURFACE, series_color
 from runlab.figure.twin import ONE_PX
 
-__all__ = ["own_figure", "TEMPLATE"]
+__all__ = ["own_figure", "own_page", "library_dir", "TEMPLATE"]
 
 _AXIS = {"gridcolor": GRID, "linecolor": GRID, "zerolinecolor": NEUTRAL, "zerolinewidth": 1,
          "title": {"font": {"size": 12, "color": INK}, "standoff": 8}, "tickfont": {"size": 11}}
@@ -71,3 +77,33 @@ def own_figure(record: Any, name: str) -> dict[str, Any] | None:
             layout["meta"] = {**(layout.get("meta") or {}), "panel": name}
             return drawn
     return None
+
+
+def own_page(record: Any, name: str, library: str) -> str | None:
+    """The figure ``name`` that ``record`` draws itself, as a page of its own -- the one plotly
+    writes (``plotly.io.to_html``), its plot the whole of the page, plotly's library read from
+    the address ``library`` -- when the figure plays (it holds frames) or carries a script;
+    ``None`` for any other figure, and for a name the record declares no figure of. Nothing
+    plays until its play button is pressed. The script runs once the plot is made. The plot's
+    element is always ``figure``: plotly's own choice is a new random id each time, and the
+    same figure would then be a different page at every drawing (observed 2026-11-23: a frame
+    given such a page again loaded it again, which starts a figure left playing over)."""
+    declared = next((f for f in record.figures() if f.name == name), None)
+    if declared is None:
+        return None
+    drawn = own_figure(record, name)
+    if not drawn.get("frames") and not declared.script:
+        return None
+    import plotly.io as pio                 # the figure is plotly's own: plotly is there
+
+    return pio.to_html(drawn, include_plotlyjs=library, full_html=True, auto_play=False,
+                       post_script=declared.script or None, default_height="100%", div_id="figure",
+                       config={"displaylogo": False, "responsive": True})
+
+
+def library_dir() -> Path:
+    """The folder of the installed ``plotly`` package that holds plotly's own library
+    (``plotly.min.js``), which a playing figure's page reads."""
+    import plotly
+
+    return Path(plotly.__file__).parent / "package_data"

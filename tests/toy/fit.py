@@ -5,7 +5,8 @@ beside its run file -- the weights it ends with (``weights.npy``) and those it h
 run whose weights it starts from, read out of that run's folder; and two settings of other kinds than the
 six, a matrix (the 2 by 2 ``scale`` each step is multiplied by; the identity leaves the step as
 it is) and a calendar date (``day``, only saved). Its Run group is test machinery:
-a wait after its files are written, and a crash there."""
+a wait after its files are written, and a crash there. And a figure of its own that PLAYS: the
+descent, the loss as a point moving down its curve, with a script its page runs."""
 
 from __future__ import annotations
 
@@ -16,7 +17,8 @@ import time
 import numpy as np
 import param
 
-from runlab import Number, Provenance, Quantity, Series, Settings, files_of, run_files, stamp
+from runlab import (Figure, Number, Provenance, Quantity, Series, Settings, files_of, run_files,
+                    stamp)
 from runlab import Record as _Record
 
 __all__ = ["Config", "run", "Record"]
@@ -77,6 +79,27 @@ class Record(_Record):
     def series(self) -> tuple[Series, ...]:
         return (Series(name="loss", x=self.step, x_quantity=STEP, quantity=MSE,
                        traces=(("loss", self.loss),), group="Fit", y_log=True),)
+
+    def figures(self) -> tuple[Figure, ...]:
+        """The descent, played: the loss as a point moving down its own curve, a frame every
+        tenth of the steps -- a figure with frames, and with a script its page runs."""
+        kept = np.unique(np.linspace(0, len(self.step) - 1, 11).astype(int))
+        at = lambda k: {"type": "scatter", "mode": "markers", "x": [float(self.step[k])],
+                        "y": [float(self.loss[k])], "marker": {"size": 10}, "name": "now"}
+        curve = {"type": "scatter", "mode": "lines", "x": self.step.tolist(),
+                 "y": self.loss.tolist(), "name": "loss"}
+        return (Figure(name="descent", group="Fit", title="Descent", figure={
+            "data": [curve, at(0)],
+            "frames": [{"name": str(int(k)), "data": [curve, at(int(k))]} for k in kept],
+            "layout": {"xaxis": {"title": {"text": "Step [-]"}},
+                       "yaxis": {"title": {"text": "Mean squared error [-]"}, "type": "log"},
+                       "updatemenus": [{"type": "buttons", "buttons": [
+                           {"label": "Play", "method": "animate",
+                            "args": [None, {"frame": {"duration": 50}, "fromcurrent": True}]}]}],
+                       "sliders": [{"steps": [
+                           {"label": str(int(k)), "method": "animate",
+                            "args": [[str(int(k))], {"mode": "immediate"}]} for k in kept]}]}},
+            script="document.getElementById('{plot_id}').dataset.scripted = 'yes';"),)
 
     def number_specs(self) -> tuple[Number, ...]:
         return (Number("w0", "Fitted intercept", group="Fit"),

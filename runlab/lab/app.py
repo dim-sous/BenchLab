@@ -42,7 +42,7 @@ from runlab.cli import folder_of
 from runlab.figure.chart import (INDEX_LABEL, chart_of, distinct, pool_refusal, series_of,
                                  sweep_of, telling)
 from runlab.figure.draw import draw, draw_sweep
-from runlab.figure.own import own_figure
+from runlab.figure.own import library_dir, own_figure, own_page
 from runlab.figure.render import log_refusal, table_of
 from runlab.figure.style import series_color
 from runlab.figure.twin import figure_of
@@ -50,7 +50,7 @@ from runlab.project import title
 from runlab.record import capital
 from runlab.runner import planned
 
-from . import jobs, shaping, skin, state, view
+from . import frames, jobs, shaping, skin, state, view
 from .compare import CompareTable
 from .form import Form, as_text, interval, term
 from .runlist import RunList, SavedList
@@ -1134,6 +1134,20 @@ class Lab:
             pane.param.update(object=fig, height=fig["layout"]["height"])
         return pane, new
 
+    def _framed(self, key: tuple, run: str, page: str, height: int) -> pn.pane.HTML:
+        """The frame kept under ``key``, showing ``page`` -- a playing figure's own page, which
+        the Lab's server answers for (:mod:`lab.frames`) -- at the figure's height. One kept is
+        given the page's new address only when the page changed, so a figure left playing while
+        the cards are drawn again plays on."""
+        at = frames.address(f"{id(self)}/{key[0]}/{run}", page)
+        framed = (f"<iframe src='{at}' data-own-frame='{html.escape(run, quote=True)}' "
+                  f"style='width:100%;height:{height}px;border:0;display:block'></iframe>")
+        pane, new = self._keep(key, lambda: pn.pane.HTML(
+            framed, sizing_mode="stretch_width", height=height, margin=0))
+        if not new and pane.object != framed:
+            pane.param.update(object=framed, height=height)
+        return pane
+
     def _toolbar(self, card: shaping.Card, ctx: shaping.Context) -> list[Any]:
         """The card's controls, one per way it shapes what it draws, in the groups and the order
         :data:`lab.shaping.SHAPINGS` declares, each group one box that stays whole -- every
@@ -1298,7 +1312,11 @@ class Lab:
                 rows.append(_html(f"<span style='color:{dot}'>●</span> "
                                   f"<span data-run='{html.escape(name)}'>{html.escape(name)}</span>",
                                   style=_LABEL, margin=(6, 0, 0, 4)))
-            rows.append(self._plot((card.id, "plot", name), fig)[0])
+            # a figure that plays is plotly's own page in a frame; any other, the page's plot
+            page = own_page(dict(pairs)[name], card.chart, frames.LIBRARY)
+            rows.append(self._plot((card.id, "plot", name), fig)[0] if page is None else
+                        self._framed((card.id, "frame", name), name, page,
+                                     int(fig["layout"]["height"])))
         body: Any = self._box((card.id, "own"), rows, margin=0) if rows else pn.pane.HTML("")
         words = list(refused)
         if without:
@@ -1989,4 +2007,6 @@ def serve(port: int, root: str, out_dir: str, *, show: bool = True, threaded: bo
     return pn.serve({"/": lambda: page(root, out_dir)}, port=port, address="127.0.0.1",
                     websocket_origin=[f"127.0.0.1:{port}", f"localhost:{port}"], show=show,
                     title=title(), threaded=threaded,
-                    static_dirs={skin.FONTS_ROUTE: str(skin.FONTS_DIR)})
+                    static_dirs={skin.FONTS_ROUTE: str(skin.FONTS_DIR),
+                                 frames.LIBRARY_ROUTE: str(library_dir()),
+                                 frames.ROUTE: str(frames.folder())})

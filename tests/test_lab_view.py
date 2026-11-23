@@ -33,7 +33,7 @@ from runlab.figure.render import DASHES
 from runlab.figure.style import series_color, shade
 from runlab.figure.twin import figure_of
 import runlab.lab.app as app_module
-from runlab.lab import jobs, shaping, skin, state
+from runlab.lab import frames, jobs, shaping, skin, state
 from runlab.lab.app import Lab, page, serve
 from runlab.lab.form import interval
 
@@ -1375,6 +1375,73 @@ def test_a_shown_run_that_draws_no_such_figure_is_named_on_the_card(lag_runs) ->
     assert _rows_of(lab, "pole") == ["second"] and len(_own_panes(lab, "pole")) == 1
     assert _own_names(lab, "pole") == ["second"], "two runs shown: the one drawn is named"
     assert "first declares no such figure" in _card_words(lab, "pole")
+
+
+def _framed(lab: Lab, panel: str) -> list[tuple[str, str]]:
+    """The frames an own-figure card shows, top to bottom: each one's run and its address."""
+    return [found for o in _card(lab, panel).select(pn.pane.HTML)
+            for found in re.findall(r"<iframe src='([^']+)' data-own-frame='([^']+)'", o.object)]
+
+
+def test_a_figure_that_plays_is_shown_in_a_frame_per_run_and_kept_while_it_is_the_same(
+        tmp_path) -> None:
+    """1.1: the made-up fit's descent holds frames. Its card shows no plot of the page's (there
+    it would not play) but a frame per shown run, each at an address the Lab's server answers
+    with that run's own page; a run ticked beside it adds a frame and leaves the first where it
+    was, at the address it had; the card's control is every own figure's, greyed."""
+    for name, sets in (("a", ()), ("b", ("rate=0.2",))):
+        cli.main(["run", "fit", "--name", name, "--out-dir", str(tmp_path / "results"),
+                  *(w for item in sets for w in ("--set", item))])
+    lab, *_ = _lab((str(tmp_path), "results"), piece="fit")
+    lab.run_list.shown = ["b"]
+    _tabs(lab)["descent"].value = True
+    assert lab.open_charts[-1] == "descent" and ">Descent<" in \
+        _card(lab, "descent").objects[0].objects[0].object
+    assert not _card(lab, "descent").select(pn.pane.Plotly), "not the page's plot"
+    [(at, run)] = _framed(lab, "descent")
+    assert run == "b" and at.startswith(f"/{frames.ROUTE}/") and _own_names(lab, "descent") == []
+    page_b = frames.page_of(at)
+    assert "Plotly.addFrames" in page_b and frames.LIBRARY in page_b
+    [pane] = [o for o in _card(lab, "descent").select(pn.pane.HTML) if "<iframe" in o.object]
+    assert _greyed(lab, "descent") == {
+        "Overlay | Split | Mean | RMS": "A piece's own figure is drawn once per run"}
+    _tick(lab, "a")
+    assert [run for _, run in _framed(lab, "descent")] == ["b", "a"]
+    assert _own_names(lab, "descent") == ["b", "a"], "two runs shown: each frame under its name"
+    assert _framed(lab, "descent")[0][0] == at, "the first is at the address it had"
+    assert pane in _card(lab, "descent").select(pn.pane.HTML), "and is the frame it was"
+    page_a = frames.page_of(_framed(lab, "descent")[1][0])
+    assert page_a != page_b, "each run's own descent: their rates differ"
+    assert lab.page().get_root() is not None, "the page builds with it"
+
+
+def test_the_labs_server_answers_for_a_playing_figures_page_and_for_plotlys_library(
+        tmp_path) -> None:
+    """1.1, served: the address a frame is given answers with the page, and the library that
+    page names answers out of the installed plotly, both on this computer."""
+    cli.main(["run", "fit", "--name", "a", "--out-dir", str(tmp_path / "results")])
+    at = frames.address("a test's page", "<!doctype html><p>held</p>")
+    with socket.socket() as probe:
+        probe.bind(("127.0.0.1", 0))
+        port = probe.getsockname()[1]
+    handler = pn.config.exception_handler
+    server = serve(port, str(tmp_path), "results", show=False, threaded=True)
+    try:
+        deadline = time.time() + 30
+        while True:
+            try:
+                got = urllib.request.urlopen(f"http://127.0.0.1:{port}{at}", timeout=5).read()
+                break
+            except OSError:
+                if time.time() > deadline:
+                    raise
+                time.sleep(0.2)
+        assert got == b"<!doctype html><p>held</p>"
+        library = urllib.request.urlopen(f"http://127.0.0.1:{port}{frames.LIBRARY}", timeout=20)
+        assert library.read(40).startswith(b"/**\n* plotly.js v"), "plotly's own library"
+    finally:
+        server.stop()
+        pn.config.exception_handler = handler
 
 
 def test_the_switch_words_the_chart_list_the_card_and_its_axes_and_keeps_a_zoom(tmp_path) -> None:

@@ -17,7 +17,7 @@ import runlab.figure.render as render_module
 from runlab import Figure, Series, cli
 from runlab.figure import draw, draw_sweep
 from runlab.figure.chart import INDEX_LABEL, chart_of, sweep_of
-from runlab.figure.own import TEMPLATE, own_figure
+from runlab.figure.own import TEMPLATE, library_dir, own_figure, own_page
 from runlab.figure.render import (DASHES, LEGEND_LINE, SHORT, Axes, Line, Panel, broken,
                                   has_legend, log_refusal, render, table_of)
 from runlab.figure.twin import figure_of
@@ -594,3 +594,41 @@ def test_a_row_each_is_one_time_axis_with_one_legend_and_the_quantity_said_once(
     assert [a["text"] for a in fig["layout"]["annotations"]] == ["a", "b", quantity]
     assert [fig["layout"][k]["title"]["text"] for k in ("yaxis", "yaxis2")] == ["", ""]
     assert fig["layout"]["height"] == ONE_PX + MORE_ROW_PX
+
+
+def test_a_figure_that_plays_is_handed_over_as_a_page_of_its_own_and_any_other_is_not(
+        tmp_path) -> None:
+    """1.1: the made-up fit's descent holds frames, so it is also handed over as the page plotly
+    writes for it: every frame in it, plotly's library read from the address given, its script
+    run with the plot's own id, nothing played until asked. A figure with neither frames nor a
+    script (the lag's pole) has no such page, and a script is text."""
+    from tests.toy import fit, lag, wave
+    cli.main(["run", "fit", "--name", "a", "--out-dir", str(tmp_path)])
+    cli.main(["run", "wave", "--name", "w", "--out-dir", str(tmp_path)])
+    cli.main(["run", "lag", "--name", "l", "--out-dir", str(tmp_path),
+              "--set", f"wave_run={tmp_path / 'wave' / 'w.json'}"])
+    rec = fit.Record.load(tmp_path / "fit" / "a.json")
+    page = own_page(rec, "descent", "/lib/plotly.min.js")
+    assert '<script charset="utf-8" src="/lib/plotly.min.js"></script>' in page
+    frames = rec.figures()[0].figure["frames"]
+    assert len(frames) == 11 and "Plotly.addFrames" in page
+    assert all(f'"name":"{f["name"]}"' in page for f in frames), "every frame, by its name"
+    assert "Plotly.animate" not in page, "nothing plays until its button is pressed"
+    assert ".dataset.scripted = 'yes'" in page and "{plot_id}" not in page, \
+        "the script, with the plot's own id in place"
+    assert own_figure(rec, "descent")["frames"] == frames, "the page's pane is handed them too"
+    assert own_page(lag.Record.load(tmp_path / "lag" / "l.json"), "pole", "/lib.js") is None
+    assert own_page(rec, "loss", "/lib.js") is None, "a chart is not a figure"
+    assert own_page(wave.Record.load(tmp_path / "wave" / "w.json"), "descent", "/lib.js") is None
+    assert (library_dir() / "plotly.min.js").is_file(), "the library that page reads is installed"
+    with pytest.raises(TypeError, match="its script is text"):
+        Figure(name="x", figure={"data": []}, script=None)
+
+
+def test_a_figure_with_a_script_and_no_frames_is_a_page_of_its_own_too() -> None:
+    class Scripted:
+        def figures(self):
+            return (Figure("turned", {"data": [{"x": [1], "y": [2]}], "layout": {}},
+                           script="window.turned = '{plot_id}';"),)
+    page = own_page(Scripted(), "turned", "/lib.js")
+    assert "window.turned = '" in page and "Plotly.addFrames" not in page

@@ -75,10 +75,10 @@ def _shows(page, *words: str, timeout: float = 45.0) -> list[str]:
 
 @contextlib.contextmanager
 def _served(tmp_path, query: str = "", *, width: int = 1440, second: tuple[str, ...] = (),
-            lag: bool = False):
+            lag: bool = False, fit: bool = False):
     """The Lab served over two toy runs, ``first`` and ``second`` (the defaults, but for the
-    settings ``second`` names for it) -- and, with ``lag``, a run ``one`` of the lag on ``first``
-    -- and a browser page ``width`` wide on it (``query`` its address's, e.g. ``?shown=first``):
+    settings ``second`` names for it) -- and, with ``lag``, a run ``one`` of the lag on ``first``;
+    with ``fit``, a run ``a`` of the fit -- and a browser page ``width`` wide on it (``query`` its address's, e.g. ``?shown=first``):
     ``(page, errors, root, out_dir)``, the errors those the page raises, those it logs to its
     console, and each request it makes beyond this computer, which is refused: the page needs no
     internet."""
@@ -89,6 +89,8 @@ def _served(tmp_path, query: str = "", *, width: int = 1440, second: tuple[str, 
     if lag:
         cli.main(["run", "lag", "--name", "one", "--out-dir", str(tmp_path / out_dir),
                   "--set", f"wave_run={tmp_path / out_dir / 'wave' / 'first.json'}"])
+    if fit:
+        cli.main(["run", "fit", "--name", "a", "--out-dir", str(tmp_path / out_dir)])
     with socket.socket() as probe:
         probe.bind(("127.0.0.1", 0))
         port = probe.getsockname()[1]
@@ -471,6 +473,35 @@ def test_a_figure_the_piece_draws_itself_is_drawn_in_the_browser_as_the_piece_dr
         [trace] = plots["pole"]["traces"]
         assert trace["x"] == [-20] and trace["y"] == [0], "the pole of the default τ = 0.05"
         assert "Pole" in page.evaluate(_TEXT), "the card's title"
+        assert not errors[switched:], errors[switched:]
+
+
+def test_a_figure_that_plays_plays_in_the_browser_and_its_script_runs(tmp_path) -> None:
+    """1.1: the fit's descent, a figure of the piece's own that holds frames, opened from the
+    chart list. It is plotly's own page in a frame on the card: its script ran there, the point
+    stands at the first step, and its Play button moves it to the last. The library that page
+    reads came from this computer, and the page raises nothing for it."""
+    with _served(tmp_path, fit=True) as (page, errors, _root, _out_dir):
+        _shows(page, "2 on disk")
+        page.locator("select").first.select_option(label="Fit")
+        _shows(page, "1 on disk")
+        page.wait_for_timeout(1500)
+        switched = len(errors)
+        page.locator("button", has_text="Descent").first.click()
+        page.wait_for_timeout(2500)
+        framed = [f for f in page.frames if "/runlab-frames/" in f.url]
+        assert len(framed) == 1, [f.url for f in page.frames]
+        [frame] = framed
+        frame.wait_for_function("document.getElementById('figure') "
+                                "&& document.getElementById('figure').data")
+        now = "document.getElementById('figure').data[1].x[0]"
+        assert frame.evaluate("document.getElementById('figure').dataset.scripted") == "yes"
+        assert frame.evaluate(now) == 0, "nothing plays until asked"
+        steps = frame.evaluate("document.getElementById('figure').data[0].x.length")
+        assert steps > 10
+        frame.locator("text=Play").first.click()
+        frame.wait_for_function(f"{now} === {steps - 1}", timeout=15000)
+        assert "Descent" in page.evaluate(_TEXT), "the card's title"
         assert not errors[switched:], errors[switched:]
 
 

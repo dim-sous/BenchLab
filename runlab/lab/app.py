@@ -282,6 +282,22 @@ class _Table:
     def _width(self, sub: dict[str, Any]) -> int:
         return self.PICK if sub.get("choices") else self.BOX
 
+    def _row_label(self, i: int, row: dict[str, Any]) -> str:
+        """A row's label: its number; where the rows are called by a setting (``by_name``), its
+        name, in the words the setting declares for it (``row_words``, from 1.11)."""
+        by = self.f.get("by_name")
+        if not by:
+            return str(i)
+        name = as_text(row.get(by))
+        return (self.f.get("row_words") or {}).get(name, {}).get("label") or name
+
+    def _label_width(self) -> int:
+        """A row label's width: a number's, or the longest name's."""
+        if not self.f.get("by_name"):
+            return 28
+        longest = max((len(self._row_label(i, r)) for i, r in enumerate(self._rows)), default=2)
+        return min(200, 8 * longest + 8)
+
     def _draw(self) -> None:
         subs = self.f["element_fields"]
         head = pn.Row(_html("", width=28, margin=(0, 4)),
@@ -313,7 +329,8 @@ class _Table:
             drop.on_click(lambda _e, i=i: self._drop(i))
             self._cells += cells
             self._buttons.append(drop)
-            lines.append(pn.Row(_html(str(i), width=28, margin=(0, 4),
+            lines.append(pn.Row(_html(html.escape(self._row_label(i, row)),
+                                      width=self._label_width(), margin=(0, 4),
                                       style=f"{_MONO};{_DIM};font-size:12.5px;"
                                             f"line-height:{skin.BOX_PX}px"),
                                 *cells, drop, margin=0))
@@ -1816,14 +1833,40 @@ class Lab:
         taken = self.form.type_or_pick(name, text)
         self._taken_back(taken)
         self._apply_gates()
+        self._placeholders()
 
     def _on_pick(self, name: str, value: str) -> None:
         if self._filling:
             return
         self._refused.pop(name, None)
         taken = self.form.type_or_pick(name, value)
+        self._replaced_by(self.form.by_name[name], value)
         self._taken_back(taken)
         self._apply_gates()
+        self._placeholders()
+
+    def _replaced_by(self, f: dict[str, Any], picked: str) -> None:
+        """A saved run picked in a setting that names what it ``replaces``: the settings it sets
+        in place of the ones set here, read off its file, shown as their placeholders; none when
+        the pick is emptied (from 1.11). The page reads the run's own value; it computes none."""
+        if not f.get("replaces"):
+            return
+        self.form.replaced = {}
+        if not picked:
+            return
+        path = picked if os.path.isabs(picked) else os.path.join(self.root, picked)
+        with open(path) as fh:
+            held = json.load(fh).get(f["replaces"]) or []
+        run = os.path.splitext(os.path.basename(picked))[0]
+        self.form.replaced = {str(setting): (value, run) for setting, value in held}
+
+    def _placeholders(self) -> None:
+        """Every typed box's placeholder, again: what an empty one runs as may follow another
+        setting (``default_from``) or a picked run (``replaces``, from 1.11)."""
+        for f in self.form.fields:
+            control = self._controls.get(f["name"])
+            if isinstance(control, pn.widgets.TextInput):
+                control.placeholder = self.form.shown_default(f)
 
     def _on_sweep(self, *, field: Optional[str] = None, values: Optional[str] = None) -> None:
         if self._filling:

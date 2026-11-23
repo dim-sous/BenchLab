@@ -45,6 +45,9 @@ class Form:
         #: Each piece's saved runs that can be read, as paths: what a setting naming one
         #: (``record_of``) offers. The page fills it from the folder it reads.
         self.saved: dict[str, list[str]] = {}
+        #: What a picked saved run sets in place of the settings set here (``replaces``, from
+        #: 1.11): setting -> (value, the run's name). The page fills it when such a run is picked.
+        self.replaced: dict[str, tuple[Any, str]] = {}
 
     # -- words
     def label(self, name: str) -> str:
@@ -59,6 +62,17 @@ class Form:
         for one the run resolves (``code_default``: ``None`` in the Config, resolved by the run
         and saved in its record's constants; an empty placeholder said nothing of what the run
         would use)."""
+        held = self.replaced.get(f["name"])
+        if held is not None:
+            return say("form.replaced", value=as_text(held[0]), run=held[1])
+        looked = f.get("default_from")
+        if looked:
+            other = self.effective(looked["field"])
+            values = looked["values"]
+            if values is None:
+                return other
+            if other in values:
+                return as_text(values[other])
         return say("form.code_default") if f.get("code_default") else as_text(f["default"])
 
     def options(self, f: dict[str, Any]) -> Optional[list[dict[str, str]]]:
@@ -226,7 +240,14 @@ class Form:
         self.set = {}
         self.name = ""
         self.sweep_field = self.sweep_values = ""
+        self.replaced = {}
         dropped = []
+        # a registered option that IS a set of this Config's settings opens at those settings
+        # (``stands_for``, from 1.11): its run is one to edit, not a name to keep
+        for f in self.fields:
+            stood = (f.get("stands_for") or {}).get(as_text(config.get(f["name"])))
+            if stood:
+                config = {**config, **stood}
         for key, value in config.items():
             f = self.by_name.get(key)
             if f is None:

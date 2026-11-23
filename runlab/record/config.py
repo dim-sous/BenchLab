@@ -20,6 +20,16 @@ outside the choices in its own words. What param has no slot for rides in ``meta
 - ``folded``: the form shows the setting's group closed until it is opened;
 - ``rows``: on a list setting, the form draws one labeled box per item -- ``{"label": "x{}'",
   "add": "+ State"}``, the label numbered from 1, the add button's words;
+- ``default_from`` (from 1.11): ``(other_setting, {its value: what an empty one runs as})`` --
+  an empty setting whose value is looked up off another's, shown as the form's placeholder;
+  ``(other_setting, None)``: the other setting's own value. A function stands for the mapping;
+- ``stands_for`` (from 1.11): on a choice, ``{option: {setting: value}}`` -- a registered option
+  that IS a set of the Config's own settings; the form's Use opens a run of it at those settings;
+- ``replaces`` (from 1.11): on a setting naming a saved run (``record_of``), the field of that run
+  listing ``(setting, value)`` pairs it sets in place of the ones set here, shown as those
+  settings' placeholders once it is picked;
+- ``row_words`` (from 1.11): on a list of rows called by name, ``{row name: {"label": words}}``,
+  the words the form shows a row by;
 - ``by_name``: on a list of rows, the setting of a row it is called by (from 1.8): a path then
   names a row by that setting's value, not its number (``transition.cv.ca``, the row called
   ``cv``, its setting ``ca``; the name may itself hold dots, the last key being the setting), and
@@ -259,8 +269,27 @@ def fields_of(cls: type) -> list[dict[str, Any]]:
             "folded": bool(meta.get("folded")), "rows": meta.get("rows"),
             "texts": isinstance(p, param.List) and p.item_type is str,
             "part": "", "by_name": _named_by(p),
+            "default_from": _looked_up(meta.get("default_from")),
+            "stands_for": _read_now(meta.get("stands_for")) or {},
+            "replaces": meta.get("replaces", ""),
+            "row_words": _read_now(meta.get("row_words")) or {},
         })
     return out
+
+
+def _read_now(declared: Any) -> Any:
+    """A declaration read now: a function called, a mapping's keys as text."""
+    held = declared() if callable(declared) else declared
+    return ({str(k): (dict(v) if isinstance(v, Mapping) else v) for k, v in held.items()}
+            if isinstance(held, Mapping) else held)
+
+
+def _looked_up(declared: Any) -> dict[str, Any] | None:
+    """``default_from`` as ``{"field", "values"}`` (``values`` ``None``: the field's own value)."""
+    if declared is None:
+        return None
+    other, mapping = declared
+    return {"field": other, "values": _read_now(mapping)}
 
 
 def _part_fields(name: str, p: param.Parameter, part: type) -> list[dict[str, Any]]:

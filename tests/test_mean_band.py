@@ -97,7 +97,7 @@ def test_a_panel_declares_the_band_of_a_mean_only_with_a_mean_and_at_least_one_d
     with pytest.raises(ValueError, match="averages 0 draws; at least 1"):
         Series(**held, pooled=("mean",), averaged=0)
     plain = Series(**held, pooled=("mean",))
-    assert plain.averaged == 1 and mean_band_of(plain, 4) is None
+    assert plain.averaged == 1 and mean_band_of(plain, 4) == ()
 
 
 def test_a_band_edge_of_another_length_is_refused_and_the_projects_check_finds_it(

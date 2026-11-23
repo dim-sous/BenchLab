@@ -214,3 +214,19 @@ def test_the_piece_list_puts_the_pieces_under_their_groups_once_one_declares_one
     assert grouped.piece_select.groups == {"Signals": {"Wave": "wave", "Lag": "lag"},
                                            "Fit": {"Fit": "fit"}}
     assert grouped.piece_select.value == "wave"
+
+
+def test_the_band_of_a_mean_may_be_several_each_naming_its_line() -> None:
+    """1.8: two statistics on one chart, each with the band its mean sits in; one band said as
+    before is one band."""
+    from runlab.figure.chart import mean_band_of
+    two = Series(name="nees", x=X, x_label="t [s]", y_label="NEES [-]",
+                 traces=(("first", 3.0 + 0 * X), ("second", 6.0 + 0 * X)), pooled=("mean",),
+                 mean_band=lambda n: (("first's band", 2.0, 4.0, "first"),
+                                      ("second's band", 5.0, 7.0, "second")))
+    said = mean_band_of(two, 2)
+    assert [b[0] for b in said] == ["first's band", "second's band"]
+    assert [b[3] for b in said] == ["first", "second"] and list(said[0][1]) == [2.0] * len(X)
+    one = Series(name="nis", x=X, x_label="t [s]", y_label="NIS [-]", traces=(("x", X),),
+                 pooled=("mean",), mean_band=lambda n: ("band", 0.0, 1.0))
+    assert [b[0] for b in mean_band_of(one, 3)] == ["band"]

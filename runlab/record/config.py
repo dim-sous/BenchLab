@@ -19,7 +19,11 @@ outside the choices in its own words. What param has no slot for rides in ``meta
   carries (``Record.provides``): then a run of any piece that carries it (from 1.4);
 - ``folded``: the form shows the setting's group closed until it is opened;
 - ``rows``: on a list setting, the form draws one labeled box per item -- ``{"label": "x{}'",
-  "add": "+ State"}``, the label numbered from 1, the add button's words.
+  "add": "+ State"}``, the label numbered from 1, the add button's words;
+- ``by_name``: on a list of rows, the setting of a row it is called by (from 1.8): a path then
+  names a row by that setting's value, not its number (``transition.cv.ca``, the row called
+  ``cv``, its setting ``ca``; the name may itself hold dots, the last key being the setting), and
+  a path naming a row the list does not hold adds it, called so.
 
 A setting whose default is ``None`` means "the plant's own": the piece resolves it when it runs
 and saves what it resolved. A list setting holds numbers (the Q and R weights; JSON or commas on
@@ -85,6 +89,13 @@ class Settings(param.Parameterized):
 def _parameters(cls: type) -> dict[str, param.Parameter]:
     """The declared parameters, in declaration order, without param's own ``name``."""
     return {n: p for n, p in cls.param.objects(instance=False).items() if n != "name"}
+
+
+def _named_by(p: param.Parameter) -> str:
+    """The setting a list of rows calls its rows by (``metadata["by_name"]``), ``""`` for any
+    other setting."""
+    by = (p.metadata or {}).get("by_name") if _rows_of(p) else None
+    return by if isinstance(by, str) else ""
 
 
 def _part_of(p: param.Parameter) -> type | None:
@@ -247,7 +258,7 @@ def fields_of(cls: type) -> list[dict[str, Any]]:
             "draws": meta.get("draws"), "record_of": meta.get("record_of", ""),
             "folded": bool(meta.get("folded")), "rows": meta.get("rows"),
             "texts": isinstance(p, param.List) and p.item_type is str,
-            "part": "",
+            "part": "", "by_name": _named_by(p),
         })
     return out
 
@@ -290,6 +301,14 @@ def parameter_at(cls: type, name: str) -> param.Parameter:
         raise ValueError(f"unknown setting {head!r} on {cls.__name__}; valid: {sorted(params)}")
     if not rest:
         return params[head]
+    row = _rows_of(params[head])
+    if row is not None:
+        cell = rest.rsplit(".", 1)[-1] if _named_by(params[head]) else rest.partition(".")[2]
+        cells = _parameters(row)
+        if cell not in cells:
+            raise ValueError(f"{name!r}: a row of {head} holds no {cell!r}; it holds "
+                             f"{sorted(cells)}")
+        return cells[cell]
     part = _part_of(params[head])
     if part is None:
         raise ValueError(f"{name!r}: {head!r} holds no settings of its own, so nothing is "
@@ -384,10 +403,7 @@ def coerce_value(p: param.Parameter, value: Any) -> Any:
                                  f"[\"x2\", \"-x1 + u1\"]") from None
         return _texts(p, value)
     if isinstance(p, param.List) and isinstance(value, (list, tuple)):
-        try:
-            return [float(v) for v in value]
-        except (TypeError, ValueError):
-            raise ValueError(f"{p.name}: {value!r} is not a list of numbers") from None
+        return _numbers(p, value)
     if not isinstance(value, str):
         return value
     text = value.strip()
@@ -408,7 +424,7 @@ def coerce_value(p: param.Parameter, value: Any) -> Any:
             held = json.loads(text) if text.startswith("[") else [float(v) for v in text.split(",")]
             if not isinstance(held, list):
                 raise ValueError
-            return [float(v) for v in held]
+            return _numbers(p, held)
     except (ValueError, TypeError, json.JSONDecodeError):
         kind = {param.Integer: "an integer", param.Number: "a number"}.get(
             type(p), "a list of numbers, [1, 2] or 1,2")
@@ -419,6 +435,21 @@ def coerce_value(p: param.Parameter, value: Any) -> Any:
             raise ValueError(f"{p.name}: {text!r} is not one of {sorted(by_text)}")
         return by_text[text]
     return text
+
+
+def _numbers(p: param.Parameter, value: Any) -> list:
+    """A list setting's numbers: whole numbers where it declares ``item_type=int`` (a list of
+    seeds; from 1.8 -- it read them as floats, which the setting then refused), else floats. A
+    number with a fraction is refused for a list of whole numbers."""
+    try:
+        floats = [float(v) for v in value]
+    except (TypeError, ValueError):
+        raise ValueError(f"{p.name}: {value!r} is not a list of numbers") from None
+    if getattr(p, "item_type", None) is int:
+        if any(not f.is_integer() for f in floats):
+            raise ValueError(f"{p.name}: {value!r} is not a list of whole numbers")
+        return [int(f) for f in floats]
+    return floats
 
 
 def _read(p: param.Parameter, value: Any) -> Any:
@@ -479,6 +510,14 @@ def from_saved(cls: type, raw: Mapping[str, Any]) -> Settings:
     rows are read the same way, each by its row class."""
     params = _parameters(cls)
     held = {k: v for k, v in raw.items() if k in params}
+    # a setting behind a gate the run held shut was at its default of the day, and the run
+    # ignored it: read at today's default, so a default moved since does not refuse the run
+    # (from 1.8; RCWS [A18], measured 2026-11-12 on a run whose shut placeholders had moved)
+    for name, p in params.items():
+        needs = (p.metadata or {}).get("needs") or {}
+        if name in held and any(not _gate_holds(gate, held.get(other, params[other].default))
+                                for other, gate in needs.items()):
+            del held[name]
     for name, value in held.items():
         row = _rows_of(params[name])
         if row is not None and isinstance(value, list):
@@ -520,6 +559,10 @@ def with_overrides(cfg: Settings, pairs: Sequence[tuple[str, Any]]) -> Settings:
         row = _rows_of(params[head])
         if row is None:
             raise ValueError(f"{name!r}: {head!r} holds no rows, so nothing is inside it")
+        by = _named_by(params[head])
+        if by:
+            values[head] = _set_named(values[head], row, by, name, rest, value)
+            continue
         index, _, cell = rest.partition(".")
         rows = values[head]
         if not index.isdigit() or int(index) >= len(rows):
@@ -540,6 +583,26 @@ def with_overrides(cfg: Settings, pairs: Sequence[tuple[str, Any]]) -> Settings:
             raise ValueError(f"{head}: {exc}") from exc
     return cls(**{n: coerce_value(params[n], v) if _rows_of(params[n]) or _part_of(params[n])
                   else v for n, v in values.items()})
+
+
+def _set_named(rows: list, row: type, by: str, name: str, rest: str, value: Any) -> list:
+    """``rows`` (dicts) with the setting a path names set in the row it names by ``by``: the
+    last key the setting, every key before it the row's name; the row added, called so, where
+    the list holds none."""
+    called, _, cell = rest.rpartition(".")
+    cells = _parameters(row)
+    if not called or cell not in cells or cell == by:
+        raise ValueError(f"{name!r}: a path names a row by its {by} and then one of its "
+                         f"settings, {sorted(c for c in cells if c != by)}")
+    held = coerce_value(cells[cell], value)
+    out = [dict(r) for r in rows]
+    for r in out:
+        if str(r.get(by)) == called:
+            r[cell] = held
+            break
+    else:
+        out.append({by: coerce_value(cells[by], called), cell: held})
+    return out
 
 
 def parse_override(item: str) -> tuple[str, str]:

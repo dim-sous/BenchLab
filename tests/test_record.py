@@ -168,3 +168,79 @@ def test_a_setting_is_refused_in_words() -> None:
         _Config(extra=3)
     assert with_overrides(_Config(), [("mode", "b"), ("extra", "3")]).extra == 3   # a gate opened in the same call
     assert with_overrides(_Config(mode="b", extra=3), [("extra", "none")]).extra is None
+
+
+
+class _Seeds(Settings):
+    seeds = param.List([1, 2], item_type=int, metadata={"group": "g"})
+
+
+@dataclasses.dataclass(frozen=True)
+class _Flags(Record):
+    name: str
+    config: _Seeds
+    provenance: None
+    hit: np.ndarray
+    component = "wave"
+
+
+def test_a_yes_no_array_and_a_list_of_whole_numbers_read_back_as_they_were(tmp_path) -> None:
+    """1.8: a run's yes/no array read back as yes/no, and a list setting of whole numbers (seeds)
+    as whole numbers -- each read back as floats before, the second then refused by its own
+    setting."""
+    from runlab.record.config import coerce_value
+
+    path = _Flags("f", _Seeds(seeds=[3, 4]), None, np.array([True, False])).save(tmp_path / "f.json")
+    back = _Flags.load(path)
+    assert back.hit.dtype == bool and back.hit.tolist() == [True, False]
+    assert back.config.seeds == [3, 4] and all(type(v) is int for v in back.config.seeds)
+    p = _Seeds.param["seeds"]
+    assert coerce_value(p, "5,6") == [5, 6] and coerce_value(p, [7.0]) == [7]
+    with pytest.raises(ValueError, match="not a list of whole numbers"):
+        coerce_value(p, [1.5])
+
+
+
+@dataclasses.dataclass(frozen=True)
+class _Inner:
+    label: str
+    at: tuple[float, float]
+
+
+@dataclasses.dataclass(frozen=True)
+class _Shapes(Record):
+    name: str
+    config: _Seeds
+    provenance: None
+    pair: tuple[float, float]
+    many: tuple[float, ...]
+    by_rate: dict[float, float]
+    inner: _Inner
+    inners: tuple[_Inner, ...]
+    names: list[str]
+    worst: float
+    component = "wave"
+
+
+def test_a_record_of_tuples_mappings_and_nested_records_reads_back_as_saved(tmp_path) -> None:
+    """1.8: each shape a field may declare comes back the shape it was saved as (RCWS's records:
+    a pair, a tuple, a mapping keyed by number, another piece's whole record), and a float's
+    non-finite token as the float."""
+    held = _Shapes("s", _Seeds(), None, (1.0, 2.0), (0.5, 1.5, 2.5), {0.1: 3.0, 0.2: 4.0},
+                   _Inner("a", (0.0, 1.0)), (_Inner("b", (2.0, 3.0)),), ["x", "y"], math.inf)
+    back = _Shapes.load(held.save(tmp_path / "s.json"))
+    assert back.pair == (1.0, 2.0) and back.many == (0.5, 1.5, 2.5)
+    assert back.by_rate == {0.1: 3.0, 0.2: 4.0}
+    assert back.inner == _Inner("a", (0.0, 1.0)) and back.inners == (_Inner("b", (2.0, 3.0)),)
+    assert back.names == ["x", "y"] and back.worst == math.inf
+
+
+
+def test_a_saved_setting_behind_a_shut_gate_reads_at_todays_default() -> None:
+    """1.8 (RCWS [A18]): a run saved a setting behind a gate it held shut at that day's default,
+    and ignored it; a default moved since is read at today's, not refused."""
+    from runlab.record.config import from_saved
+    from tests.toy import wave
+    raw = {"shape": "sine", "duty": 0.3}                  # duty applies only to a square wave
+    assert from_saved(wave.Config, raw).duty == wave.Config.param["duty"].default
+    assert from_saved(wave.Config, {"shape": "square", "duty": 0.3}).duty == 0.3

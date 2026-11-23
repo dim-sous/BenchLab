@@ -31,6 +31,8 @@ _MPL_DASH = {"solid": "-", "dash": "--", "dot": ":", "dashdot": "-.", "longdash"
 #: A band's fill: RCWS's ``render.BAND_ALPHA``, chosen there so a line under a band stays
 #: readable and two runs' bands are still told apart.
 BAND_ALPHA = 0.18
+#: How opaque a stacked share's area is drawn: its outline is the line's colour, full.
+STACK_ALPHA = 0.45
 #: Below this many samples a line also marks its samples (RCWS ``render.SHORT``).
 SHORT = 24
 #: A legend name longer than this is broken onto lines at its own separators (:func:`broken`).
@@ -73,6 +75,9 @@ class Line:
     points: bool = False
     texts: tuple[str, ...] = ()
     spread: tuple[float, ...] = ()
+    #: The stack it is a share in (from 1.5): lines of one stack are drawn as areas, each on
+    #: top of those before it; ``""`` for a line of its own.
+    stack: str = ""
 
     def drawn_x(self) -> np.ndarray:
         x = np.asarray(self.x, dtype=float)
@@ -180,7 +185,15 @@ def render(panel: Panel, out_dir: Path, prov, *, facts: dict[str, Any] | None = 
         for ref in spec.refs:
             ax.plot(span, [ref.value, ref.value], color=ref.color, linewidth=REF_WIDTH,
                     linestyle=_MPL_DASH[ref.dash], label=broken(ref.label))
+        under: dict[str, np.ndarray] = {}           # each stack's top so far
         for line in spec.lines:
+            if line.stack:
+                x, y = line.drawn_x(), np.asarray(line.y, float)
+                base = under.get(line.stack, np.zeros_like(y))
+                ax.fill_between(x, base, base + y, color=line.color, alpha=STACK_ALPHA,
+                                linewidth=0.8, edgecolor=line.color, label=broken(line.label))
+                under[line.stack] = base + y
+                continue
             style = ({"marker": "o", "ms": 3.5, "linestyle": "none"} if line.points else
                      {"linestyle": _MPL_DASH[line.dash], "solid_joinstyle": "round",
                       "solid_capstyle": "round",

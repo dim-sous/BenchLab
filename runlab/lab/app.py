@@ -1255,7 +1255,10 @@ class Lab:
         # over the sample index the chart declares no logarithm: its own was of its abscissa
         own = (card.x or "own") == "own"
         ctx = shaping.Context("chart", runs=len(held), axes=axes, pool=pool,
-                              declared_x_log=first.x_log and own, declared_y_log=first.y_log)
+                              declared_x_log=first.x_log and own, declared_y_log=first.y_log,
+                              declared_points=first.points,
+                              declared_split=first.split and not first.rows,
+                              declared_rows=bool(first.rows))
         base = {**shaping.draw_keywords(card, ctx), "x_log": False, "y_log": False}
         try:
             plain = chart_of(held, card.chart, **base)

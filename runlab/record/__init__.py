@@ -245,8 +245,25 @@ class Series:
     #: panel built by position keeps its meaning.
     quantity: Quantity | None = None
     x_quantity: Quantity | None = None
+    #: How its card starts (from 1.5): each sample a dot, for samples that are EVENTS (a round
+    #: fired, a solver's iteration), where a line joining them draws a curve nothing measured;
+    #: and a row per run, for a chart that describes one run and reads poorly overlaid. Each is
+    #: where the card's Dots and Split start; the card can always be switched.
+    points: bool = False
+    split: bool = False
+    #: The traces are the shares of one whole (probabilities summing to 1), drawn as areas
+    #: stacked in declaration order (from 1.5); such a panel carries no bands.
+    stacked: bool = False
+    #: Stacked axes over this panel's abscissa, one panel each (from 1.5): a vector's components,
+    #: or two quantities in two units read against one abscissa, in one figure. Each row is a
+    #: Series of its own (its ``y_label``, traces, bands and references); its ``x`` is this
+    #: panel's, and this panel carries no traces of its own. Rows do not nest.
+    rows: tuple["Series", ...] = ()
 
     def __post_init__(self) -> None:
+        if self.rows:
+            self._rows_hold()
+            return
         for axis, quantity, label in (("x", self.x_quantity, self.x_label),
                                       ("y", self.quantity, self.y_label)):
             if quantity is not None and label:
@@ -257,7 +274,7 @@ class Series:
         # label (a quantity, or words); kept beside the fields, which hold the words in names
         object.__setattr__(self, "_parts", (bool(self.title),
                                             tuple(label for label, _ in self.traces),
-                                            tuple(label for label, _ in self.refs),
+                                            tuple(label for label, *_ in self.refs),
                                             tuple(label for label, *_ in self.bands)))
         self._word("names")
         if not self.traces:
@@ -276,11 +293,43 @@ class Series:
             if len(y) != n:
                 raise ValueError(f"panel {self.name!r}: trace {label!r} has {len(y)} values "
                                  f"against {n} abscissa values")
-        for label, lo, hi in self.bands:
+        traces = {label for label, _ in self.traces}
+        for label, lo, hi, *of in self.bands:
             for edge in (lo, hi):
                 if np.ndim(edge) and len(edge) != n:
                     raise ValueError(f"panel {self.name!r}: band {label!r} edge has "
                                      f"{len(edge)} values against {n}")
+            self._belongs("band", label, of, traces)
+        for label, _value, *of in self.refs:
+            self._belongs("reference line", label, of, traces)
+        if self.stacked and self.bands:
+            raise ValueError(f"panel {self.name!r} stacks its traces as shares of one whole; "
+                             f"there is nothing to put a band around")
+
+    def _belongs(self, what: str, label: Any, of: list, traces: set) -> None:
+        """A band ``(label, lo, hi, trace)`` or a reference line ``(label, value, trace)`` may
+        name the trace it belongs to, and is then drawn in that trace's colour (from 1.5); the
+        trace must be one of the panel's."""
+        if len(of) > 1 or (of and of[0] not in traces):
+            raise ValueError(f"panel {self.name!r}: the {what} {label!r} belongs to "
+                             f"{of!r}, which is not one of its traces {sorted(map(str, traces))}")
+
+    def _rows_hold(self) -> None:
+        """A panel of rows: its rows each a panel of their own over its abscissa, and nothing of
+        its own drawn besides."""
+        object.__setattr__(self, "_parts", (bool(self.title), (), (), ()))
+        if not self.title:
+            object.__setattr__(self, "title", self.name)
+        if self.traces or self.bands or self.refs or self.stacked:
+            raise ValueError(f"panel {self.name!r} is drawn as its rows; it carries no traces, "
+                             f"bands, reference lines or stacking of its own")
+        if any(row.rows for row in self.rows):
+            raise ValueError(f"panel {self.name!r}: rows do not nest")
+        n = len(self.x)
+        if any(len(row.x) != n or not np.array_equal(np.asarray(row.x, float),
+                                                     np.asarray(self.x, float))
+               for row in self.rows):
+            raise ValueError(f"panel {self.name!r}: a row's x is its panel's")
 
     def _word(self, words: str) -> None:
         """Fill the words its parts make, in ``words``: the title when not written in full, each
@@ -296,9 +345,12 @@ class Series:
         object.__setattr__(self, "traces", tuple(
             (_said(label, words), y) for label, (_, y) in zip(lines, self.traces)))
         object.__setattr__(self, "refs", tuple(
-            (_said(label, words), v) for label, (_, v) in zip(refs, self.refs)))
+            (_said(label, words), v, *of) for label, (_, v, *of) in zip(refs, self.refs)))
         object.__setattr__(self, "bands", tuple(
-            (_said(label, words), lo, hi) for label, (_, lo, hi) in zip(bands, self.bands)))
+            (_said(label, words), lo, hi, *of)
+            for label, (_, lo, hi, *of) in zip(bands, self.bands)))
+        if self.rows:
+            object.__setattr__(self, "rows", tuple(row.in_words(words) for row in self.rows))
 
     def in_words(self, words: str) -> "Series":
         """The panel in ``words`` (:data:`WORDS`): itself in names, as built; a copy in symbols.

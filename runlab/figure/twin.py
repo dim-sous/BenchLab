@@ -15,7 +15,7 @@ from typing import Any
 
 import numpy as np
 
-from runlab.figure.render import BAND_ALPHA, SHORT, Panel, broken, has_legend
+from runlab.figure.render import BAND_ALPHA, SHORT, STACK_ALPHA, Panel, broken, has_legend
 from runlab.figure.style import FONT, GRID, INK, INK_SECONDARY, LINE_WIDTH, MONO, REF_WIDTH, SURFACE
 
 __all__ = ["figure_of", "ONE_PX", "MORE_ROW_PX"]
@@ -135,6 +135,10 @@ def figure_of(panel: Panel, legend: bool = True) -> dict[str, Any]:
                      "marker": {"size": 7 if line.texts else 5, "color": line.color},
                      "name": broken(line.label, "<br>"), "legendgroup": line.label,
                      "showlegend": entry(line.label), "hovertemplate": "%{y:.6g}"}
+            if line.stack:
+                # a share of one whole: an area on top of the shares before it
+                trace.update({"stackgroup": line.stack, "mode": "lines",
+                              "fillcolor": _rgba(line.color, STACK_ALPHA)})
             if line.texts:
                 # the point's run, its value, and beside them the curve's name -- what its colour
                 # stands for, read there on a card that draws no legend (RCWS)

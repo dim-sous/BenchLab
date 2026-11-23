@@ -15,7 +15,8 @@ from typing import Any
 
 import numpy as np
 
-from runlab.figure.render import BAND_ALPHA, SHORT, STACK_ALPHA, Panel, broken, has_legend
+from runlab.figure.render import (BAND_ALPHA, SHORT, STACK_ALPHA, Panel, broken, circle,
+                                  has_legend)
 from runlab.figure.style import FONT, GRID, INK, INK_SECONDARY, LINE_WIDTH, MONO, REF_WIDTH, SURFACE
 
 __all__ = ["figure_of", "ONE_PX", "MORE_ROW_PX"]
@@ -101,7 +102,9 @@ def figure_of(panel: Panel, legend: bool = True) -> dict[str, Any]:
         domain = [round(max(0.0, top - h), 6), round(min(1.0, top), 6)]
         layout[axis_key] = {**_axis("" if stacked else broken(ax.y_label, "<br>")),
                             "domain": domain, "anchor": "x",
-                            **({"type": "log"} if panel.y_log else {})}
+                            **({"type": "log"} if panel.y_log else {}),
+                            **({"scaleanchor": "x", "scaleratio": 1} if panel.equal_aspect
+                               else {})}
         if stacked:
             layout["annotations"].append({
                 "xref": "paper", "yref": "paper", "x": 0, "y": domain[1], "xanchor": "left",
@@ -127,6 +130,17 @@ def figure_of(panel: Panel, legend: bool = True) -> dict[str, Any]:
                                                    "dash": ref.dash},
                          "name": broken(ref.label, "<br>"), "legendgroup": ref.label,
                          "showlegend": entry(ref.label), "hoverinfo": "skip"})
+        for ring in ax.rings:
+            cx, cy = circle(ring.radius)
+            data.append({"x": _values(cx), "y": _values(cy), "yaxis": axis_ref, "mode": "lines",
+                         "line": {"width": REF_WIDTH, "color": ring.color, "dash": ring.dash},
+                         "name": broken(ring.label, "<br>"), "legendgroup": ring.label,
+                         "showlegend": entry(ring.label), "hoverinfo": "skip"})
+        for mark in ax.marks:
+            data.append({"x": [mark.x], "y": [mark.y], "yaxis": axis_ref, "mode": "markers",
+                         "marker": {"size": 9, "color": mark.color, "symbol": mark.symbol},
+                         "name": broken(mark.label, "<br>"), "legendgroup": mark.label,
+                         "showlegend": entry(mark.label), "hovertemplate": "%{x:.6g}, %{y:.6g}"})
         for line in ax.lines:
             marked = bool(line.texts) or len(line.x) < SHORT
             trace = {"x": _values(line.drawn_x()), "y": _values(line.y), "yaxis": axis_ref,

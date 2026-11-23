@@ -259,6 +259,18 @@ class Series:
     #: Series of its own (its ``y_label``, traces, bands and references); its ``x`` is this
     #: panel's, and this panel carries no traces of its own. Rows do not nest.
     rows: tuple["Series", ...] = ()
+    #: A plane (from 1.6): one unit along the abscissa is one along the ordinate, for a panel whose
+    #: two axes are one quantity in one unit (a scatter in a plane, metres by metres), where axes
+    #: scaled apart would make a round group look long. ``rings``, circles about the origin,
+    #: ``(label, radius)``, a reference line's counterpart on a plane, need it; ``marks``, named
+    #: places ``(label, x, y)`` in the panel's own axes (where a flight starts), are drawn on any.
+    equal_aspect: bool = False
+    rings: tuple[tuple[str, float], ...] = ()
+    marks: tuple[tuple[str, float, float], ...] = ()
+    #: Each trace's own abscissa (from 1.6), as long as its ordinate: points in one plane, each
+    #: trace a cloud whose points are not the others'. Its panel draws dots; ``x`` is the first
+    #: trace's. Not pooled across runs, nor drawn over the sample index.
+    trace_x: tuple[Any, ...] = ()
 
     def __post_init__(self) -> None:
         if self.rows:
@@ -289,10 +301,19 @@ class Series:
         if int(self.averaged) < 1:
             raise ValueError(f"panel {self.name!r} averages {self.averaged} draws; at least 1")
         n = len(self.x)
-        for label, y in self.traces:
-            if len(y) != n:
+        if self.trace_x:
+            if len(self.trace_x) != len(self.traces) or self.bands or self.pooled:
+                raise ValueError(f"panel {self.name!r}: trace_x gives every trace its own "
+                                 f"abscissa, one per trace, with no band or pooling beside it")
+            object.__setattr__(self, "points", True)
+        for k, (label, y) in enumerate(self.traces):
+            own = len(self.trace_x[k]) if self.trace_x else n
+            if len(y) != own:
                 raise ValueError(f"panel {self.name!r}: trace {label!r} has {len(y)} values "
-                                 f"against {n} abscissa values")
+                                 f"against {own} abscissa values")
+        if self.rings and not self.equal_aspect:
+            raise ValueError(f"panel {self.name!r} draws rings, which need equal_aspect: on axes "
+                             f"scaled apart a circle is drawn as an ellipse")
         traces = {label for label, _ in self.traces}
         for label, lo, hi, *of in self.bands:
             for edge in (lo, hi):

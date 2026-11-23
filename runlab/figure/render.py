@@ -102,6 +102,36 @@ class Ref:
 
 
 @dataclasses.dataclass(frozen=True)
+class Ring:
+    """A circle of ``radius`` about the origin, on a plane (from 1.6)."""
+    label: str
+    radius: float
+    color: str
+    dash: str = "solid"
+
+
+@dataclasses.dataclass(frozen=True)
+class Mark:
+    """A named place ``(x, y)`` on the panel (from 1.6)."""
+    label: str
+    x: float
+    y: float
+    color: str
+    symbol: str = "circle"
+
+
+#: A mark's symbol by its place among a panel's marks, plotly's names and matplotlib's beside.
+MARK_SYMBOLS = (("circle", "o"), ("square", "s"), ("diamond", "D"), ("triangle-up", "^"),
+                ("x", "x"))
+
+
+def circle(radius: float, n: int = 181) -> tuple[np.ndarray, np.ndarray]:
+    """``n`` points round a circle of ``radius`` about the origin, closed."""
+    a = np.linspace(0.0, 2.0 * np.pi, n)
+    return radius * np.cos(a), radius * np.sin(a)
+
+
+@dataclasses.dataclass(frozen=True)
 class Axes:
     """One pair of axes, one ordinate unit: what is on it, in drawing order (bands, references,
     lines). ``y_label`` is the ordinate's words -- the quantity with its unit, or, on a row of a
@@ -110,6 +140,8 @@ class Axes:
     lines: tuple[Line, ...] = ()
     bands: tuple[Band, ...] = ()
     refs: tuple[Ref, ...] = ()
+    rings: tuple[Ring, ...] = ()
+    marks: tuple[Mark, ...] = ()
 
 
 @dataclasses.dataclass(frozen=True)
@@ -128,10 +160,13 @@ class Panel:
     x_log: bool = False
     y_log: bool = False
     x_range: tuple[float, float] | None = None
+    #: One unit along the abscissa is one along the ordinate (from 1.6).
+    equal_aspect: bool = False
 
 
 def _labels(panel: Panel) -> set[str]:
-    return {item.label for ax in panel.axes for item in (*ax.lines, *ax.bands, *ax.refs)}
+    return {item.label for ax in panel.axes
+            for item in (*ax.lines, *ax.bands, *ax.refs, *ax.rings, *ax.marks)}
 
 
 def has_legend(panel: Panel) -> bool:
@@ -200,9 +235,17 @@ def render(panel: Panel, out_dir: Path, prov, *, facts: dict[str, Any] | None = 
                       **({"marker": "o", "ms": 3.5} if len(line.x) < SHORT else {})})
             ax.plot(line.drawn_x(), np.asarray(line.y, float), color=line.color,
                     linewidth=LINE_WIDTH, label=broken(line.label), **style)
+        for ring in spec.rings:
+            ax.plot(*circle(ring.radius), color=ring.color, linewidth=REF_WIDTH,
+                    linestyle=_MPL_DASH[ring.dash], label=broken(ring.label))
+        for mark in spec.marks:
+            ax.plot([mark.x], [mark.y], linestyle="none", color=mark.color, ms=7,
+                    marker=dict(MARK_SYMBOLS).get(mark.symbol, "o"), label=broken(mark.label))
         ax.set_ylabel(spec.y_label)
         if panel.y_log:
             ax.set_yscale("log")
+        if panel.equal_aspect:
+            ax.set_aspect("equal", adjustable="datalim")
     bottom = axs[-1, 0]
     if panel.x_ticks:
         bottom.set_xticks([p for p, _ in panel.x_ticks], [w for _, w in panel.x_ticks])
@@ -270,6 +313,10 @@ def table_of(panel: Panel) -> Table:
                 columns.append((prefix + band.label + " (upper)", (band.label, band.x, hi)))
         for ref in ax.refs:
             beside.append((prefix + ref.label, (float(ref.value),)))
+        for ring in ax.rings:
+            beside.append((prefix + ring.label, (float(ring.radius),)))
+        for mark in ax.marks:
+            beside.append((prefix + mark.label, (float(mark.x), float(mark.y))))
     xs = [np.asarray(c.x if isinstance(c, Line) else c[1], float) for _, c in columns]
     texts = any(isinstance(c, Line) and c.texts for _, c in columns)
     if xs and not texts and all(x.shape == xs[0].shape and np.array_equal(x, xs[0]) for x in xs):

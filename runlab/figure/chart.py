@@ -271,7 +271,8 @@ def _shared(items: list[tuple[str, tuple, Any]], runs: int) -> list[tuple[str, A
 
 
 def chart_of(pairs: Pairs, name: str, *, runs: str = "one", colour_by: str = "run",
-             points: bool | None = None, x: str = "own", x_log: bool | None = None,
+             points: bool | None = None, cold_start: bool = False, x: str = "own",
+             x_log: bool | None = None,
              y_log: bool | None = None,
              x_range: tuple[float, float] | None = None, words: str = "names") -> Panel:
     """Panel ``name`` over ``pairs``, in ``words`` (``Series.in_words``: the words its quantities
@@ -288,6 +289,8 @@ def chart_of(pairs: Pairs, name: str, *, runs: str = "one", colour_by: str = "ru
     high or that a logarithmic axis cannot show."""
     _choice(runs, RUNS, "runs"); _choice(colour_by, COLOUR_BY, "colour_by"); _choice(x, X, "x")
     held = [(run, s.in_words(words)) for run, s in _held(pairs, name)]
+    if not cold_start:
+        held = [(run, past_cold_start(s)) for run, s in held]
     first = held[0][1]
     points = first.points if points is None else points
     if first.trace_x and x == "index":
@@ -319,6 +322,36 @@ def chart_of(pairs: Pairs, name: str, *, runs: str = "one", colour_by: str = "ru
                                 equal_aspect=first.equal_aspect)
     return _finished(panel, x_log, y_log, (first.x_log if x == "own" else False, first.y_log),
                      x_range)
+
+
+def past_cold_start(s: Series) -> Series:
+    """``s`` without its run's cold start (from 1.9): every sample at or before its
+    ``cold_start_end`` left out of its abscissa, its traces, its bands and every row's, at once,
+    so the axes are scaled to what is drawn; ``s`` itself when it declares none. A band of a
+    mean is cut the same way. Carried from RCWS's ``figure/draw.py`` (``without_cold_start``)."""
+    end = s.cold_start_end
+    if end is None:
+        return s
+    keep = np.asarray(s.x, dtype=float) > float(end)
+
+    def cut(values: Any) -> Any:
+        return np.asarray(values, dtype=float)[keep] if np.ndim(values) else values
+
+    def cut_of(r: Series) -> dict[str, Any]:
+        return {"x": cut(r.x), "traces": tuple((label, cut(y)) for label, y in r.traces),
+                "bands": tuple((b[0], cut(b[1]), cut(b[2]), *b[3:]) for b in r.bands),
+                "cold_start_end": None}
+
+    rows = tuple(dataclasses.replace(r, **cut_of(r)) for r in s.rows)
+    band = s.mean_band
+    if band is not None:
+        def cut_band(n: int, said: Callable = band) -> Any:
+            got = said(n)
+            many = bool(got) and isinstance(got[0], tuple)
+            out = tuple((b[0], cut(b[1]), cut(b[2]), *b[3:]) for b in (got if many else (got,)))
+            return out if many else out[0]
+        band = cut_band
+    return dataclasses.replace(s, **cut_of(s), rows=rows, mean_band=band)
 
 
 def _drawn(pairs: Pairs, name: str, held: list[tuple[str, Series]], runs: str, colour_by: str,

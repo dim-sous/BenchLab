@@ -230,3 +230,36 @@ def test_the_band_of_a_mean_may_be_several_each_naming_its_line() -> None:
     one = Series(name="nis", x=X, x_label="t [s]", y_label="NIS [-]", traces=(("x", X),),
                  pooled=("mean",), mean_band=lambda n: ("band", 0.0, 1.0))
     assert [b[0] for b in mean_band_of(one, 3)] == ["band"]
+
+
+
+def test_a_chart_is_drawn_past_its_runs_cold_start_unless_the_card_shows_it() -> None:
+    """1.9 (RCWS's card switch): a chart declaring where its run's cold start ends is drawn past it
+    -- every trace, band, row and band of a mean together -- unless asked to show it; the switch
+    starts off, and is greyed on a chart that declares none."""
+    timed = Series(name="nees", x=X, x_label="t [s]", y_label="NEES [-]",
+                   traces=(("nees", 1.0 + X),), bands=(("band", X - 0.1, X + 0.1),),
+                   pooled=("mean",), mean_band=lambda n: ("mean band", 0.0 * X, 1.0 + 0 * X),
+                   cold_start_end=0.3)
+    past = chart_of([("a", _Run(timed))], "nees")
+    assert list(past.axes[0].lines[0].x) == list(X[X > 0.3])
+    assert len(past.axes[0].bands[0].lo) == int((X > 0.3).sum())
+    whole = chart_of([("a", _Run(timed))], "nees", cold_start=True)
+    assert list(whole.axes[0].lines[0].x) == list(X)
+    from runlab.figure.chart import past_cold_start
+    cut = past_cold_start(_rows_timed())
+    assert all(len(r.x) == int((X > 0.5).sum()) for r in cut.rows)
+    off = shaping.Context("chart", runs=1, declared_cold_start=True)
+    card = shaping.Card(1, "chart", chart="nees")
+    assert shaping.draw_keywords(card, off)["cold_start"] is False
+    card.cold_start = True
+    assert shaping.draw_keywords(card, off)["cold_start"] is True
+    none = shaping.Context("chart", runs=1)
+    assert "cold_start" not in shaping.draw_keywords(card, none)
+    reasons = {s.field: why for s, why in shaping.offered(card, none)}
+    assert reasons["cold_start"] == "This chart's runs have no cold start"
+
+
+def _rows_timed() -> Series:
+    rows = _rows().rows
+    return Series(name="both", x=X, x_label="t [s]", y_label="", rows=rows, cold_start_end=0.5)

@@ -46,6 +46,7 @@ class Card:
     by: tuple[str, ...] | None = None
     runs: str = ""
     points: bool | None = None
+    cold_start: bool = False
     table: bool = False
     saved: str = ""
     save_failed: bool = False
@@ -70,6 +71,7 @@ class Context:
     declared_points: bool = False
     declared_split: bool = False
     declared_rows: bool = False
+    declared_cold_start: bool = False
     telling: dict[str, str] = field(default_factory=dict)
     pools: bool = False
     x_log_refusal: str = ""
@@ -208,6 +210,13 @@ SHAPINGS: tuple[Shaping, ...] = (
                                        (say("cards.lines"), False, "")],
             shown=_points_shown,
             keywords=lambda card, ctx: {"points": _points_shown(card, ctx)}),
+    # A chart that declares where its run's cold start ends is drawn past it, unless this is on
+    # (from 1.9; RCWS's card switch)
+    Shaping("cold_start", "cards.cold_start", "switch", 3, kinds=("chart",),
+            unusable=lambda card, ctx: "" if ctx.declared_cold_start else say("cards.no_cold_start"),
+            shown=lambda card, ctx: card.cold_start,
+            keywords=lambda card, ctx: ({"cold_start": card.cold_start}
+                                        if ctx.declared_cold_start else {})),
     # The view hands the figure layer nothing: the table is read off the chart it draws.
     Shaping("table", "", "one", 4,
             options=lambda card, ctx: [(say("cards.chart"), False, ""),

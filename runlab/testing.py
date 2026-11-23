@@ -29,9 +29,9 @@ from runlab.figure.own import own_figure
 from runlab.figure.twin import figure_of
 from runlab.lab import state, words
 from runlab.lab.form import Form
-from runlab.project import declared, get_component, piece_names
+from runlab.project import carriers, declared, get_component, piece_names
 from runlab.record import COMPONENT_KEY, FILES_KEY, Message, Record, read_header
-from runlab.record.config import Settings
+from runlab.record.config import Settings, fields_of
 from runlab.record.files import kept
 
 __all__ = ["check_project"]
@@ -94,7 +94,15 @@ def _check_piece(name: str) -> None:
     assert piece.Record.component == name, \
         (f"the piece {name!r}: its Record.component is {piece.Record.component!r}, so its runs "
          f"would be saved and listed under another piece")
+    provides = piece.Record.provides
+    assert isinstance(provides, tuple) and all(isinstance(w, str) for w in provides), \
+        f"the piece {name!r}: its Record.provides is a tuple of names; got {provides!r}"
     piece.Config()
+    for f in fields_of(piece.Config):
+        asked = f.get("record_of")
+        assert not asked or carriers(asked), \
+            (f"the piece {name!r}: {f['name']} asks for a saved run of {asked!r}, and no piece "
+             f"is called that or carries it (Record.provides)")
 
 
 def _check_form(piece: dict) -> None:

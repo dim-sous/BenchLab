@@ -70,7 +70,7 @@ def test_settings_lists_a_pieces_settings_under_their_groups(capsys) -> None:
                                        "The u that drives the lag: a saved wave run's, or a wave "
                                        "built here.",
                          "  wave_run \"Wave run\" = 'results/wave/default.json': "
-                         "The saved wave run whose u drives the lag."]
+                         "The saved run whose u drives the lag: a wave's, or a lag's."]
     assert "  wave.shape \"Shape\" = 'sine' one of ['sine', 'square']: The wave's shape." in lines, \
         "a setting inside the built wave, by its dotted name"
     assert not any(line.startswith("  wave.seed") for line in lines), "its noise is not composed"

@@ -15,7 +15,8 @@ outside the choices in its own words. What param has no slot for rides in ``meta
 - ``replicate``: ``True`` for a setting that only re-draws the noise (a seed);
 - ``draws``: on a replicate, the setting that counts the draws a run makes from it (run i of
   ``n`` uses ``seed + i``), so a figure pooling runs can tell when two share a draw; none here;
-- ``record_of``: on a path setting, the piece whose saved run it names;
+- ``record_of``: on a path setting, the piece whose saved run it names, or what such a run
+  carries (``Record.provides``): then a run of any piece that carries it (from 1.4);
 - ``folded``: the form shows the setting's group closed until it is opened;
 - ``rows``: on a list setting, the form draws one labeled box per item -- ``{"label": "x{}'",
   "add": "+ State"}``, the label numbered from 1, the add button's words.

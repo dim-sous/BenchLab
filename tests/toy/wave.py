@@ -71,6 +71,7 @@ class Record(_Record):
     component = "wave"
     label = "Wave"
     produced_by = "uv run toy run wave"
+    provides = ("u",)
 
     def series(self) -> tuple[Series, ...]:
         return (Series(name="u", x=self.t, x_label="t", y_label="u", traces=(("u", self.u),),

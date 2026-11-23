@@ -1625,12 +1625,16 @@ class Lab:
 
     def _offer_saved(self) -> None:
         """Each piece's readable saved runs, as the paths a setting naming one offers, from the
-        records just read; each such pick refilled, holding what it held."""
+        records just read -- under the piece's name and under each thing its runs carry
+        (``Record.provides``), so a setting asking for what a run carries is offered the runs of
+        every piece that carries it; each such pick refilled, holding what it held."""
+        carried = {p["name"]: p.get("provides", ()) for p in self.pieces}
         saved: dict[str, list[str]] = {}
         for r in self.records:
             if not r["stale"]:
-                saved.setdefault(r["piece"], []).append(
-                    f"{self.out_dir}/{r['piece']}/{r['name']}.json")
+                for key in (r["piece"], *carried.get(r["piece"], ())):
+                    saved.setdefault(key, []).append(
+                        f"{self.out_dir}/{r['piece']}/{r['name']}.json")
         self.form.saved = saved
         for f in self.form.fields:
             control = self._controls.get(f["name"])

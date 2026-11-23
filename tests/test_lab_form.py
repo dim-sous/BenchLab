@@ -108,19 +108,26 @@ def test_a_default_the_code_resolves_is_said_so_not_left_blank(piece, lag) -> No
     assert Form(piece).shown_default(Form(piece).by_name["samples"]) == "40"
 
 
-def test_a_saved_run_setting_offers_that_pieces_runs_by_name(lag) -> None:
-    """RCWS's ``record_of``: the wave run is picked from the wave piece's saved runs, each worded
-    by its name; the run it holds stays offered."""
+def test_a_saved_run_setting_offers_the_runs_that_carry_what_it_asks_for(lag) -> None:
+    """RCWS's ``record_of``: the lag's drive run is picked from the saved runs that carry u, a
+    wave's or a lag's (1.4), each worded by its piece's folder and its name when they come from
+    more than one piece, by its name alone when from one; the run it holds stays offered."""
     form = Form(lag)
     f = form.by_name["wave_run"]
-    assert f["record_of"] == "wave"
+    assert f["record_of"] == "u"
     assert form.options(f) == [{"value": "", "words": "default (default)"}]
     form.saved = {"wave": ["results/wave/noisy.json", "results/wave/default.json"],
-                  "lag": ["results/lag/x.json"]}
+                  "lag": ["results/lag/x.json"],
+                  "u": ["results/wave/noisy.json", "results/wave/default.json",
+                        "results/lag/x.json"]}
     assert [(o["value"], o["words"]) for o in form.options(f)] == [
-        ("", "default (default)"), ("results/wave/noisy.json", "noisy")]
+        ("", "default (default)"), ("results/wave/noisy.json", "wave/noisy"),
+        ("results/lag/x.json", "lag/x")]
+    form.saved = {"u": ["results/wave/noisy.json", "results/wave/default.json"]}
+    assert [o["words"] for o in form.options(f)] == ["default (default)", "noisy"]
     form.type_or_pick("wave_run", "elsewhere/gone.json")
-    assert [o["words"] for o in form.options(f)] == ["default (default)", "noisy", "gone"]
+    assert [o["words"] for o in form.options(f)] == ["default (default)", "wave/noisy",
+                                                     "elsewhere/gone"]
     assert form.launch_words() == (["wave_run=elsewhere/gone.json"], [])
     assert "wave_run" not in dict(form.axes()), "a path cannot name a sweep's records"
 

@@ -3,7 +3,8 @@ saved wave run and sampled at the wave's own step under a zero-order hold -- exa
 y[k+1] = a y[k] + (1 - a) K u[k] with a = exp(-Δt/τ), or by forward Euler, a = 1 - Δt/τ.
 
 It holds what the wave does not, each for a test that needs one: a setting naming another piece's
-saved run; another piece's whole settings, the wave's, of which it composes the Wave group alone
+saved run, by what it carries (u, which a wave's and a lag's runs carry, from 1.4); another
+piece's whole settings, the wave's, of which it composes the Wave group alone
 (the wave it builds when it is not driven by a saved run, from 1.2); two defaults the code resolves (K: none is 1; the hold: none is exact); a list of
 numbers (the limits y is drawn against, as references named by what they bound) and a list of
 text (the traces the output chart draws), a row each in the form; a list of rows, a table (the
@@ -15,6 +16,7 @@ the complex plane, which lines against an abscissa cannot say."""
 from __future__ import annotations
 
 import dataclasses
+import json
 import time
 
 import numpy as np
@@ -54,8 +56,8 @@ class Config(Settings):
                            doc="The u that drives the lag: a saved wave run's, or a wave built "
                                "here.", metadata={"group": "Source"})
     wave_run = param.String("results/wave/default.json", label="Wave run",
-                            doc="The saved wave run whose u drives the lag.",
-                            metadata={"group": "Source", "record_of": "wave",
+                            doc="The saved run whose u drives the lag: a wave's, or a lag's.",
+                            metadata={"group": "Source", "record_of": "u",
                                       "needs": {"drive": {"in": ["saved"]}}})
     wave = param.ClassSelector(class_=wave.Config, default=wave.Config(), label="Built wave",
                                doc="The wave built here: its shape alone; its noise is the "
@@ -96,6 +98,7 @@ class Record(_Record):
     component = "lag"
     label = "Lag"
     produced_by = "uv run toy run lag"
+    provides = ("u",)
 
     def series(self) -> tuple[Series, ...]:
         held = {"u": self.u, "y": self.y}
@@ -122,13 +125,21 @@ class Record(_Record):
                 Number("corner", "Corner frequency", unit="rad/s", group="Frequency"))
 
 
+def _carrier(path: str) -> wave.Record | Record:
+    """The saved run at ``path`` that carries u, read by its own piece's record: a wave's or a
+    lag's."""
+    with open(path) as fh:
+        piece = json.load(fh).get("component")
+    return (Record if piece == "lag" else wave.Record).load(path)
+
+
 def run(cfg: Config) -> Record:
     started = time.perf_counter()
     unknown = [k for k in cfg.keep if k not in _TRACES]
     if unknown:
         raise ValueError(f"the lag keeps the traces {' and '.join(_TRACES)}; it holds no "
                          f"{', '.join(unknown)}")
-    source = wave.Record.load(cfg.wave_run) if cfg.drive == "saved" else wave.run(cfg.wave)
+    source = _carrier(cfg.wave_run) if cfg.drive == "saved" else wave.run(cfg.wave)
     gain = 1.0 if cfg.gain is None else cfg.gain
     hold = cfg.hold or "exact"
     step = float(source.t[1] - source.t[0])

@@ -137,3 +137,13 @@ def test_a_file_importing_runlabs_own_is_refused_naming_the_line(tmp_path, line,
     with pytest.raises(AssertionError) as refusal:
         check_project(sources=[tmp_path])
     assert f"piece.py:2 imports {named}:" in str(refusal.value)
+
+
+def test_a_setting_asking_for_a_run_nothing_carries_is_refused(monkeypatch) -> None:
+    """1.4: a ``record_of`` names a piece, or what a piece's runs carry; one naming neither would
+    offer nothing."""
+    monkeypatch.setattr(lag.Config.param["wave_run"], "metadata",
+                        {**lag.Config.param["wave_run"].metadata, "record_of": "v"})
+    with pytest.raises(AssertionError, match="wave_run asks for a saved run of 'v', and no piece "
+                                             "is called that or carries it"):
+        check_project()

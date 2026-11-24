@@ -27,7 +27,8 @@ from runlab.figure.chart import chart_of, mean_band_of
 from runlab.figure.draw import draw
 from runlab.figure.own import own_figure
 from runlab.figure.twin import figure_of
-from runlab.lab import state, words
+from runlab.lab import jobs, state, words
+from runlab.lab.app import Lab
 from runlab.lab.form import Form
 from runlab.project import carriers, declared, get_component, piece_names
 from runlab.record import COMPONENT_KEY, FILES_KEY, Message, Record, read_header
@@ -55,7 +56,8 @@ def check_project(runs: Sequence[str | os.PathLike[str]] = (), *,
     - the declaration is incomplete (:func:`runlab.project.declared`'s own refusal);
     - a piece does not hold ``Config`` (a ``Settings``), ``run`` and ``Record`` (a ``Record``
       whose ``component`` is the piece's registered name), or its defaults do not build;
-    - a piece's settings do not build the Lab's form;
+    - a piece's settings do not build the Lab's form, or its form does not draw as the page
+      draws it on picking the piece (from 1.15);
     - one of ``runs``, record files the project made, is of no registered piece, does not load
       through its piece's ``Record``, declares a chart that does not draw, as a still or on
       the page, or whose band of a mean (``Series.mean_band``) does not answer for the run's
@@ -72,6 +74,7 @@ def check_project(runs: Sequence[str | os.PathLike[str]] = (), *,
         _check_piece(name)
     for piece in state.pieces():
         _check_form(piece)
+    _check_drawn_forms()
     left_out = words.left_out()
     if left_out:
         warnings.warn(left_out, stacklevel=2)
@@ -111,6 +114,43 @@ def _check_form(piece: dict) -> None:
         form.shown_default(f)
         form.options(f)
         form.state_of(f)
+
+
+class _NoClock:
+    """The page's periodic call, never made: the check draws, it does not tick."""
+
+    def __call__(self, callback, period_ms):
+        return self
+
+    def stop(self) -> None:
+        pass
+
+
+def _never_started(run):
+    raise AssertionError(f"the check started a run ({run.piece}); it only draws the forms")
+
+
+def _check_drawn_forms() -> None:
+    """Each piece picked on a page made here, over no runs, its form drawn as the page draws
+    it (from 1.15): reading a form's settings is not drawing them -- a setting's words given in
+    a shape the form reads but the page cannot draw passed the reading (found moving the other
+    project onto RunLab, its flight's table)."""
+    with tempfile.TemporaryDirectory() as root:
+        said: list[str] = []
+        pieces = state.pieces()
+        lab = None
+        for piece in pieces:
+            try:
+                # the page draws its first piece's form as it is made
+                if lab is None:
+                    lab = Lab(root, "results", queue=jobs.Queue(start=_never_started),
+                              every=_NoClock(), toast=said.append)
+                else:
+                    lab._on_piece(piece["name"])
+            except Exception as exc:
+                raise AssertionError(f"the piece {piece['name']!r}: its form does not draw -- "
+                                     f"{type(exc).__name__}: {exc}") from exc
+            assert not said, f"the piece {piece['name']!r}: picking it said {said}"
 
 
 def _check_run(path: Path, names: Sequence[str], out: Path) -> None:

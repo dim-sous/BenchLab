@@ -147,3 +147,22 @@ def test_a_setting_asking_for_a_run_nothing_carries_is_refused(monkeypatch) -> N
     with pytest.raises(AssertionError, match="wave_run asks for a saved run of 'v', and no piece "
                                              "is called that or carries it"):
         check_project()
+
+
+def test_a_form_that_does_not_draw_is_refused_naming_its_piece(monkeypatch) -> None:
+    """1.15: a piece's form is drawn as the page draws it on picking the piece, not only read --
+    the other project's flight form read and did not draw."""
+    from runlab.lab import app
+
+    real = app.Lab._field_cells
+
+    def fails(self, f):
+        if f["name"] == "noise":
+            raise AttributeError("'function' object has no attribute 'get'")
+        return real(self, f)
+
+    monkeypatch.setattr(app.Lab, "_field_cells", fails)
+    with pytest.raises(AssertionError, match="the piece 'wave': its form does not draw -- "
+                                             "AttributeError: 'function' object has no "
+                                             "attribute 'get'"):
+        check_project(sources=[TOY])

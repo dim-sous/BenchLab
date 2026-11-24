@@ -31,13 +31,12 @@ import sys
 from pathlib import Path
 from typing import Optional, Sequence
 
-from runlab.project import command, get_component, piece_names
+from runlab.project import command, get_component, out_dir, piece_names
 from runlab.record import differences, read_header
 from runlab.record.config import fields_of, from_dict, interval_ends
 from runlab.record.files import kept
 from runlab.runner import planned, run_once
 
-DEFAULT_OUT_DIR = "results"
 
 #: How ``<command> draw`` shares several runs: on a panel, one plot, a row each, or pooled by a
 #: statistic (``figure.chart.RUNS``); on a ``--number`` draw, each run a point or the mean / RMS
@@ -62,7 +61,9 @@ def build_parser() -> argparse.ArgumentParser:
                         "is named <name>-<setting>-<value>")
     r.add_argument("--name", default=None,
                    help="the record's name; default: the config file's stem, else 'default'")
-    r.add_argument("--out-dir", default=DEFAULT_OUT_DIR)
+    r.add_argument("--out-dir", default=None,
+                   help="where the record is written, under the root (default: the project's "
+                        "OUT_DIR, else results)")
     r.add_argument("--refly", nargs="+", default=None, metavar="record.json",
                    help="fly each saved run again from its own settings and seed, in turn; when "
                         "every value it holds comes back the same, add what its file lacks; "
@@ -152,7 +153,8 @@ def run_command(args: argparse.Namespace) -> int:
         cfg = component.Config()
     name = args.name or (Path(args.config).stem if args.config else "default")
     for run_name, pairs in planned(name, args.overrides, args.sweeps):
-        path, rec = run_once(args.piece, pairs, run_name, args.out_dir, config=cfg)
+        path, rec = run_once(args.piece, pairs, run_name, args.out_dir or out_dir(),
+                             config=cfg)
         print(path)
         if kept(path).is_dir():
             print(f"  files in {kept(path)}")

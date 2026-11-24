@@ -11,7 +11,7 @@ import argparse
 import os
 import signal
 
-from runlab.cli import DEFAULT_OUT_DIR
+from runlab.project import out_dir
 
 from . import jobs, words
 from .app import serve
@@ -33,9 +33,9 @@ def build_parser() -> argparse.ArgumentParser:
                    help="do not open a browser; just print the address")
     p.add_argument("--root", default=None,
                    help="project root each run starts in (default: the current directory)")
-    p.add_argument("--out-dir", default=DEFAULT_OUT_DIR,
-                   help=f"where runs write records, relative to the root "
-                        f"(default: {DEFAULT_OUT_DIR})")
+    p.add_argument("--out-dir", default=None,
+                   help="where runs write records, relative to the root (default: the "
+                        "project's OUT_DIR, else results)")
     return p
 
 
@@ -52,6 +52,7 @@ def stop_runs_on_sigterm() -> None:
 
 def main(argv=None) -> int:
     args = build_parser().parse_args(argv)
+    args.out_dir = args.out_dir or out_dir()
     try:
         words.words()                       # no project declared stops the Lab before it serves
         left_out = words.left_out()

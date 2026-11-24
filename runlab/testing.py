@@ -203,6 +203,9 @@ def _beyond(node: ast.AST) -> list[str]:
 
 def _check_imports(folder: Path) -> None:
     for path in sorted(folder.rglob("*.py")):
+        # a link to nowhere is no file of the project: a stale build's (from 1.16)
+        if not path.exists():
+            continue
         if any(part.startswith(".") or part == "__pycache__"
                for part in path.relative_to(folder).parts):
             continue

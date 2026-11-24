@@ -9,7 +9,8 @@ command its ``pyproject.toml`` installs (the side door; the Lab prints its line 
 ``TITLE``, the Lab's title, ``ROOT``, the repository whose commit stamps a record, and
 ``LIBRARIES``, the libraries whose versions a record keeps. It may also hold ``WORDS``, the path
 of a words file listing the words of the Lab's page it wants different from RunLab's own
-(:mod:`runlab.lab.words`).
+(:mod:`runlab.lab.words`), and ``OUT_DIR`` (from 1.16), the folder under its root its runs write
+their records to when no ``--out-dir`` is given (``results`` when it names none).
 
 Nothing is looked up when RunLab is imported: the project is found on first use and kept. Every
 other module of RunLab reaches the project through this one (``tests/test_layers.py``).
@@ -23,7 +24,7 @@ from pathlib import Path
 from types import ModuleType
 
 __all__ = ["GROUP", "DECLARED", "declared", "piece_names", "get_component", "carriers", "command",
-           "title", "words_path"]
+           "title", "words_path", "DEFAULT_OUT_DIR", "out_dir"]
 
 #: The entry-point group a project declares itself in.
 GROUP = "runlab"
@@ -88,6 +89,17 @@ def command() -> str:
 def title() -> str:
     """The Lab's title, the declared project's."""
     return declared().TITLE
+
+
+#: The folder under a project's root its runs write their records to, when the project names
+#: none (``OUT_DIR``) and no ``--out-dir`` is given.
+DEFAULT_OUT_DIR = "results"
+
+
+def out_dir() -> str:
+    """The folder under the declared project's root its runs write their records to: its
+    ``OUT_DIR`` (from 1.16), else :data:`DEFAULT_OUT_DIR`."""
+    return str(getattr(declared(), "OUT_DIR", DEFAULT_OUT_DIR))
 
 
 def words_path() -> Path | None:

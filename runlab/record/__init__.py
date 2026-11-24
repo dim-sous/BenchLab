@@ -317,17 +317,27 @@ class Figure:
     """One panel the piece draws itself: a plotly figure built from the record's own fields, for
     what a :class:`Series` cannot say -- a histogram, a heatmap, an image, points on a plane. The
     run file keeps the fields, never the figure: it is drawn when shown, by the code of the day.
-    Its title, labels and legend are the piece's own (``CLAUDE.md``, "Figures describe")."""
+    Its title, labels and legend are the piece's own (``CLAUDE.md``, "Figures describe").
+
+    A figure that holds plotly frames PLAYS (from 1.1): the page shows it as plotly's own page
+    in a frame on its card, where plotly's play button, slider and 3D turning are plotly's.
+    ``script`` is JavaScript run in that page once the plot is made -- plotly's own
+    ``post_script``, ``{plot_id}`` in it the plot's element id; a figure with a script is shown
+    in such a frame too."""
 
     name: str        # its key in the chart list and the page's address, kebab-case
     figure: Any      # a ``plotly.graph_objects.Figure``, or the plain dict of one
     group: str = ""  # the heading a listing puts it under
     title: str = ""  # the words a listing and a card show for it; left out, its name
     doc: str = ""
+    script: str = "" # JavaScript for the figure's own page; "" for none
 
     def __post_init__(self) -> None:
         if not self.title:
             object.__setattr__(self, "title", self.name)
+        if not isinstance(self.script, str):
+            raise TypeError(f"the figure {self.name!r}: its script is text, the JavaScript its "
+                            f"page runs; got {type(self.script).__name__}")
 
 
 def bound_refs(bounds: Any, quantity: str | Quantity,

@@ -610,6 +610,9 @@ class Record:
     component: ClassVar[str] = ""        # the registered piece name (the command word)
     label: ClassVar[str] = ""            # the piece's own words
     produced_by: ClassVar[str] = ""      # the command that writes one
+    #: What every run of the piece carries, by name, so a setting can ask for any saved run that
+    #: carries it (``record_of``) instead of one piece's (from 1.4); none by default.
+    provides: ClassVar[tuple[str, ...]] = ()
 
     def series(self) -> tuple[Series, ...]:
         return ()

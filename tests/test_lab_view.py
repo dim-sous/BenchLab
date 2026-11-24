@@ -1447,6 +1447,18 @@ def test_a_runs_messages_are_listed_beside_its_charts_and_shown_on_a_card_of_the
     assert any("a says nothing" in w for w in _card_words(lab, "messages"))
 
 
+def test_the_form_offers_a_setting_the_runs_of_every_piece_that_carries_what_it_asks_for(
+        two_runs) -> None:
+    """1.4: the lag's drive run asks for u, which the wave's runs and the lag's carry: its pick
+    offers both pieces' saved runs, worded by folder and name."""
+    root, out_dir = two_runs
+    cli.main(["run", "lag", "--name", "one", "--out-dir", str(Path(root) / out_dir),
+              "--set", f"wave_run={Path(root) / out_dir / 'wave' / 'first.json'}"])
+    lab, *_ = _lab(two_runs, piece="lag")
+    offered = list(lab._controls["wave_run"].options)
+    assert sorted(offered[1:]) == ["lag/one", "wave/first", "wave/second"], offered
+
+
 def test_a_chart_may_not_take_the_name_the_page_opens_messages_by() -> None:
     from runlab import Record, Series
 

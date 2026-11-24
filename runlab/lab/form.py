@@ -71,8 +71,13 @@ class Form:
             paths = [p for p in self.saved.get(f["record_of"], []) if p != default]
             held = self.set.get(f["name"], "")
             paths += [held] if held and held not in paths else []
+            # runs of more than one piece: each worded with its piece's folder, as two may share
+            # a name
+            spread = len({PurePath(p).parent.name for p in paths}) > 1
+            named = lambda p: (f"{PurePath(p).parent.name}/{PurePath(p).stem}" if spread
+                               else PurePath(p).stem)
             return ([{"value": "", "words": say("form.default", value=PurePath(default).stem)}]
-                    + [{"value": p, "words": PurePath(p).stem} for p in paths])
+                    + [{"value": p, "words": named(p)} for p in paths])
         if f.get("choices"):
             values = [as_text(c) for c in f["choices"]]
         elif f["type"] == "bool":

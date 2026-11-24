@@ -22,8 +22,8 @@ from importlib.metadata import EntryPoint, entry_points
 from pathlib import Path
 from types import ModuleType
 
-__all__ = ["GROUP", "DECLARED", "declared", "piece_names", "get_component", "command", "title",
-           "words_path"]
+__all__ = ["GROUP", "DECLARED", "declared", "piece_names", "get_component", "carriers", "command",
+           "title", "words_path"]
 
 #: The entry-point group a project declares itself in.
 GROUP = "runlab"
@@ -69,6 +69,14 @@ def piece_names() -> tuple[str, ...]:
 def get_component(name: str) -> ModuleType:
     """The declared project's piece ``name``, as its registry imports it."""
     return declared().get_component(name)
+
+
+def carriers(what: str) -> tuple[str, ...]:
+    """The pieces whose saved runs a setting naming ``what`` (``record_of``) may name, in the
+    order every surface shows them: the piece called ``what``, and every piece whose record
+    declares it carries ``what`` (``Record.provides``). Reading it imports every piece."""
+    return tuple(name for name in piece_names()
+                 if name == what or what in get_component(name).Record.provides)
 
 
 def command() -> str:

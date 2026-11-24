@@ -68,6 +68,8 @@ class Context:
     declared_x_log: bool = False
     declared_y_log: bool = False
     declared_points: bool = False
+    declared_split: bool = False
+    declared_rows: bool = False
     telling: dict[str, str] = field(default_factory=dict)
     pools: bool = False
     x_log_refusal: str = ""
@@ -100,12 +102,15 @@ class Shaping:
 # -- the chart card's runs: one plot, a row each, or pooled where the chart declares a statistic
 
 def _chart_runs(card: Card, ctx: Context) -> str:
-    value = card.runs or "one"
+    value = card.runs or ("rows" if ctx.declared_split and ctx.runs > 1 else "one")
+    if value == "rows" and ctx.declared_rows:
+        return "one"
     return "one" if value in ("mean", "rms") and ctx.pool.get(value) else value
 
 
 def _chart_runs_options(card: Card, ctx: Context) -> list[tuple[str, Any, str]]:
-    return [(say("cards.overlay"), "one", ""), (say("cards.split"), "rows", ""),
+    return [(say("cards.overlay"), "one", ""),
+            (say("cards.split"), "rows", say("cards.rows_split") if ctx.declared_rows else ""),
             (say("cards.mean"), "mean", ctx.pool.get("mean", "")),
             (say("cards.rms"), "rms", ctx.pool.get("rms", ""))]
 

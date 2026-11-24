@@ -26,7 +26,7 @@ as it was before a drawing could be asked for one (a release takes no chart from
 from __future__ import annotations
 
 import dataclasses
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from typing import Any
 
 import numpy as np
@@ -170,12 +170,14 @@ def _edge(edge: Any, n: int) -> np.ndarray:
     return np.full(n, float(edge)) if np.ndim(edge) == 0 else np.asarray(edge, dtype=float)
 
 
-def _band_owner(s: Series, label: str) -> int | None:
-    """The trace a band is the uncertainty of: the one whose label the band's label starts with
-    -- the longest such, so a band of ``x_hat`` is not ``x``'s (code review, 2026-10-27) -- else
-    the only trace there is, else ``None``: a band about the panel, not one quantity (RCWS
-    ``figure/draw.py``, ``_band_owner``)."""
+def _band_owner(s: Series, label: str, of: Sequence[Any] = ()) -> int | None:
+    """The trace a band is the uncertainty of: the one it names (``of``, from 1.5), else the one
+    whose label the band's label starts with -- the longest such, so a band of ``x_hat`` is not
+    ``x``'s (code review, 2026-10-27) -- else the only trace there is, else ``None``: a band
+    about the panel, not one quantity (RCWS ``figure/draw.py``, ``_band_owner``)."""
     labels = [trace for trace, _ in s.traces]
+    if of:
+        return labels.index(of[0])
     starts = [i for i, trace in enumerate(labels) if trace and label.startswith(trace)]
     if starts:
         return max(starts, key=lambda i: len(labels[i]))
@@ -189,17 +191,27 @@ def _ref_dash(r: int) -> str:
     return DASHES[1 + r % (len(DASHES) - 1)]
 
 
-def _alone(s: Series, xs: np.ndarray, points: bool) -> tuple[tuple, tuple, tuple]:
+def _ref_colour(s: Series, of: Sequence[Any], colour: Callable[[int], str]) -> str:
+    """A reference line's colour: its trace's, ``colour(j)``, when it names the trace it belongs
+    to (from 1.5); else the secondary ink, as a line about the panel."""
+    return colour([label for label, _ in s.traces].index(of[0])) if of else INK_SECONDARY
+
+
+def _alone(s: Series, xs: np.ndarray, points: bool, stack: str = "") -> tuple[tuple, tuple, tuple]:
     """One run's lines, bands and references: colours by position, the i-th trace slot i; a
-    band its trace's colour (:func:`_band_owner`), a band about the panel the neutral."""
+    band its trace's colour (:func:`_band_owner`), a band about the panel the neutral; a
+    reference line its trace's when it names one. A stacked panel's lines are stacked under
+    ``stack``."""
     n = len(xs)
-    lines = tuple(Line(label, xs, np.asarray(y, float), series_color(i), points=points)
+    lines = tuple(Line(label, xs, np.asarray(y, float), series_color(i), points=points,
+                       stack=stack if s.stacked else "")
                   for i, (label, y) in enumerate(s.traces))
     bands = tuple(Band(label, xs, _edge(lo, n), _edge(hi, n),
-                       NEUTRAL if (owner := _band_owner(s, label)) is None else series_color(owner))
-                  for label, lo, hi in s.bands)
-    refs = tuple(Ref(label, float(v), INK_SECONDARY, _ref_dash(r))
-                 for r, (label, v) in enumerate(s.refs))
+                       NEUTRAL if (owner := _band_owner(s, label, of)) is None
+                       else series_color(owner))
+                  for label, lo, hi, *of in s.bands)
+    refs = tuple(Ref(label, float(v), _ref_colour(s, of, series_color), _ref_dash(r))
+                 for r, (label, v, *of) in enumerate(s.refs))
     return lines, bands, refs
 
 
@@ -236,13 +248,14 @@ def _shared(items: list[tuple[str, tuple, Any]], runs: int) -> list[tuple[str, A
 
 
 def chart_of(pairs: Pairs, name: str, *, runs: str = "one", colour_by: str = "run",
-             points: bool = False, x: str = "own", x_log: bool | None = None,
+             points: bool | None = None, x: str = "own", x_log: bool | None = None,
              y_log: bool | None = None,
              x_range: tuple[float, float] | None = None, words: str = "names") -> Panel:
     """Panel ``name`` over ``pairs``, in ``words`` (``Series.in_words``: the words its quantities
     make, by name or by symbol), shaped by the keywords (the module): the runs shared as
     ``runs`` says (:data:`RUNS`), the colour telling apart what ``colour_by`` names
-    (:data:`COLOUR_BY`), each sample marked (``points``) or joined, over the bottom axis ``x``
+    (:data:`COLOUR_BY`), each sample marked (``points``; ``None``, as the panel declares) or
+    joined, over the bottom axis ``x``
     (:data:`X`). ``x_log`` and ``y_log`` start at what the panel declares (``None``; over the
     sample index it declares no logarithm) and override it when given; ``x_range`` is the span
     of the bottom axis drawn, in the axis's own units, ``None`` for all of it. Refused in words:
@@ -253,14 +266,37 @@ def chart_of(pairs: Pairs, name: str, *, runs: str = "one", colour_by: str = "ru
     _choice(runs, RUNS, "runs"); _choice(colour_by, COLOUR_BY, "colour_by"); _choice(x, X, "x")
     held = [(run, s.in_words(words)) for run, s in _held(pairs, name)]
     first = held[0][1]
+    points = first.points if points is None else points
+    if first.rows:
+        # a row per quantity, each drawn as a panel of its own over the same runs, stacked
+        if runs == "rows":
+            raise ValueError(f"panel {name!r} is drawn a row per quantity; its runs are "
+                             f"overlaid, not split")
+        if any(len(s.rows) != len(first.rows) for _, s in held):
+            raise ValueError(f"the runs hold panel {name!r} in different numbers of rows")
+        built = [_drawn(pairs, name, [(run, s.rows[k]) for run, s in held], runs, colour_by,
+                        points, x) for k in range(len(first.rows))]
+        panel = Panel(name, first.x_label if x == "own" else INDEX_LABEL,
+                      tuple(b.axes[0] for b in built), first.doc)
+        return _finished(panel, x_log, y_log, (first.x_log if x == "own" else False,
+                                                first.y_log), x_range)
     for what in ("x_label", "y_label"):
         said = {getattr(s, what) for _, s in held}
         if len(said) > 1:
             raise ValueError(f"the runs label panel {name!r}'s {what[0]} axis differently: "
                              f"{sorted(said)}")
+    panel = _drawn(pairs, name, held, runs, colour_by, points, x)
+    return _finished(panel, x_log, y_log, (first.x_log if x == "own" else False, first.y_log),
+                     x_range)
+
+
+def _drawn(pairs: Pairs, name: str, held: list[tuple[str, Series]], runs: str, colour_by: str,
+           points: bool, x: str) -> Panel:
+    """:func:`chart_of`'s panel over ``held``, its runs' Series of the panel (or of one of its
+    rows), before its axes are finished."""
+    first = held[0][1]
     dots = bool(points)
     x_label = first.x_label if x == "own" else INDEX_LABEL
-    declared = (first.x_log if x == "own" else False, first.y_log)
 
     if runs in ("mean", "rms"):
         why = pool_refusal(pairs, name, runs)
@@ -275,18 +311,20 @@ def chart_of(pairs: Pairs, name: str, *, runs: str = "one", colour_by: str = "ru
             ys = np.array([np.asarray(s.traces[j][1], float) for _, s in held])
             y = (w @ ys) / w.sum() if runs == "mean" else np.sqrt((w @ ys ** 2) / w.sum())
             lines.append(Line(f"{capital(_POOL_WORDS[runs])} of {len(held)} runs · {label}", xs, y,
-                              series_color(j), points=dots))
+                              series_color(j), points=dots,
+                              stack="pooled" if first.stacked else ""))
         band = mean_band_of(first, int(w.sum())) if runs == "mean" else None
         bands = () if band is None else (Band(band[0], xs, band[1], band[2], NEUTRAL),)
-        refs = tuple(Ref(label, float(v), INK_SECONDARY, _ref_dash(r))
-                     for r, (label, v) in enumerate(first.refs))
+        refs = tuple(Ref(label, float(v), _ref_colour(first, of, series_color), _ref_dash(r))
+                     for r, (label, v, *of) in enumerate(first.refs))
         panel = Panel(name, x_label, (Axes(first.y_label, tuple(lines), bands, refs),),
                       first.doc)
     elif len(held) == 1:
-        panel = Panel(name, x_label, (Axes(first.y_label, *_alone(first, _x(first, x), dots)),),
+        panel = Panel(name, x_label,
+                      (Axes(first.y_label, *_alone(first, _x(first, x), dots, held[0][0])),),
                       first.doc)
     elif runs == "rows":
-        axes = tuple(Axes(run, *_alone(s, _x(s, x), dots)) for run, s in held)
+        axes = tuple(Axes(run, *_alone(s, _x(s, x), dots, run)) for run, s in held)
         panel = Panel(name, x_label, axes, first.doc, quantity=first.y_label)
     else:
         # a run wears the slot of its place among ALL the runs given, so a view that colours
@@ -324,8 +362,9 @@ def chart_of(pairs: Pairs, name: str, *, runs: str = "one", colour_by: str = "ru
                                           points=dots))
                     continue
                 lines.append(Line(run if len(own) == 1 else f"{run} — {label}", xs,
-                                  np.asarray(y, float), colour(i, j), dash(i, j), dots))
-            for label, lo, hi in s.bands:
+                                  np.asarray(y, float), colour(i, j), dash(i, j), dots,
+                                  stack=run if s.stacked else ""))
+            for label, lo, hi, *of in s.bands:
                 lo_, hi_ = _edge(lo, n), _edge(hi, n)
                 if label in same_bands:
                     if k == 0:
@@ -333,17 +372,18 @@ def chart_of(pairs: Pairs, name: str, *, runs: str = "one", colour_by: str = "ru
                                           series_color(after + len(same_lines)
                                                        + same_bands.index(label))))
                     continue
-                owner = _band_owner(s, label)
+                owner = _band_owner(s, label, of)
                 bands.append(Band(f"{run} — {label}", xs, lo_, hi_,
                                   NEUTRAL if owner is None else colour(i, owner)))
-            for r, (label, v) in enumerate(s.refs):
-                ref_items.append((run, (label, float(v)),
-                                  Ref(label, float(v), INK_SECONDARY, _ref_dash(r))))
+            for r, (label, v, *of) in enumerate(s.refs):
+                hue = _ref_colour(s, of, lambda j, i=i: colour(i, j))
+                ref_items.append((run, (label, float(v), hue),
+                                  Ref(label, float(v), hue, _ref_dash(r))))
         refs = tuple(Ref(f"{pre}{r.label}", r.value, r.color, r.dash)
                      for pre, r in _shared(ref_items, len(held)))
         panel = Panel(name, x_label,
                       (Axes(first.y_label, tuple(lines), tuple(bands), refs),), first.doc)
-    return _finished(panel, x_log, y_log, declared, x_range)
+    return panel
 
 
 def _finished(panel: Panel, x_log: bool | None, y_log: bool | None,

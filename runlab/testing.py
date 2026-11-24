@@ -30,7 +30,7 @@ from runlab.figure.twin import figure_of
 from runlab.lab import state, words
 from runlab.lab.form import Form
 from runlab.project import declared, get_component, piece_names
-from runlab.record import COMPONENT_KEY, FILES_KEY, Record, read_header
+from runlab.record import COMPONENT_KEY, FILES_KEY, Message, Record, read_header
 from runlab.record.config import Settings
 from runlab.record.files import kept
 
@@ -59,7 +59,7 @@ def check_project(runs: Sequence[str | os.PathLike[str]] = (), *,
     - one of ``runs``, record files the project made, is of no registered piece, does not load
       through its piece's ``Record``, declares a chart that does not draw, as a still or on
       the page, or whose band of a mean (``Series.mean_band``) does not answer for the run's
-      own draws, or a figure of its own that plotly does not take, or lists a file its run
+      own draws, or a figure of its own that plotly does not take, or messages it cannot say, or lists a file its run
       wrote that is not in its folder at the size listed;
     - a Python file under ``sources`` (the declared ``ROOT`` when ``None``; folders whose name
       starts with a dot are skipped) imports more of RunLab than a project may use.
@@ -131,6 +131,13 @@ def _check_run(path: Path, names: Sequence[str], out: Path) -> None:
         except Exception as exc:        # whatever plotly refuses, raised again naming its run
             raise AssertionError(f"{path}: the figure {figure.name!r} is not one plotly takes "
                                  f"({type(exc).__name__}: {exc})") from exc
+    try:
+        said = record.messages()
+    except Exception as exc:        # whatever stops a run's messages, raised again naming its run
+        raise AssertionError(f"{path}: its messages are not said ({type(exc).__name__}: "
+                             f"{exc})") from exc
+    assert all(isinstance(m, Message) for m in said), \
+        f"{path}: its messages are each a runlab Message; got {[type(m).__name__ for m in said]}"
 
 
 def _beyond(node: ast.AST) -> list[str]:

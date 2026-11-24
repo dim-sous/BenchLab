@@ -39,7 +39,7 @@ from runlab.record.config import Settings, from_saved, saved, setting_names
 from runlab.record.files import files_of, listed, run_files
 
 __all__ = ["Provenance", "stamp", "Quantity", "WORDS", "STATISTICS", "SHARES", "TIME", "Role", "ci",
-           "Series", "Figure",
+           "Series", "Figure", "Message", "MESSAGES",
            "bound_refs", "Number", "number_words", "Record", "read_header", "capital",
            "run_files", "files_of", "Absent", "AbsentField", "Difference", "differences",
            "COMPONENT_KEY", "PANELS_KEY", "NUMBER_SPECS_KEY", "PANEL_GROUPS_KEY", "FILES_KEY",
@@ -340,6 +340,27 @@ class Figure:
                             f"page runs; got {type(self.script).__name__}")
 
 
+@dataclasses.dataclass(frozen=True)
+class Message:
+    """One thing a run says in words about how it ended -- a solver's exit message, the events a
+    run left unscored -- shown by the page as it is written (from 1.3). Descriptive only, as a
+    :class:`Number`'s ``doc`` is: what happened and the values it happened at. Like a figure it
+    is said from the record's own fields when shown, never kept in the run file."""
+
+    title: str       # what the message is about, as the card heads it
+    text: str        # the message itself
+
+    def __post_init__(self) -> None:
+        for name in ("title", "text"):
+            if not isinstance(getattr(self, name), str):
+                raise TypeError(f"a message's {name} is text; got "
+                                f"{type(getattr(self, name)).__name__}")
+
+
+#: The name the page opens a run's messages by, beside its charts: no chart or figure may take it.
+MESSAGES = "messages"
+
+
 def bound_refs(bounds: Any, quantity: str | Quantity,
                unit: str | None = None) -> tuple[tuple[Any, float], ...]:
     """A panel's reference lines for ``quantity``'s ``[lower, upper]`` bounds, each a finite one
@@ -599,6 +620,10 @@ class Record:
     def number_specs(self) -> tuple[Number, ...]:
         return ()
 
+    def messages(self) -> tuple[Message, ...]:
+        """What the run says in words about how it ended, each a :class:`Message`; none here."""
+        return ()
+
     # -- the header a listing reads without rebuilding the body
     def header(self) -> dict[str, Any]:
         """The record's piece, its panels -- the charts ``series()`` declares, then the figures
@@ -610,6 +635,9 @@ class Record:
         if twice:
             raise ValueError(f"{type(self).component} declares the panel(s) {twice} more than "
                              f"once; a chart and a figure share one list of names")
+        if MESSAGES in names:
+            raise ValueError(f"{type(self).component} declares a panel named {MESSAGES!r}, the "
+                             f"name the page opens a run's messages by; name it otherwise")
         return {COMPONENT_KEY: type(self).component,
                 PANELS_KEY: names,
                 NUMBER_SPECS_KEY: [dataclasses.asdict(n) for n in self.number_specs()],

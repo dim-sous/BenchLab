@@ -47,7 +47,7 @@ from runlab.figure.render import log_refusal, table_of
 from runlab.figure.style import series_color
 from runlab.figure.twin import figure_of
 from runlab.project import title
-from runlab.record import capital
+from runlab.record import MESSAGES, capital
 from runlab.runner import planned
 
 from . import frames, jobs, shaping, skin, state, view
@@ -413,12 +413,19 @@ def _tab_width(title: str) -> int:
 def _declared(record: Any) -> tuple[list[str], dict[str, str], dict[str, str], dict[str, str]]:
     """What a record can draw, as its class declares it now: the names of its charts, then of
     the figures it draws itself, with each one's group and its title by name and by symbol (a
-    figure of its own has one title)."""
+    figure of its own has one title); then, when it says any, its messages, under RunLab's word
+    for them and in no group."""
     panels = [*record.series(), *record.figures()]
-    return ([p.name for p in panels], {p.name: p.group for p in panels},
-            {p.name: p.title for p in panels},
-            {p.name: p.in_words("symbols").title if hasattr(p, "in_words") else p.title
-             for p in panels})
+    names = [p.name for p in panels]
+    groups = {p.name: p.group for p in panels}
+    titles = {p.name: p.title for p in panels}
+    symbols = {p.name: p.in_words("symbols").title if hasattr(p, "in_words") else p.title
+               for p in panels}
+    if record.messages():
+        names.append(MESSAGES)
+        groups[MESSAGES], titles[MESSAGES] = "", say("cards.messages")
+        symbols[MESSAGES] = titles[MESSAGES]
+    return names, groups, titles, symbols
 
 
 def _colour(i: int) -> str:
@@ -1073,6 +1080,8 @@ class Lab:
         pairs, refused = self._pairs()
         if card.kind == "numbers":
             return self._numbers_view(card, pairs, refused)
+        if card.chart == MESSAGES:
+            return self._messages_view(card, pairs, refused)
         if any(f.name == card.chart for _, record in pairs for f in record.figures()):
             return self._own_view(card, pairs, refused)
         return self._chart_view(card, pairs, refused)
@@ -1325,6 +1334,38 @@ class Lab:
         ctx = shaping.Context("own", runs=len(drawn))
         return self._frame(card, title, self._toolbar(card, ctx), body, " · ".join(words),
                            bool(words))
+
+    def _messages_view(self, card: shaping.Card, pairs: list[tuple[str, Any]],
+                       refused: list[str]) -> pn.Column:
+        """What each shown run says in words about how it ended, as its record says it: each
+        message's title and text, under the run's name where there is more than one shown. A
+        shown run that says nothing is named in the foot. It has no controls: there is nothing
+        to shape."""
+        said = [(name, record.messages()) for name, record in pairs]
+        speaking = [(name, held) for name, held in said if held]
+        silent = [name for name, held in said if not held]
+        parts = []
+        for name, held in speaking:
+            head = ""
+            if len(pairs) > 1:
+                dot = _colour(self.shown.index(name)) if name in self.shown else ""
+                head = (f"<div style='{_LABEL};margin:6px 0 2px 0'><span style='color:{dot}'>●"
+                        f"</span> <span data-run='{html.escape(name)}'>{html.escape(name)}"
+                        f"</span></div>")
+            rows = "".join(f"<tr><td style='{_DIM};padding:2px 12px 2px 0;white-space:nowrap;"
+                           f"vertical-align:top'>{html.escape(m.title)}</td>"
+                           f"<td style='padding:2px 0'>{html.escape(m.text)}</td></tr>"
+                           for m in held)
+            parts.append(f"{head}<table data-messages='{html.escape(name)}' style='font-size:13px;"
+                         f"border-collapse:collapse'>{rows}</table>")
+        body = self._keep((card.id, "messages"), lambda: pn.pane.HTML(
+            "", sizing_mode="stretch_width", margin=(4, 0, 8, 4)))[0]
+        body.object = "".join(parts)
+        words = list(refused)
+        if silent:
+            words.append(say_n("cards.messages_without", len(silent), runs=", ".join(silent)))
+        self.drawn[card.id] = [name for name, _ in speaking]
+        return self._frame(card, say("cards.messages"), [], body, " · ".join(words), bool(words))
 
     def _numbers_context(self, card: shaping.Card,
                          pairs: list[tuple[str, Any]]) -> shaping.Context:

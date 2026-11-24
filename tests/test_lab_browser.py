@@ -505,6 +505,22 @@ def test_a_figure_that_plays_plays_in_the_browser_and_its_script_runs(tmp_path) 
         assert not errors[switched:], errors[switched:]
 
 
+def test_a_runs_messages_show_on_their_card_in_the_browser(tmp_path) -> None:
+    """1.3: the fit's messages, opened from the chart list, read on the page as the run says
+    them, and the page raises nothing for them."""
+    with _served(tmp_path, fit=True) as (page, errors, _root, _out_dir):
+        _shows(page, "2 on disk")
+        page.locator("select").first.select_option(label="Fit")
+        _shows(page, "1 on disk")
+        page.wait_for_timeout(1500)
+        switched = len(errors)
+        page.locator("button", has_text="Messages").first.click()
+        _shows(page, "the descent")
+        assert any(t.startswith("stopped after 40 steps at a loss of ")
+                   for t in page.evaluate(_TEXT))
+        assert not errors[switched:], errors[switched:]
+
+
 def test_a_runs_files_show_in_the_compare_table_and_go_with_the_run(tmp_path, toy_installed) -> None:
     """Branch R4: a fit run started from the form lists the files it wrote, by size; a second,
     started from the first through the form's pick of a saved run, ran on its weights; a run

@@ -80,6 +80,8 @@ SLOTS: dict[str, tuple[str, ...]] = {
     "cards.chart_without.one": ("runs",), "cards.chart_without.many": ("runs",),
     # a card of a figure the piece draws itself
     "cards.own_runs": (), "cards.own_without.one": ("runs",), "cards.own_without.many": ("runs",),
+    "cards.messages": (), "cards.messages_without.one": ("runs",),
+    "cards.messages_without.many": ("runs",),
     # the pictures a Save wrote: the list under the compare table
     "saved.heading": (), "saved.count.one": ("n",), "saved.count.many": ("n",),
     "saved.empty": (), "saved.pictures.one": ("n",), "saved.pictures.many": ("n",),

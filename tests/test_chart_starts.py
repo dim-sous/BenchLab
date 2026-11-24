@@ -263,3 +263,34 @@ def test_a_chart_is_drawn_past_its_runs_cold_start_unless_the_card_shows_it() ->
 def _rows_timed() -> Series:
     rows = _rows().rows
     return Series(name="both", x=X, x_label="t [s]", y_label="", rows=rows, cold_start_end=0.5)
+
+
+
+def test_a_line_may_wear_the_colour_of_what_it_is_on_every_chart() -> None:
+    """1.10: a chart naming each trace's colour draws each in it; over several runs each line keeps
+    its colour and the runs are its shades; pooled, the mean wears it; a ring may name its own;
+    and the card's Colour by is greyed, the colours being the chart's."""
+    meant = Series(name="miss", x=X, x_label="t [s]", y_label="miss [m]",
+                   traces=(("tracking", X), ("total", 2 * X)), colours=("#d62728", "#000000"),
+                   pooled=("rms",), refs=(("tracking limit", 0.5, "tracking"),))
+    alone = chart_of([("a", _Run(meant))], "miss")
+    assert [line.color for line in alone.axes[0].lines] == ["#d62728", "#000000"]
+    assert alone.axes[0].refs[0].color == "#d62728", "a reference line of a trace, its colour"
+    other = Series(name="miss", x=X, x_label="t [s]", y_label="miss [m]",
+                   traces=(("tracking", X + 1), ("total", 2 * X + 1)),
+                   colours=("#d62728", "#000000"), pooled=("rms",))
+    two = chart_of([("a", _Run(meant)), ("b", _Run(other))], "miss")
+    assert {line.color for line in two.axes[0].lines} == {
+        shade("#d62728", 0), shade("#d62728", 1), shade("#000000", 0), shade("#000000", 1)}
+    same = chart_of([("a", _Run(meant)), ("b", _Run(meant))], "miss")
+    assert [line.color for line in same.axes[0].lines] == ["#d62728", "#000000"], \
+        "a line both runs hold identically keeps its colour"
+    plane = Series(name="p", x=X, x_label="m", y_label="m", traces=(("rounds", X),),
+                   equal_aspect=True, rings=(("radius", 0.5, "#000000"), ("cep", 0.3)))
+    rings = chart_of([("a", _Run(plane))], "p").axes[0].rings
+    assert [r.color for r in rings] == ["#000000", INK_SECONDARY]
+    with pytest.raises(ValueError, match="colours are one '#rrggbb' per trace"):
+        Series(name="q", x=X, x_label="t", y_label="y", traces=(("a", X),), colours=("red",))
+    ctx = shaping.Context("chart", runs=2, declared_colours=True)
+    reasons = {s_.field: why for s_, why in shaping.offered(shaping.Card(1, "chart"), ctx)}
+    assert reasons["colour_by"] == "Each line wears the colour of what it is"

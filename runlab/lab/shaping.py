@@ -72,6 +72,7 @@ class Context:
     declared_split: bool = False
     declared_rows: bool = False
     declared_cold_start: bool = False
+    declared_colours: bool = False
     telling: dict[str, str] = field(default_factory=dict)
     pools: bool = False
     x_log_refusal: str = ""
@@ -124,6 +125,8 @@ def _one_run(card: Card, ctx: Context) -> str:
 
 
 def _colour_unusable(card: Card, ctx: Context) -> str:
+    if ctx.declared_colours:
+        return say("cards.colour_declared")
     if ctx.runs < 2:
         return say("cards.one_run")
     runs = _chart_runs(card, ctx)

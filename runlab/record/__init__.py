@@ -23,6 +23,7 @@ import json
 import math
 import os
 import platform
+import re
 import subprocess
 import types
 import typing
@@ -266,6 +267,11 @@ class Series:
     #: drawn past it, every trace, band and row together, unless its card's Cold start switch is
     #: on. ``None``: the chart has no cold start.
     cold_start_end: float | None = None
+    #: Each trace's own colour, ``"#rrggbb"``, one per trace (from 1.10): for a project that colours
+    #: a line by what it MEANS, the same on every chart (a truth green everywhere). Over several
+    #: runs a line keeps its colour and each run wears a shade of it; the card's Colour by is then
+    #: greyed. A ring may name its colour as a third element, ``(label, radius, colour)``.
+    colours: tuple[str, ...] = ()
     #: A plane (from 1.6): one unit along the abscissa is one along the ordinate, for a panel whose
     #: two axes are one quantity in one unit (a scatter in a plane, metres by metres), where axes
     #: scaled apart would make a round group look long. ``rings``, circles about the origin,
@@ -318,6 +324,10 @@ class Series:
             if len(y) != own:
                 raise ValueError(f"panel {self.name!r}: trace {label!r} has {len(y)} values "
                                  f"against {own} abscissa values")
+        if self.colours and (len(self.colours) != len(self.traces) or not all(
+                isinstance(c, str) and re.fullmatch(r"#[0-9a-fA-F]{6}", c) for c in self.colours)):
+            raise ValueError(f"panel {self.name!r}: colours are one '#rrggbb' per trace; "
+                             f"{self.colours!r} given for {len(self.traces)} traces")
         if self.rings and not self.equal_aspect:
             raise ValueError(f"panel {self.name!r} draws rings, which need equal_aspect: on axes "
                              f"scaled apart a circle is drawn as an ellipse")

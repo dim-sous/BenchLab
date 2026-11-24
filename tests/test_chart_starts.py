@@ -1,7 +1,9 @@
 """How a chart starts and what belongs to a line (1.5): a chart of events starts as dots, one that
 describes a single run starts a row per run, two quantities in two units drawn as rows of one
 figure, the shares of one whole stacked as areas, and a band or a reference line drawn in the
-colour of the line it names. On records built here, as a project's would be."""
+colour of the line it names. And charts of a plane (1.6): equal scales, circles about the origin,
+named places, each trace a cloud on its own abscissa. On records built here, as a project's would
+be."""
 
 from __future__ import annotations
 
@@ -120,3 +122,46 @@ def test_a_band_or_a_reference_line_wears_the_colour_of_the_line_it_names() -> N
                                          "traces"):
         Series(name="p", x=X, x_label="t", y_label="x", traces=(("x", X),),
                bands=(("b", X, X, "speed"),))
+
+
+def _plane(dx: float = 0.0) -> Series:
+    return Series(name="pattern", x=X + dx, x_label="across [m]", y_label="up [m]",
+                  traces=(("rounds", X),), points=True, equal_aspect=True,
+                  rings=(("target", 0.5), ("CEP", 0.3)), marks=(("aim point", 0.0, 0.0),))
+
+
+def test_a_plane_is_drawn_with_equal_scales_its_rings_and_its_marks(tmp_path: Path) -> None:
+    panel = chart_of([("a", _Run(_plane()))], "pattern")
+    ax = panel.axes[0]
+    assert panel.equal_aspect and [(r.label, r.radius) for r in ax.rings] == [("target", 0.5),
+                                                                              ("CEP", 0.3)]
+    assert [(m.label, m.x, m.y) for m in ax.marks] == [("aim point", 0.0, 0.0)]
+    fig = figure_of(panel)
+    assert fig["layout"]["yaxis"]["scaleanchor"] == "x"
+    names = [t["name"] for t in fig["data"]]
+    assert names == ["target", "CEP", "aim point", "rounds"]
+    ring = fig["data"][0]
+    assert max(ring["x"]) == pytest.approx(0.5) and len(ring["x"]) == 181
+    [png] = render(panel, tmp_path, stamp(0.0))
+    assert png.stat().st_size > 0
+    two = chart_of([("a", _Run(_plane())), ("b", _Run(_plane(0.1)))], "pattern")
+    assert [r.label for r in two.axes[0].rings] == ["target", "CEP"], "one ring both runs hold"
+    assert [m.label for m in two.axes[0].marks] == ["a — aim point", "b — aim point"]
+    assert [m.color for m in two.axes[0].marks] == [series_color(0), series_color(1)]
+    with pytest.raises(ValueError, match="draws rings, which need equal_aspect"):
+        Series(name="p", x=X, x_label="m", y_label="m", traces=(("a", X),), rings=(("r", 1.0),))
+
+
+def test_each_trace_may_be_a_cloud_on_its_own_abscissa() -> None:
+    miss = Series(name="parts", x=X, x_label="across [m]", y_label="up [m]",
+                  traces=(("bias", X), ("noise", X[:4])), trace_x=(X, X[:4] * 2.0),
+                  equal_aspect=True)
+    assert miss.points, "a cloud is drawn as dots"
+    panel = chart_of([("a", _Run(miss))], "parts")
+    assert [list(line.x) for line in panel.axes[0].lines][1] == list(X[:4] * 2.0)
+    with pytest.raises(ValueError, match="no one tick to pool its runs at"):
+        chart_of([("a", _Run(miss)), ("b", _Run(miss))], "parts", runs="mean")
+    with pytest.raises(ValueError, match="no sample index to draw on"):
+        chart_of([("a", _Run(miss))], "parts", x="index")
+    with pytest.raises(ValueError, match="one per trace"):
+        Series(name="p", x=X, x_label="m", y_label="m", traces=(("a", X),), trace_x=(X, X))

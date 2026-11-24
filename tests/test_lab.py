@@ -46,7 +46,10 @@ _ALLOWED = {# the declared project: its pieces, and its command and title -- wor
             # the settings' declarations; and a typed value read as the run will read it, so
             # Run refuses what the run would refuse before queueing it (decision 5); a value as
             # --set reads it back, and a number's range, both shared with the settings command
-            "runlab.record.config": {"fields_of", "coerce_value", "as_text", "interval_ends"},
+            "runlab.record.config": {"fields_of", "coerce_value", "as_text", "interval_ends",
+                                     # a setting inside a part, by its dotted name: its
+                                     # declaration, and a run's values spread out by such names (1.2)
+                                     "parameter_at", "flat"},
             "runlab.record.files": {"kept", "discard"},
             # the one constant saying where records live
             # and the folder a draw of some runs writes into, where a card's Save writes too

@@ -30,7 +30,9 @@ HELD = {"run_files": files, "files_of": files}
 #: The names a project's declared module holds; ``WORDS`` it may leave out (from 0.6).
 DECLARED = {"NAMES", "get_component", "COMMAND", "TITLE", "ROOT", "LIBRARIES", "WORDS"}
 #: What a setting's ``metadata`` may carry.
-METADATA = ("group", "unit", "lines", "needs", "replicate", "draws", "record_of", "folded", "rows")
+METADATA = ("group", "unit", "lines", "needs", "replicate", "draws", "record_of", "folded", "rows",
+            # from 1.2: on a part, the groups of it that apply
+            "composes")
 
 
 def test_runlab_holds_every_name_it_promised() -> None:
@@ -65,6 +67,11 @@ def test_the_two_commands_and_the_check_are_where_a_project_names_them() -> None
     assert callable(cli.main) and callable(lab.main) and callable(testing.check_project)
 
 
+class _Part(runlab.Settings):
+    held = param.Number(1.0, metadata={"group": "H"})
+    left = param.Number(1.0, metadata={"group": "I"})
+
+
 def test_a_setting_keeps_every_metadata_key_it_may_carry() -> None:
     rows = {"label": "x{}'", "add": "+ State"}
 
@@ -77,6 +84,8 @@ def test_a_setting_keeps_every_metadata_key_it_may_carry() -> None:
         count = param.Integer(1, metadata={"group": "G"})
         source = param.String("", metadata={"group": "G", "record_of": "wave"})
         terms = param.List(default=["x"], item_type=str, metadata={"group": "G", "rows": rows})
+        part = param.ClassSelector(class_=_Part, default=_Part(),
+                                   metadata={"group": "G", "composes": ("H",)})
 
     by = {f["name"]: f for f in config.fields_of(Every)}
     assert by["mode"]["lines"] == {"a": "one", "b": "two"}
@@ -84,7 +93,8 @@ def test_a_setting_keeps_every_metadata_key_it_may_carry() -> None:
     assert by["gain"]["needs"] == {"mode": {"in": ["b"]}}
     assert (by["seed"]["replicate"], by["seed"]["draws"]) == (True, "count")
     assert by["source"]["record_of"] == "wave" and by["terms"]["rows"] == rows
-    assert all(key in by["gain"] for key in METADATA)
+    assert by["part.held"]["group"] == "Part · H" and by["part.held"]["part"] == "part"
+    assert all(key in by["gain"] for key in METADATA if key != "composes")
 
 
 def test_the_readme_names_everything_promised() -> None:

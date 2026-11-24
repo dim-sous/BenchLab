@@ -89,19 +89,24 @@ def build_parser() -> argparse.ArgumentParser:
 
 def settings_command(args: argparse.Namespace) -> int:
     """Every setting of the piece under its group, a line each, as the form reads them
-    (:func:`runlab.record.config.fields_of`)."""
-    group = None
-    for f in fields_of(get_component(args.piece).Config):
-        if f["group"] != group:
-            group = f["group"]
-            print(f"\n{group}")
-        named = f' "{f["label"]}"' if f["label"] != f["name"] else ""
-        unit = f" [{f['unit']}]" if f["unit"] else ""
-        choices = f" one of {f['choices']}" if f["choices"] else ""
-        ends = interval_ends(f)
-        within = f" in {ends[0]} … {ends[1]}" if ends else ""
-        print(f"  {f['name']}{named}{unit} = {f['default']!r}{within}{choices}: {f['doc']}")
+    (:func:`runlab.record.config.fields_of`), the groups in the order they first appear, as the
+    form shows them."""
+    fields = fields_of(get_component(args.piece).Config)
+    for group in dict.fromkeys(f["group"] for f in fields):
+        print(f"\n{group}")
+        for f in (f for f in fields if f["group"] == group):
+            _setting_line(f)
     return 0
+
+
+def _setting_line(f: dict) -> None:
+    """One setting as the settings command lists it."""
+    named = f' "{f["label"]}"' if f["label"] != f["name"] else ""
+    unit = f" [{f['unit']}]" if f["unit"] else ""
+    choices = f" one of {f['choices']}" if f["choices"] else ""
+    ends = interval_ends(f)
+    within = f" in {ends[0]} … {ends[1]}" if ends else ""
+    print(f"  {f['name']}{named}{unit} = {f['default']!r}{within}{choices}: {f['doc']}")
 
 
 def run_command(args: argparse.Namespace) -> int:

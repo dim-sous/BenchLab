@@ -66,13 +66,19 @@ def test_settings_lists_a_pieces_settings_under_their_groups(capsys) -> None:
     its default, its range, its choices, its description."""
     assert cli.main(["settings", "lag"]) == 0
     lines = capsys.readouterr().out.splitlines()
-    assert lines[:3] == ["", "Source", "  wave_run \"Wave run\" = 'results/wave/default.json': "
-                                       "The saved wave run whose u drives the lag."]
+    assert lines[:4] == ["", "Source", "  drive \"Drive\" = 'saved' one of ['saved', 'built']: "
+                                       "The u that drives the lag: a saved wave run's, or a wave "
+                                       "built here.",
+                         "  wave_run \"Wave run\" = 'results/wave/default.json': "
+                         "The saved wave run whose u drives the lag."]
+    assert "  wave.shape \"Shape\" = 'sine' one of ['sine', 'square']: The wave's shape." in lines, \
+        "a setting inside the built wave, by its dotted name"
+    assert not any(line.startswith("  wave.seed") for line in lines), "its noise is not composed"
     assert "  tau \"τ\" [s] = 0.05 in (0 … ∞): The lag's time constant." in lines
     assert ("  hold \"Hold\" = None one of ['exact', 'euler']: How the lag is sampled; none: "
             "exact.") in lines
     groups = [line for line in lines if line and not line.startswith(" ")]
-    assert groups[:2] == ["Source", "Lag"]
+    assert groups[:3] == ["Source", "Built wave · Wave", "Lag"], "each group once, where it first comes"
     assert cli.main(["settings", "wave"]) == 0
     wave = {line.split()[0]: line for line in capsys.readouterr().out.splitlines() if line[:2] == "  "}
     assert " = 40 in [2 … ∞):" in wave["samples"] and " = 0.5 in (0 … 1):" in wave["duty"]

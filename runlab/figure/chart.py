@@ -34,7 +34,7 @@ import numpy as np
 from runlab.figure.render import DASHES, Axes, Band, Line, Panel, Ref, log_refusal
 from runlab.figure.style import INK_SECONDARY, NEUTRAL, series_color, shade
 from runlab.record import Series, capital
-from runlab.record.config import fields_of, to_dict
+from runlab.record.config import fields_of, flat, to_dict
 
 __all__ = ["RUNS", "COLOUR_BY", "X", "INDEX_LABEL", "chart_of", "pool_refusal", "sweep_of",
            "distinct", "telling", "series_of", "mean_band_of"]
@@ -380,7 +380,7 @@ def _fields(pairs: Pairs) -> dict[str, dict[str, Any]]:
 def _value(record: Any, name: str) -> Any:
     """A setting as its record saved it: a list of rows as its dicts, which compare by what they
     hold (a row object carries an instance name of its own, so two equal lists never matched)."""
-    return to_dict(record.config)[name]
+    return flat(type(record.config), to_dict(record.config))[name]
 
 
 def distinct(pairs: Pairs, *, but: Sequence[str] = ()) -> list[str]:

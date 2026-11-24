@@ -39,7 +39,7 @@ import param
 
 from runlab.cli import DEFAULT_OUT_DIR
 from runlab.project import command, get_component, piece_names
-from runlab.record.config import coerce_value, fields_of
+from runlab.record.config import coerce_value, fields_of, parameter_at
 from runlab.record.files import discard, kept
 
 from .form import as_text
@@ -103,9 +103,9 @@ def refusals(piece: str, typed: Mapping[str, str], swept: str = "",
     cls = get_component(_piece(piece)).Config
     fields = {f["name"]: f for f in fields_of(cls)}
     by_setting = {name: words for name, text in typed.items()
-                  if (words := _refusal(cls.param[name], fields[name], text))}
+                  if (words := _refusal(parameter_at(cls, name), fields[name], text))}
     sweep = next((words for rung in rungs
-                  if (words := _refusal(cls.param[swept], fields[swept], rung))), "") \
+                  if (words := _refusal(parameter_at(cls, swept), fields[swept], rung))), "") \
         if swept else ""
     return by_setting, sweep
 

@@ -36,6 +36,16 @@ table of param's: param writes it as plain text and reads it back (:func:`other_
 that text (``[[1, 2], [3, 4]]``, ``2026-02-03``), saved as it (:func:`saved`) and loaded as the
 real thing. Nothing here names such a kind.
 
+A setting may hold ANOTHER PIECE'S WHOLE SETTINGS, a part (from 1.2): a ``param.ClassSelector``
+whose ``class_`` is a Settings class (the other piece's Config) -- how a piece that composes
+others is set by the parts it composes, with no copy of their settings. ``metadata["composes"]``
+names the part's groups that apply here (none: all of them); a value set in another of its
+groups is refused on construction (:func:`composed`), because the composing piece runs its own
+experiment on the part and would ignore it. Every surface sees a part's settings as settings
+of their own, by a dotted name (``mount.gain``, :func:`fields_of`), so a form, a sweep, the
+command line and the compare table take them as they take any other; a run file holds the
+part as the dict of its settings.
+
 A built Config is immutable; a changed one is a new Config (:func:`with_overrides`).
 """
 
@@ -46,8 +56,8 @@ from typing import Any, Mapping, Sequence
 
 import param
 
-__all__ = ["Settings", "fields_of", "gated", "with_overrides", "to_dict", "saved", "from_dict",
-           "coerce_value", "parse_override", "other_kind"]
+__all__ = ["Settings", "fields_of", "gated", "composed", "with_overrides", "to_dict", "saved",
+           "from_dict", "coerce_value", "parse_override", "other_kind", "parameter_at", "flat"]
 
 #: The six kinds read and written here; a setting of any other is read and written by param.
 _SIX = (param.Integer, param.Number, param.Boolean, param.String, param.Selector, param.List)
@@ -68,6 +78,7 @@ class Settings(param.Parameterized):
     def __init__(self, **values: Any) -> None:
         super().__init__(**values)
         gated(self)
+        composed(self)
 
 
 def _parameters(cls: type) -> dict[str, param.Parameter]:
@@ -75,9 +86,27 @@ def _parameters(cls: type) -> dict[str, param.Parameter]:
     return {n: p for n, p in cls.param.objects(instance=False).items() if n != "name"}
 
 
+def _part_of(p: param.Parameter) -> type | None:
+    """The Settings class a part holds (a ``param.ClassSelector`` of one), ``None`` for any
+    other setting."""
+    held = getattr(p, "class_", None) if isinstance(p, param.ClassSelector) else None
+    return held if isinstance(held, type) and issubclass(held, Settings) else None
+
+
+def _composes(p: param.Parameter) -> tuple[str, ...] | None:
+    """The part's groups that apply where it is held; ``None`` for all of them."""
+    wanted = (p.metadata or {}).get("composes")
+    if wanted is None:
+        return None
+    return tuple(wanted() if callable(wanted) else wanted)
+
+
 def other_kind(p: param.Parameter) -> bool:
     """Whether ``p`` is of another kind than the six: not built on one of them, or built on one
-    and bringing its own writing or reading (a date is built on param's number)."""
+    and bringing its own writing or reading (a date is built on param's number). A part is not:
+    its settings are read and written here, each by its own kind."""
+    if _part_of(p) is not None:
+        return False
     if not isinstance(p, _SIX):
         return True
     definer = next(c for c in type(p).__mro__ if "serialize" in vars(c) or "deserialize" in vars(c))
@@ -95,6 +124,8 @@ def _written(p: param.Parameter, value: Any) -> Any:
     list of rows as its own settings."""
     if _rows_of(p) and value is not None:
         return [saved(row) for row in value]
+    if _part_of(p) and value is not None:
+        return saved(value)
     return p.serialize(value) if other_kind(p) and value is not None else value
 
 
@@ -102,6 +133,26 @@ def _gate_holds(gate: Mapping[str, Any], value: Any) -> bool:
     if set(gate) != {"in"}:
         raise ValueError(f"a gate is {{'in': [named values]}}, got {gate!r}")
     return value in gate["in"]
+
+
+def composed(cfg: Settings) -> None:
+    """Refuse a part's setting set outside the groups its holder composes; see the module.
+    "Set" is compared as written against the part's own defaults."""
+    for name, p in _parameters(type(cfg)).items():
+        part, wanted = _part_of(p), _composes(p)
+        if part is None or wanted is None or getattr(cfg, name) is None:
+            continue
+        held, fresh = getattr(cfg, name), part()
+        off = [n for n, sub in _parameters(part).items()
+               if (sub.metadata or {}).get("group") not in wanted
+               and _written(sub, getattr(held, n)) != _written(sub, getattr(fresh, n))]
+        if off:
+            raise ValueError(f"{name}.{off[0]}={getattr(held, off[0])!r} is set, but {name} "
+                             f"applies only its groups {list(wanted)}; "
+                             f"{', '.join(f'{name}.{n}' for n in off)} "
+                             f"{'is' if len(off) == 1 else 'are'} the run "
+                             f"{type(cfg).__name__} makes of it, which it sets itself: the run "
+                             f"would ignore {'it' if len(off) == 1 else 'them'}")
 
 
 def gated(cfg: Settings) -> None:
@@ -116,13 +167,16 @@ def gated(cfg: Settings) -> None:
         if closed and _written(p, getattr(cfg, name)) != _written(p, p.default):
             gates = "; ".join(f"{other} is one of {gate['in']!r} (it is {getattr(cfg, other)!r})"
                               for other, gate in closed)
-            raise ValueError(f"{name}={getattr(cfg, name)!r} is set, but {name} applies only "
+            shown = "" if _part_of(p) else f"={getattr(cfg, name)!r}"     # a part: its name
+            raise ValueError(f"{name}{shown} is set, but {name} applies only "
                              f"when {gates}; the run would ignore it")
 
 
 def _type_text(p: param.Parameter) -> str:
     if _rows_of(p):
         return "rows"
+    if _part_of(p):
+        return "part"
     return {param.Integer: "int", param.Number: "float", param.Boolean: "bool",
             param.String: "str", param.Selector: "choice", param.List: "list"}.get(
         type(p), type(p).__name__)
@@ -160,10 +214,17 @@ def fields_of(cls: type) -> list[dict[str, Any]]:
     """One dict per setting -- the one reader every surface (the command line, tests, a form)
     uses. A list of rows carries its row's own settings (``element_fields``, read the same way)
     and what a row added to it starts as (``element_default``); both are ``None`` for any other
-    setting."""
+    setting. A part is not one entry but its settings', each by its dotted name
+    (``part.setting``), in the groups it composes, under the heading ``<part> · <group>``; what
+    switches one on is its own gate, by dotted names, with the part's gate besides; ``part``
+    names the part it is in (``""`` for a setting of the piece's own)."""
     out = []
     for name, p in _parameters(cls).items():
         meta = p.metadata or {}
+        part = _part_of(p)
+        if part is not None:
+            out.extend(_part_fields(name, p, part))
+            continue
         other = other_kind(p)
         row = _rows_of(p)
         numeric = isinstance(p, param.Number) and not other
@@ -185,7 +246,71 @@ def fields_of(cls: type) -> list[dict[str, Any]]:
             "draws": meta.get("draws"), "record_of": meta.get("record_of", ""),
             "folded": bool(meta.get("folded")), "rows": meta.get("rows"),
             "texts": isinstance(p, param.List) and p.item_type is str,
+            "part": "",
         })
+    return out
+
+
+def _part_fields(name: str, p: param.Parameter, part: type) -> list[dict[str, Any]]:
+    """The settings of the part ``name`` (declared as ``p``, holding a ``part``) as
+    :func:`fields_of` reports them; see there. A group it names that the part has not is
+    refused: a heading the form would never fill."""
+    inner = fields_of(part)
+    wanted = _composes(p)
+    if wanted is not None:
+        unknown = sorted(set(wanted) - {f["group"] for f in inner})
+        if unknown:
+            raise ValueError(f"{name} composes the groups {unknown}, which "
+                             f"{part.__name__} has not; its groups are "
+                             f"{sorted({f['group'] for f in inner})}")
+    # the holder's default part, which may differ from the part's own defaults
+    held = flat(part, saved(p.default if isinstance(p.default, part) else part()))
+    outer = (p.metadata or {}).get("needs") or {}
+    out = []
+    for f in inner:
+        if wanted is not None and f["group"] not in wanted:
+            continue
+        sub = f["name"]
+        needs = {f"{name}.{other}": gate for other, gate in (f.get("needs") or {}).items()}
+        out.append({**f, "name": f"{name}.{sub}",
+                    "group": f"{p.label or name} \u00b7 {f['group']}",
+                    "default": held.get(sub, f["default"]),
+                    "needs": {**outer, **needs} or None,
+                    "part": f.get("part") or name})
+    return out
+
+
+def parameter_at(cls: type, name: str) -> param.Parameter:
+    """The declaration of the setting ``name`` of ``cls``, a dotted name reaching into a part
+    (``part.setting``); an unknown one is refused, naming what there is."""
+    head, _, rest = name.partition(".")
+    params = _parameters(cls)
+    if head not in params:
+        raise ValueError(f"unknown setting {head!r} on {cls.__name__}; valid: {sorted(params)}")
+    if not rest:
+        return params[head]
+    part = _part_of(params[head])
+    if part is None:
+        raise ValueError(f"{name!r}: {head!r} holds no settings of its own, so nothing is "
+                         f"inside it")
+    return parameter_at(part, rest)
+
+
+def flat(cls: type, raw: Mapping[str, Any]) -> dict[str, Any]:
+    """A run file's settings of ``cls`` with each part's spread out by dotted names, as
+    :func:`fields_of` names them -- only the groups it composes, the rest being the composing
+    piece's own to set; an entry ``cls`` declares no part for is kept as it is."""
+    params = _parameters(cls)
+    out: dict[str, Any] = {}
+    for key, value in raw.items():
+        part = _part_of(params[key]) if key in params else None
+        if part is not None and isinstance(value, Mapping):
+            wanted, inner = _composes(params[key]), _parameters(part)
+            out.update({f"{key}.{k}": v for k, v in flat(part, value).items()
+                        if wanted is None or k.split(".")[0] not in inner
+                        or (inner[k.split(".")[0]].metadata or {}).get("group") in wanted})
+        else:
+            out[key] = value
     return out
 
 
@@ -214,6 +339,19 @@ def coerce_value(p: param.Parameter, value: Any) -> Any:
     file holds; a value already of its own type passes through. A list of rows takes its JSON
     text or a list of dicts, each dict a row (:func:`from_dict`); a row already built passes
     through."""
+    part = _part_of(p)
+    if part is not None:
+        if isinstance(value, part) or (value is None and p.allow_None):
+            return value
+        if isinstance(value, str):
+            try:
+                value = json.loads(value)
+            except json.JSONDecodeError:
+                raise ValueError(f"{p.name}: {value!r} is not {part.__name__}'s settings as "
+                                 f"JSON, {{...}}") from None
+        if not isinstance(value, Mapping):
+            raise ValueError(f"{p.name}: {value!r} is not {part.__name__}'s settings, {{...}}")
+        return from_dict(part, value, where=p.name)
     row = _rows_of(p)
     if row is not None:
         if isinstance(value, str):
@@ -304,7 +442,9 @@ def _read(p: param.Parameter, value: Any) -> Any:
 def to_dict(cfg: Settings) -> dict[str, Any]:
     """The settings, in declaration order, as the values the piece reads; a list of rows as a
     list of dicts, the rows' own settings as plain values."""
-    return {n: [to_dict(r) for r in getattr(cfg, n)] if _rows_of(p) else getattr(cfg, n)
+    return {n: [to_dict(r) for r in getattr(cfg, n)] if _rows_of(p)
+            else to_dict(getattr(cfg, n)) if _part_of(p) and getattr(cfg, n) is not None
+            else getattr(cfg, n)
             for n, p in _parameters(type(cfg)).items()}
 
 
@@ -342,20 +482,34 @@ def from_saved(cls: type, raw: Mapping[str, Any]) -> Settings:
         row = _rows_of(params[name])
         if row is not None and isinstance(value, list):
             held[name] = [from_saved(row, _a_row(params[name], r, i)) for i, r in enumerate(value)]
+        part = _part_of(params[name])
+        if part is not None and isinstance(value, Mapping):
+            held[name] = from_saved(part, value)
     return from_dict(cls, held, where="config")
 
 
 def with_overrides(cfg: Settings, pairs: Sequence[tuple[str, Any]]) -> Settings:
     """``cfg`` with each ``(setting, value)`` applied, rebuilt ONCE so a gate is checked on the
     final state, not on an intermediate one. A dotted ``setting.row.cell`` sets one cell of one
-    row of a list of rows, the rows numbered from 0."""
+    row of a list of rows, the rows numbered from 0; a dotted ``part.setting`` sets a setting
+    inside a part, after the part itself when both are set, and the part is rebuilt once."""
     cls = type(cfg)
     params = _parameters(cls)
     values = to_dict(cfg)
+    #: what is set inside each part, applied to it once, after the part itself is set
+    inside: dict[str, list[tuple[str, Any]]] = {}
     for name, value in pairs:
         head, _, rest = name.partition(".")
         if head not in params:
             raise ValueError(f"unknown setting {head!r} on {cls.__name__}; valid: {sorted(params)}")
+        if _part_of(params[head]) is not None:
+            if rest:
+                inside.setdefault(head, []).append((rest, value))
+            else:
+                held = coerce_value(params[head], value)
+                values[head] = None if held is None else to_dict(held)
+                inside.pop(head, None)
+            continue
         if not rest:
             held = coerce_value(params[head], value)
             # a list of rows stays plain until the rebuild, so a cell set after it lands on a dict
@@ -375,8 +529,16 @@ def with_overrides(cfg: Settings, pairs: Sequence[tuple[str, Any]]) -> Settings:
             raise ValueError(f"{name!r}: a row of {head} holds no {cell!r}; it holds "
                              f"{sorted(cells)}")
         rows[int(index)] = {**rows[int(index)], cell: coerce_value(cells[cell], value)}
-    return cls(**{n: coerce_value(params[n], v) if _rows_of(params[n]) else v
-                  for n, v in values.items()})
+    for head, set_inside in inside.items():
+        held = coerce_value(params[head], values[head])
+        if held is None:
+            raise ValueError(f"{set_inside[0][0]!r} is set inside {head}, which holds nothing")
+        try:
+            values[head] = to_dict(with_overrides(held, set_inside))
+        except ValueError as exc:           # the part's own refusal, naming the part it is in
+            raise ValueError(f"{head}: {exc}") from exc
+    return cls(**{n: coerce_value(params[n], v) if _rows_of(params[n]) or _part_of(params[n])
+                  else v for n, v in values.items()})
 
 
 def parse_override(item: str) -> tuple[str, str]:

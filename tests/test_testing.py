@@ -166,3 +166,12 @@ def test_a_form_that_does_not_draw_is_refused_naming_its_piece(monkeypatch) -> N
                                              "AttributeError: 'function' object has no "
                                              "attribute 'get'"):
         check_project(sources=[TOY])
+
+
+def test_a_link_to_nowhere_is_no_file_of_the_project(tmp_path) -> None:
+    """1.16, found on the other project's computer: a stale build's links point at a folder that
+    is gone; the check of imports reads the project's files, and a link to nowhere is none."""
+    (tmp_path / "ok.py").write_text("from runlab import Settings\n")
+    (tmp_path / "build").mkdir()
+    (tmp_path / "build" / "setup.py").symlink_to(tmp_path / "gone" / "setup.py")
+    check_project(sources=[tmp_path])

@@ -29,8 +29,9 @@ NAMES = {"Settings": config, "with_overrides": config, "Record": record, "Series
 #: Held from 0.8 and not yet promised: built on the made-up project alone, no project having
 #: used them. They may still change; the README says so.
 HELD = {"run_files": files, "files_of": files}
-#: The names a project's declared module holds; ``WORDS`` it may leave out (from 0.6).
-DECLARED = {"NAMES", "get_component", "COMMAND", "TITLE", "ROOT", "LIBRARIES", "WORDS"}
+#: The names a project's declared module holds; ``WORDS`` (from 0.6) and ``OUT_DIR`` (from 1.16)
+#: it may leave out.
+DECLARED = {"NAMES", "get_component", "COMMAND", "TITLE", "ROOT", "LIBRARIES", "WORDS", "OUT_DIR"}
 #: What a setting's ``metadata`` may carry.
 METADATA = ("group", "unit", "lines", "needs", "replicate", "draws", "record_of", "folded", "rows",
             # from 1.2: on a part, the groups of it that apply
@@ -66,7 +67,7 @@ def test_the_declaration_requires_no_name_beyond_those_promised() -> None:
 
 
 def test_a_project_need_not_name_a_words_file() -> None:
-    assert "WORDS" not in project.DECLARED
+    assert "WORDS" not in project.DECLARED and "OUT_DIR" not in project.DECLARED
 
 
 def test_the_two_commands_and_the_check_are_where_a_project_names_them() -> None:

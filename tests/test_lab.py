@@ -35,7 +35,9 @@ _ALLOWED = {# the declared project: its pieces, and its command and title -- wor
             # project's module, which holds every piece (before the move: NAMES, get_component)
             "runlab.project": {"piece_names", "get_component", "command", "title",
                                  # and the file of the page's own words (lab.words)
-                                 "words_path"},
+                                 "words_path",
+                                 # and the folder its runs write their records to (1.16)
+                                 "out_dir"},
             # a record's header keys, how every word the page shows begins (the developer's
             # rule, 2026-10-27), and the record layer's own statement of how a file departs
             # from what its piece reads, which the list words; a saved number's words, by name or
@@ -53,9 +55,8 @@ _ALLOWED = {# the declared project: its pieces, and its command and title -- wor
                                      # declaration, and a run's values spread out by such names (1.2)
                                      "parameter_at", "flat"},
             "runlab.record.files": {"kept", "discard"},
-            # the one constant saying where records live
-            # and the folder a draw of some runs writes into, where a card's Save writes too
-            "runlab.cli": {"DEFAULT_OUT_DIR", "folder_of"},
+            # the folder a draw of some runs writes into, where a card's Save writes too
+            "runlab.cli": {"folder_of"},
             # how a record name and the form's words become runs, the command line's own rule
             "runlab.runner": {"planned"},
             # what a card draws is the figure layer's own: the panel built from what the records

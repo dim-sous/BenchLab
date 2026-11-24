@@ -136,3 +136,28 @@ def test_a_sweep_is_refused_in_the_projects_command_by_the_runner_s_rule(tmp_pat
     with pytest.raises(SystemExit, match=error):
         _run(tmp_path, *words)
     assert not (tmp_path / "wave").exists()
+
+
+def test_a_project_names_the_folder_its_runs_write_to(tmp_path, monkeypatch) -> None:
+    """1.16, carried from the other project, whose runs live in ``out/runs``: a project may name
+    its runs' folder, ``OUT_DIR``; a run with no ``--out-dir`` writes there, the page reads there,
+    and the side-door line the page prints leaves ``--out-dir`` out for that folder alone. One
+    that names none keeps ``results``."""
+    import tests.toy as toy
+    from runlab import project
+    from runlab.lab import cli as lab_cli
+    from runlab.lab import jobs
+
+    monkeypatch.chdir(tmp_path)
+    assert project.out_dir() == "results"
+    monkeypatch.setattr(toy, "OUT_DIR", "out/runs", raising=False)
+    assert project.out_dir() == "out/runs"
+    assert cli.main(["run", "wave", "--name", "one"]) == 0
+    assert (tmp_path / "out" / "runs" / "wave" / "one.json").is_file()
+    assert not (tmp_path / "results").exists()
+    served = []
+    monkeypatch.setattr(lab_cli, "serve", lambda port, root, out_dir, show: served.append(out_dir))
+    lab_cli.main(["--no-open"])
+    assert served == ["out/runs"]
+    assert "--out-dir" not in jobs.run_argv("wave", name="two", out_dir="out/runs")
+    assert jobs.run_argv("wave", name="two", out_dir="elsewhere")[-2:] == ["--out-dir", "elsewhere"]

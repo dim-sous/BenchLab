@@ -37,7 +37,7 @@ from typing import Any, Callable, Mapping, Optional, Sequence
 
 import param
 
-from runlab.cli import DEFAULT_OUT_DIR
+from runlab.project import out_dir as project_out_dir
 from runlab.project import command, get_component, piece_names
 from runlab.record.config import coerce_value, fields_of, parameter_at
 from runlab.record.files import discard, kept
@@ -149,7 +149,7 @@ def _refusal(p: param.Parameter, f: dict[str, Any], text: str) -> str:
 
 
 def run_argv(piece: str, overrides: Sequence[str] = (), name: str = "",
-             out_dir: str = DEFAULT_OUT_DIR) -> list[str]:
+             out_dir: Optional[str] = None) -> list[str]:
     """``uv run <command> run <piece> [--set K=V]* --name <name> [--out-dir D]``, ``--out-dir``
     only when it is not the command line's default: the side-door command that makes the same
     record as one run. Every word checked."""
@@ -159,7 +159,7 @@ def run_argv(piece: str, overrides: Sequence[str] = (), name: str = "",
     for item in overrides:
         argv += ["--set", _setting(item, piece, names)]
     argv += ["--name", _name(name)]
-    if out_dir != DEFAULT_OUT_DIR:
+    if out_dir is not None and out_dir != project_out_dir():
         argv += ["--out-dir", out_dir]
     return argv
 
@@ -172,7 +172,7 @@ _DRAWN = (".png", ".csv", ".png.json", ".csv.json", ".html", ".html.json", "plot
 
 
 def delete(piece: str, records: Sequence[str] = (), folders: Sequence[str] = (), *,
-           root: str, out_dir: str = DEFAULT_OUT_DIR) -> list[str]:
+           root: str, out_dir: Optional[str] = None) -> list[str]:
     """Delete the named records (``<out_dir>/<piece>/<name>.json``), each with the folder of
     files its run wrote (``<name>.files/``), and the named folders of saved pictures
     (``<out_dir>/<piece>/<name>/``, which hold only what a Save writes: ``.png``, ``.csv``,
@@ -181,6 +181,7 @@ def delete(piece: str, records: Sequence[str] = (), folders: Sequence[str] = (),
     out-dir, a run's own folder of files named as pictures, a folder holding a file no Save
     writes (BESS's ``lab/jobs.py``)."""
     piece = _piece(piece)
+    out_dir = out_dir or project_out_dir()
     base = os.path.realpath(os.path.join(root, out_dir, piece))
     where = f"{out_dir}/{piece}/"
     pictures: list[str] = []
@@ -325,12 +326,13 @@ class Queue:
             raise ValueError(say_n("form.busy", len(busy), names=", ".join(busy)))
 
     def submit(self, piece: str, planned: Sequence[tuple[str, Sequence[tuple[str, str]]]], *,
-               root: str, out_dir: str = DEFAULT_OUT_DIR) -> list[Run]:
+               root: str, out_dir: Optional[str] = None) -> list[Run]:
         """Queue one run per ``(record name, setting pairs)`` -- every word checked before any is
         queued -- and start what may start. A name a queued or running run of the piece already
         writes is refused (:meth:`check_free`)."""
         words = checked(piece, planned)
         with self._lock:
+            out_dir = out_dir or project_out_dir()
             self._refuse_busy(piece, [name for name, _ in words], root, out_dir)
             runs = [Run(next(self._ids), piece, name, pairs, root, out_dir)
                     for name, pairs in words]
@@ -340,10 +342,11 @@ class Queue:
         return runs
 
     def submit_refly(self, piece: str, name: str, path: str, *, root: str,
-                     out_dir: str = DEFAULT_OUT_DIR) -> Run:
+                     out_dir: Optional[str] = None) -> Run:
         """Queue a re-flight of the saved run ``name`` at ``path`` (:mod:`runlab.refly`), refused
         while a run of that name is queued or running."""
         with self._lock:
+            out_dir = out_dir or project_out_dir()
             self._refuse_busy(piece, [name], root, out_dir)
             run = Run(next(self._ids), piece, name, [], root, out_dir, refly=path)
             self._runs.append(run)

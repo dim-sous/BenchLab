@@ -112,24 +112,28 @@ def pool_refusal(pairs: Pairs, name: str, how: str) -> str:
     return ""
 
 
-def mean_band_of(s: Series, n: int) -> tuple[str, np.ndarray, np.ndarray] | None:
-    """The band panel ``s`` gives for a mean of ``n`` draws (``Series.mean_band``), its edges
-    over the abscissa; ``None`` when it gives none."""
+def mean_band_of(s: Series, n: int) -> tuple[tuple, ...]:
+    """The bands panel ``s`` gives for a mean of ``n`` draws (``Series.mean_band``), each
+    ``(label, lo, hi, *trace)`` with its edges over the abscissa: one ``(label, lo, hi)`` said, or
+    several such, each of which may name its trace (from 1.8); ``()`` when it gives none."""
     if s.mean_band is None:
-        return None
-    label, lo, hi = s.mean_band(n)
+        return ()
+    said = s.mean_band(n)
     m = len(s.x)
-    for edge in (lo, hi):
-        if np.ndim(edge) and len(edge) != m:
-            raise ValueError(f"panel {s.name!r}: its band of a mean of {n} draws has an edge "
-                             f"of {len(edge)} values against {m}")
-    return str(label), _edge(lo, m), _edge(hi, m)
+    out = []
+    for label, lo, hi, *of in (said if said and isinstance(said[0], tuple) else (said,)):
+        for edge in (lo, hi):
+            if np.ndim(edge) and len(edge) != m:
+                raise ValueError(f"panel {s.name!r}: its band of a mean of {n} draws has an "
+                                 f"edge of {len(edge)} values against {m}")
+        out.append((str(label), _edge(lo, m), _edge(hi, m), *of))
+    return tuple(out)
 
 
-def _same_band(a: tuple | None, b: tuple | None) -> bool:
-    if a is None or b is None:
-        return a is b
-    return a[0] == b[0] and np.array_equal(a[1], b[1]) and np.array_equal(a[2], b[2])
+def _same_band(a: tuple, b: tuple) -> bool:
+    return len(a) == len(b) and all(
+        x[0] == y[0] and x[3:] == y[3:] and np.array_equal(x[1], y[1])
+        and np.array_equal(x[2], y[2]) for x, y in zip(a, b))
 
 
 def _replicate_refusal(pairs: Pairs) -> str:
@@ -340,8 +344,12 @@ def _drawn(pairs: Pairs, name: str, held: list[tuple[str, Series]], runs: str, c
             lines.append(Line(f"{capital(_POOL_WORDS[runs])} of {len(held)} runs · {label}", xs, y,
                               series_color(j), points=dots,
                               stack="pooled" if first.stacked else ""))
-        band = mean_band_of(first, int(w.sum())) if runs == "mean" else None
-        bands = () if band is None else (Band(band[0], xs, band[1], band[2], NEUTRAL),)
+        said = mean_band_of(first, int(w.sum())) if runs == "mean" else ()
+        # a band of a mean wears its trace's colour only where it names the trace (from 1.8); one
+        # naming none is about the panel, in the neutral, as before
+        bands = tuple(Band(label, xs, lo, hi,
+                           series_color(_band_owner(first, label, of)) if of else NEUTRAL)
+                      for label, lo, hi, *of in said)
         refs = tuple(Ref(label, float(v), _ref_colour(first, of, series_color), _ref_dash(r))
                      for r, (label, v, *of) in enumerate(first.refs))
         panel = Panel(name, x_label,

@@ -234,8 +234,10 @@ class Series:
     averaged: int = 1
     #: The band of a mean of ``n`` independent draws, as an entry of ``bands``, ``(label, lo,
     #: hi)``: drawn about the mean of runs pooled together, ``n`` all their draws. The formula
-    #: is the piece's own (BESS's is a chi-square band about a NEES); None for none.
-    mean_band: Callable[[int], tuple[str, Any, Any]] | None = None
+    #: is the piece's own (BESS's is a chi-square band about a NEES); None for none. From 1.8 it
+    #: may say several, a tuple of such, each of which may name its trace, ``(label, lo, hi,
+    #: trace)``, and wears its colour (two statistics on one chart, each with its band).
+    mean_band: Callable[[int], tuple] | None = None
     #: A logarithmic bottom axis or ordinate, declared by the record for a quantity read in
     #: decades (a Bode plot's ω and |G|): what a card's Log x and Log y open on.
     x_log: bool = False
@@ -566,7 +568,9 @@ def _array_back(value: Any) -> np.ndarray:
                 raise ValueError(f"{v!r} is neither a number nor one of {sorted(_NONFINITE)}")
             return _NONFINITE[v]
         return v
-    return np.asarray(back(value), dtype=float)
+    # every value yes or no: a yes/no array, read back as one (from 1.8; it read as numbers)
+    held = np.asarray(back(value))
+    return held if held.dtype == bool else held.astype(float)
 
 
 def _plain(hint: Any) -> Any:
@@ -579,15 +583,49 @@ def _plain(hint: Any) -> Any:
 
 
 def _decode(hint: Any, value: Any) -> Any:
-    if value is None:
-        return None
+    """``value``, fresh from JSON, rebuilt into the shape ``hint`` declares: settings, a
+    provenance, an array; and from 1.8 a tuple (of tuples, of data classes), a list, a mapping
+    (its keys rebuilt from their text), a nested data class (another piece's whole record), a
+    float's non-finite token. Any other shape is left as JSON holds it. Carried from RCWS's
+    ``record/__init__.py`` (``_decode``), whose records hold all of these."""
+    if value is None or hint is Any:
+        return value
     hint = _plain(hint)
+    origin = typing.get_origin(hint)
     if isinstance(hint, type) and issubclass(hint, Settings):
         return from_saved(hint, value)
     if hint is Provenance:
         return Provenance(**{f.name: value.get(f.name) for f in dataclasses.fields(Provenance)})
-    if hint is np.ndarray:
+    if hint is np.ndarray or origin is np.ndarray:
         return _array_back(value)
+    if hint is float and isinstance(value, str) and value in _NONFINITE:
+        return _NONFINITE[value]
+    if dataclasses.is_dataclass(hint) and isinstance(value, Mapping):
+        # a field absent from the file but carrying a default takes the default
+        hints = typing.get_type_hints(hint)
+        return hint(**{f.name: _decode(hints[f.name], value[f.name])
+                       for f in dataclasses.fields(hint) if f.name in value and f.init})
+    if hint is tuple and isinstance(value, list):
+        return tuple(value)
+    if origin in (tuple, typing.Tuple) and isinstance(value, list):
+        args = typing.get_args(hint)
+        if len(args) == 2 and args[1] is Ellipsis:
+            return tuple(_decode(args[0], v) for v in value)
+        if args:
+            return tuple(_decode(a, v) for a, v in zip(args, value))
+        return tuple(value)
+    if origin in (list, typing.List) and isinstance(value, list):
+        (item,) = typing.get_args(hint) or (Any,)
+        return [_decode(item, v) for v in value]
+    if origin in (dict, typing.Dict) and isinstance(value, Mapping):
+        args = typing.get_args(hint)
+        if not args:
+            return dict(value)
+        kt, vt = args
+        # JSON keys are text: a key of another kind is rebuilt from its text
+        return {(k if kt is str else kt(k)): _decode(vt, v) for k, v in value.items()}
+    if hint is float and type(value) is int:
+        return float(value)
     return value
 
 

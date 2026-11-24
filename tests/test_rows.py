@@ -167,3 +167,32 @@ def test_runs_whose_rows_are_equal_differ_only_in_what_differs(tmp_path) -> None
                                    [("steps", json.dumps(ROWS)), ("tau", tau)]))
             for tau in ("0.05", "0.1"))
     assert distinct([("a", a), ("b", b)]) == ["tau"]
+
+
+# --- rows called by one of their settings (1.8) ------------------------------------------------
+
+class _Switch(Settings):
+    mode = param.String("cv", label="mode", metadata={"group": "rows"})
+    cv = param.Number(None, allow_None=True, label="to CV", metadata={"group": "rows"})
+    ca = param.Number(None, allow_None=True, label="to CA", metadata={"group": "rows"})
+
+
+class _Named(Settings):
+    transition = param.List([], item_type=_Switch, label="switching",
+                            metadata={"group": "g", "by_name": "mode"})
+
+
+def test_a_row_called_by_a_setting_is_set_by_its_name_and_added_when_not_held() -> None:
+    from runlab.record.config import parameter_at
+    cfg = with_overrides(_Named(), [("transition.cv.ca", "0.05"), ("transition.ca.cv", "0.1"),
+                                    ("transition.cv.cv", "0.95")])
+    assert [(r.mode, r.cv, r.ca) for r in cfg.transition] == [("cv", 0.95, 0.05),
+                                                              ("ca", 0.1, None)]
+    assert fields_of(_Named)[0]["by_name"] == "mode"
+    assert parameter_at(_Named, "transition.cv.ca").name == "ca"
+    dotted = with_overrides(_Named(), [("transition.mode_sojourn.ncv.ca", "1")])
+    assert dotted.transition[0].mode == "mode_sojourn.ncv", "a name may itself hold dots"
+    with pytest.raises(ValueError, match="names a row by its mode and then one of its settings"):
+        with_overrides(_Named(), [("transition.cv.speed", "1")])
+    with pytest.raises(ValueError, match="names a row by its mode"):
+        with_overrides(_Named(), [("transition.cv", "1")])

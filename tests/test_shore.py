@@ -36,7 +36,9 @@ METADATA = ("group", "unit", "lines", "needs", "replicate", "draws", "record_of"
             # from 1.2: on a part, the groups of it that apply
             "composes",
             # from 1.8: on a list of rows, the setting a row is called by
-            "by_name")
+            "by_name",
+            # from 1.11: what the form shows beyond what is typed
+            "default_from", "stands_for", "replaces", "row_words")
 
 
 def test_runlab_holds_every_name_it_promised() -> None:
@@ -98,7 +100,7 @@ def test_a_setting_keeps_every_metadata_key_it_may_carry() -> None:
     assert (by["seed"]["replicate"], by["seed"]["draws"]) == (True, "count")
     assert by["source"]["record_of"] == "wave" and by["terms"]["rows"] == rows
     assert by["part.held"]["group"] == "Part · H" and by["part.held"]["part"] == "part"
-    assert all(key in by["gain"] for key in METADATA if key not in ("composes", "by_name"))
+    assert all(key in by["gain"] for key in METADATA if key != "composes")
 
 
 def test_the_readme_names_everything_promised() -> None:

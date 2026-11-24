@@ -136,6 +136,7 @@ delete = "✕"
 delete_label = "Delete the saved pictures {name}"
 
 [form]
+replaced = "{value} (from {run})"
 add_row = "+ {name}"
 heading = "New run"
 from_defaults = "From defaults"

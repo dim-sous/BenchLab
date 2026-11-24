@@ -66,7 +66,7 @@ class Form:
         if held is not None:
             return say("form.replaced", value=as_text(held[0]), run=held[1])
         looked = f.get("default_from")
-        if looked:
+        if looked and not f.get("element_fields"):
             other = self.effective(looked["field"])
             values = looked["values"]
             if values is None:
@@ -74,6 +74,16 @@ class Form:
             if other in values:
                 return as_text(values[other])
         return say("form.code_default") if f.get("code_default") else as_text(f["default"])
+
+    def registered_rows(self, f: dict[str, Any]) -> Optional[list[dict[str, Any]]]:
+        """The rows registered for a list of rows called by name and looked up (``by_name`` and
+        ``default_from``, from 1.14): those against the other setting's value as the run would
+        use it, or those registered once (no other setting); ``None`` for any other field."""
+        looked = f.get("default_from")
+        if not (looked and f.get("element_fields") and f.get("by_name")):
+            return None
+        other = "" if looked["field"] is None else self.effective(looked["field"])
+        return list((looked["values"] or {}).get(other) or [])
 
     def options(self, f: dict[str, Any]) -> Optional[list[dict[str, str]]]:
         """What a pick list offers: ``{value, words}`` per option, the empty value first

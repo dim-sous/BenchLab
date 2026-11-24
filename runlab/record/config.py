@@ -8,7 +8,8 @@ outside the choices in its own words. What param has no slot for rides in ``meta
 
 - ``group`` (required): the heading a form puts the setting under;
 - ``unit``: the unit a person types it in;
-- ``lines``: each choice's own line, ``{choice: one line}``; none here yet;
+- ``lines``: each choice's own line, ``{choice: one line}``, or a function returning it (read
+  now, from 1.14);
 - ``needs``: what switches the setting on -- ``{other_setting: {"in": [named values]}}``. A value
   set behind a closed gate is refused on construction (:func:`gated`), because the run would
   ignore it and the saved config would claim it;
@@ -22,7 +23,11 @@ outside the choices in its own words. What param has no slot for rides in ``meta
   "add": "+ State"}``, the label numbered from 1, the add button's words;
 - ``default_from`` (from 1.11): ``(other_setting, {its value: what an empty one runs as})`` --
   an empty setting whose value is looked up off another's, shown as the form's placeholder;
-  ``(other_setting, None)``: the other setting's own value. A function stands for the mapping;
+  ``(other_setting, None)``: the other setting's own value. A function stands for the mapping.
+  On a list of rows called by name (``by_name``), what is looked up is the rows themselves,
+  ``{its value: [row, ...]}``, or ``(None, {"": [row, ...]})`` for rows registered once,
+  against no setting (from 1.14): the form shows those rows, each cell's registered value its
+  placeholder;
 - ``stands_for`` (from 1.11): on a choice, ``{option: {setting: value}}`` -- a registered option
   that IS a set of the Config's own settings; the form's Use opens a run of it at those settings;
 - ``replaces`` (from 1.11): on a setting naming a saved run (``record_of``), the field of that run
@@ -259,7 +264,7 @@ def fields_of(cls: type) -> list[dict[str, Any]]:
             "element_fields": fields_of(row) if row else None,
             "element_default": saved(row()) if row else None,
             "label": p.label or name, "unit": meta.get("unit", ""), "group": meta["group"],
-            "doc": (p.doc or "").strip(), "lines": meta.get("lines"),
+            "doc": (p.doc or "").strip(), "lines": _read_now(meta.get("lines")),
             "choices": list(p.objects) if isinstance(p, param.Selector) else None,
             "low": bounds[0], "high": bounds[1], "code_default": p.default is None,
             "low_exclusive": bounds[0] is not None and not incl[0],
@@ -313,7 +318,11 @@ def _part_fields(name: str, p: param.Parameter, part: type) -> list[dict[str, An
             continue
         sub = f["name"]
         needs = {f"{name}.{other}": gate for other, gate in (f.get("needs") or {}).items()}
-        out.append({**f, "name": f"{name}.{sub}",
+        # the setting an empty one is looked up off is its sibling in the part (from 1.14)
+        looked = f.get("default_from")
+        if looked and looked["field"] is not None:
+            looked = {**looked, "field": f"{name}.{looked['field']}"}
+        out.append({**f, "name": f"{name}.{sub}", "default_from": looked,
                     "group": f"{p.label or name} \u00b7 {f['group']}",
                     "default": held.get(sub, f["default"]),
                     "needs": {**outer, **needs} or None,

@@ -201,7 +201,8 @@ RUN_FILES = (".files", ".files.partial")
 
 def folders(root: str, out_dir: str, piece: str) -> list[dict[str, Any]]:
     """The folders of saved pictures under ``<root>/<out_dir>/<piece>/``, newest first: each
-    one's name, its pictures (``.png``), how many tables (``.csv``) beside them, and when it
+    one's name, its pictures (``.png``, and from 1.13 a figure that plays saved as its page,
+    ``.html``), how many tables (``.csv``) beside them, and when it
     last changed -- what a Save or a draw wrote, read off the folder (BESS's ``lab/state.py``).
     A run's own folder of files is not one, whatever it holds."""
     base = Path(root) / out_dir / piece
@@ -211,7 +212,8 @@ def folders(root: str, out_dir: str, piece: str) -> list[dict[str, Any]]:
     for folder in base.iterdir():
         if not folder.is_dir() or folder.name.endswith(RUN_FILES):
             continue
-        pictures = sorted(f.name for f in folder.iterdir() if f.suffix == ".png")
+        # a still, or a figure that plays saved as its page (from 1.13)
+        pictures = sorted(f.name for f in folder.iterdir() if f.suffix in (".png", ".html"))
         if not pictures:
             continue
         tables = sum(1 for f in folder.iterdir() if f.suffix == ".csv")

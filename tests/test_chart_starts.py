@@ -7,6 +7,7 @@ be."""
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import numpy as np
@@ -165,3 +166,51 @@ def test_each_trace_may_be_a_cloud_on_its_own_abscissa() -> None:
         chart_of([("a", _Run(miss))], "parts", x="index")
     with pytest.raises(ValueError, match="one per trace"):
         Series(name="p", x=X, x_label="m", y_label="m", traces=(("a", X),), trace_x=(X, X))
+
+
+# --- a number's published value beside it on a sweep, and the pieces under headings (1.7) ------
+
+def test_a_sweep_draws_a_numbers_reference_beside_it_dashed_in_its_colour(monkeypatch,
+                                                                           tmp_path) -> None:
+    import dataclasses
+
+    from runlab import Number
+    from runlab.figure.chart import sweep_of
+    from runlab.figure.render import DASHES
+    from tests.toy import lag, wave
+
+    source = str(wave.run(wave.Config()).save(tmp_path / "w.json"))
+    stated = Number("stated_corner", "stated corner frequency", unit="rad/s",
+                    reference_of="corner")
+    real = lag.Record.number_specs
+    monkeypatch.setattr(lag.Record, "number_specs", lambda self: (*real(self), stated))
+    pairs = []
+    for tau in (0.05, 0.1, 0.2):
+        rec = lag.run(lag.Config(wave_run=source, tau=tau))
+        pairs.append((f"tau-{tau}", dataclasses.replace(
+            rec, numbers={**rec.numbers, "stated_corner": 1.1 / tau})))
+    panel = sweep_of(pairs, "corner", vs="tau")
+    [corner, ref] = panel.axes[0].lines
+    assert ref.label == "stated corner frequency" and ref.dash == DASHES[1]
+    assert ref.color == corner.color and list(ref.y) == [1.1 / t for t in (0.05, 0.1, 0.2)]
+    assert len(sweep_of(pairs, "peak_y", vs="tau").axes[0].lines) == 1, "none for another number"
+    out = tmp_path / "r.json"
+    pairs[0][1].save(out)
+    specs = {n["name"]: n for n in json.loads(out.read_text())["number_specs"]}
+    assert "reference_of" not in specs["corner"], "held only where it is declared"
+    assert specs["stated_corner"]["reference_of"] == "corner"
+
+
+def test_the_piece_list_puts_the_pieces_under_their_groups_once_one_declares_one(
+        monkeypatch, two_runs) -> None:
+    from runlab.lab.app import Lab
+    from tests.toy import lag, wave
+
+    lab = Lab(*two_runs)
+    assert lab.piece_select.options == {"Wave": "wave", "Lag": "lag", "Fit": "fit"}
+    monkeypatch.setattr(wave.Record, "group", "Signals")
+    monkeypatch.setattr(lag.Record, "group", "Signals")
+    grouped = Lab(*two_runs)
+    assert grouped.piece_select.groups == {"Signals": {"Wave": "wave", "Lag": "lag"},
+                                           "Fit": {"Fit": "fit"}}
+    assert grouped.piece_select.value == "wave"

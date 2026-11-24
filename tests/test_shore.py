@@ -101,7 +101,7 @@ def test_a_setting_keeps_every_metadata_key_it_may_carry() -> None:
 
 def test_the_readme_names_everything_promised() -> None:
     shore = README.split("## What a project may use")[1].split("\n## ")[0]
-    promised = [*NAMES, *DECLARED, *METADATA, "Config", "run", "figures()", "messages()", "provides", "runlab.cli:main",
+    promised = [*NAMES, *DECLARED, *METADATA, "Config", "run", "figures()", "messages()", "provides", "reference_of", "runlab.cli:main",
                 "runlab.lab:main", "runlab.testing", "check_project"]
     missing = [word for word in promised if f"`{word}`" not in shore]
     assert not missing, f"the README's list leaves out {missing}"

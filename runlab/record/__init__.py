@@ -469,6 +469,10 @@ class Number:
     quantity: Quantity | None = None
     statistic: str = ""
     condition: str = ""     # what a share counts the steps or the time of ("clipped")
+    #: The number this one is the published or stated value of (from 1.7), by name: a sweep of
+    #: that number draws this one beside it, dashed in its colour. Written into a run file's
+    #: header only when declared.
+    reference_of: str = ""
 
     def __post_init__(self) -> None:
         made = bool(self.statistic) or self.quantity is not None
@@ -683,6 +687,8 @@ class Record:
     component: ClassVar[str] = ""        # the registered piece name (the command word)
     label: ClassVar[str] = ""            # the piece's own words
     produced_by: ClassVar[str] = ""      # the command that writes one
+    #: The heading the page's list of pieces puts the piece under (from 1.7); none, its own.
+    group: ClassVar[str] = ""
     #: What every run of the piece carries, by name, so a setting can ask for any saved run that
     #: carries it (``record_of``) instead of one piece's (from 1.4); none by default.
     provides: ClassVar[tuple[str, ...]] = ()
@@ -716,7 +722,8 @@ class Record:
                              f"name the page opens a run's messages by; name it otherwise")
         return {COMPONENT_KEY: type(self).component,
                 PANELS_KEY: names,
-                NUMBER_SPECS_KEY: [dataclasses.asdict(n) for n in self.number_specs()],
+                NUMBER_SPECS_KEY: [{k: v for k, v in dataclasses.asdict(n).items()
+                                    if k != "reference_of" or v} for n in self.number_specs()],
                 PANEL_GROUPS_KEY: {p.name: p.group for p in panels}}
 
     def save(self, path: str | os.PathLike[str]) -> Path:

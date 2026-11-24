@@ -445,14 +445,16 @@ def test_a_control_a_card_cannot_use_is_greyed_with_the_reason_on_its_hover(lag_
     log_y = greyed.pop("Log y")
     assert greyed == {"Log x": "Its bottom axis holds 1 value(s) at or below zero",
                       "Run | Quantity": "One run shown",
-                      "Overlay | Split | Mean | RMS": "One run shown"}
+                      "Overlay | Split | Mean | RMS": "One run shown",
+                      "Cold start": "This chart's runs have no cold start"}
     assert re.fullmatch(r"It holds \d+ value\(s\) at or below zero", log_y), \
         "the figure layer's own words, begun with a capital"
     _tick(lab, "first")
     greyed = _greyed(lab, "output")
     assert greyed["Mean"] == "The chart declares no statistic"
     assert greyed["RMS"] == "The chart declares no statistic"
-    assert sorted(greyed) == ["Log x", "Log y", "Mean", "RMS"], "two runs: the colour is free"
+    assert sorted(greyed) == ["Cold start", "Log x", "Log y", "Mean", "RMS"], \
+        "two runs: the colour is free"
     _control(lab, "output", "Split").value = True
     assert _greyed(lab, "output")["Run | Quantity"] == \
         "Split: the colour tells the quantities apart"
@@ -527,7 +529,7 @@ def test_a_chart_card_carries_every_control_in_four_groups_and_opens_as_it_drew(
     assert _row(lab, "output") == [
         ["X", "[t [s]]", "Log x", "Log y"],
         ["Colour by", "Run", "Quantity", "Runs", "Overlay", "Split", "Mean", "RMS"],
-        ["Dots", "Lines"], ["Chart", "Table"]]
+        ["Dots", "Lines", "Cold start"], ["Chart", "Table"]]
     assert list(_list(lab, "output").options) == ["t [s]", "Sample index [-]"]
     held = {name: _control(lab, "output", name).value
             for name in ("Run", "Quantity", "Overlay", "Dots", "Lines", "Chart", "Table")}

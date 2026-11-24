@@ -261,6 +261,11 @@ class Series:
     #: Series of its own (its ``y_label``, traces, bands and references); its ``x`` is this
     #: panel's, and this panel carries no traces of its own. Rows do not nest.
     rows: tuple["Series", ...] = ()
+    #: Where the run's cold start ends on the abscissa (from 1.9): the samples at or before it are
+    #: the start-up after the first measurement, which the run's numbers leave out. The chart is
+    #: drawn past it, every trace, band and row together, unless its card's Cold start switch is
+    #: on. ``None``: the chart has no cold start.
+    cold_start_end: float | None = None
     #: A plane (from 1.6): one unit along the abscissa is one along the ordinate, for a panel whose
     #: two axes are one quantity in one unit (a scatter in a plane, metres by metres), where axes
     #: scaled apart would make a round group look long. ``rings``, circles about the origin,

@@ -558,9 +558,11 @@ class Lab:
                               width=_width(say("runs.none")))
         self.none_btn.on_click(lambda _e: self.untick_listed())
         self.run_list = RunList(rows=[], shown=[], sizing_mode="stretch_width", styles=skin.RUNS,
-                                words={"use": say("runs.use"), "delete": say("runs.delete"),
+                                words={"use": say("runs.use"), "refly": say("runs.refly"),
+                                       "delete": say("runs.delete"),
                                        "delete_label": word("runs.delete_label")})
         self.run_list.on_use = self.open_drawer
+        self.run_list.on_refly = self.refly
         self.run_list.on_delete = self._ask_delete_run
         self.run_list.param.watch(lambda e: self._on_shown(list(e.new)), "shown")
         self.compare_count = _html("", style=_DIM, stylesheets=[skin.BAR_FILL])
@@ -1844,6 +1846,19 @@ class Lab:
         self._taken_back(taken)
         self._apply_gates()
         self._placeholders()
+
+    def refly(self, name: str) -> None:
+        """Re-fly the shown piece's saved run ``name`` (from 1.12): queued as a run of its own,
+        shown in the runs in progress; its file completed when every value comes back the same."""
+        run = next((r for r in self.records if r["piece"] == self.piece["name"]
+                    and r["name"] == name), None)
+        if run is None:
+            return
+        try:
+            self.queue.submit_refly(self.piece["name"], name, run["path"], root=self.root,
+                                    out_dir=self.out_dir)
+        except ValueError as exc:
+            self.toast(str(exc))
 
     def _replaced_by(self, f: dict[str, Any], picked: str) -> None:
         """A saved run picked in a setting that names what it ``replaces``: the settings it sets

@@ -78,7 +78,10 @@ def run_once(piece: str, pairs: Sequence[tuple[str, str]], name: str, out_dir: s
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    piece, name, out_dir, pairs = list(sys.argv[1:] if argv is None else argv)
+    args = list(sys.argv[1:] if argv is None else argv)
+    if args[:1] == ["--refly"]:
+        return _refly(args[1])
+    piece, name, out_dir, pairs = args
     answer = os.fdopen(os.dup(sys.stdout.fileno()), "w")    # the channel to the Lab
     sys.stdout.flush()
     os.dup2(sys.stderr.fileno(), sys.stdout.fileno())        # a piece's prints go to stderr,
@@ -87,6 +90,23 @@ def main(argv: Sequence[str] | None = None) -> int:
         path, _ = run_once(piece, [tuple(p) for p in json.loads(pairs)], name, out_dir)
     except (ValueError, KeyError, FileNotFoundError) as exc:     # the command line's refusals
         raise SystemExit(" ".join(str(exc).split())) from exc   # on one line: the strip's
+    answer.write(json.dumps({"saved": str(Path(path))}) + "\n")
+    answer.close()
+    return 0
+
+
+def _refly(path: str) -> int:
+    """A re-flight as the Lab's run (from 1.12): the record's path on the channel when its file
+    was completed or already whole; what differs, on one line, when it was left as it is."""
+    from runlab.refly import refly
+
+    answer = os.fdopen(os.dup(sys.stdout.fileno()), "w")
+    sys.stdout.flush()
+    os.dup2(sys.stderr.fileno(), sys.stdout.fileno())
+    sys.stdout.reconfigure(line_buffering=True)
+    found = refly(path)
+    if not found.matches:
+        raise SystemExit("not written: the re-flight differs -- " + "; ".join(found.differs[:3]))
     answer.write(json.dumps({"saved": str(Path(path))}) + "\n")
     answer.close()
     return 0

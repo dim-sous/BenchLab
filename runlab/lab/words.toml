@@ -17,6 +17,7 @@ where.one = "{folder} · {n} record"
 where.many = "{folder} · {n} records"
 
 [runs]
+refly = "re-fly"
 heading = "Runs"
 filter = "Filter runs"
 all = "All"

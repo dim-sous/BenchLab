@@ -1788,10 +1788,16 @@ class Lab:
             sections.append(pn.Column(pn.Row(head, note, stylesheets=[skin.BAR],
                                              sizing_mode="stretch_width"),
                                       body, sizing_mode="stretch_width", margin=(6, 0)))
-        self.form_box.objects = sections
         self.sweep_field.options = {say("form.sweep_none"): "",
                                     **{words: n for n, words in self.form.axes()}}
         self._apply_gates()
+        # Put on the page last, greyed as it stands. Put on before its gates were applied, a
+        # pick greyed the boxes of a table shut at its defaults, the table was drawn again when
+        # the form was cleared, and the pick's one batch held changes to boxes the browser was
+        # never sent: it raised "reference ... isn't known", dropped the whole batch and stayed
+        # on the piece before (a project's form, 2026-11-25: 9 such changes of the 188 a pick
+        # sent; put on last, none of 8).
+        self.form_box.objects = sections
 
     def _on_fold(self, group: str, body: pn.Column, head: Any, show: bool) -> None:
         """A folded group opened or closed: its settings shown or not, the arrow saying which."""

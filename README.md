@@ -114,7 +114,8 @@ def test_the_pieces_plug_into_the_bench(tmp_path):
 `check_project` refuses, naming the piece or the file and the cause: an incomplete declaration; a
 piece that does not hold `Config`, `run` and `Record`, or whose defaults do not build; settings
 that do not build the Lab's form, or a form that does not draw as the page draws it on picking
-its piece (from 1.15); a run that
+its piece (from 1.15), or a pick that changes a part of the page it then takes away, which a
+browser refuses whole, staying on the piece before (from 1.17); a run that
 does not load, declares a chart that does not draw, or a figure of its own plotly does not take, or messages it cannot say,
 or lists a file its run wrote that is not in its folder at the size listed;
 and a Python file of the project that

@@ -168,6 +168,45 @@ def test_a_form_that_does_not_draw_is_refused_naming_its_piece(monkeypatch) -> N
         check_project(sources=[TOY])
 
 
+def _limits_greyed(monkeypatch) -> None:
+    """The lag's Limits behind a gate shut at the lag's defaults: its rows start greyed."""
+    limits = lag.Config.param["limits"]
+    monkeypatch.setattr(limits, "metadata",
+                        {**limits.metadata, "needs": {"drive": {"in": ["built"]}}})
+
+
+def test_a_form_whose_rows_start_greyed_is_picked_whole(monkeypatch) -> None:
+    """1.17: a form is put on the page greyed as it stands. Put on before its gates were
+    applied, picking a piece whose rows are shut at its defaults greyed their boxes, drew the
+    rows again and sent the browser changes to boxes it never got -- five here: the two boxes,
+    their two ✕ and the add button -- and a browser then stays on the piece before (a project's
+    form holding such a table, 2026-11-25)."""
+    _limits_greyed(monkeypatch)
+    check_project(sources=[TOY])
+
+
+def test_a_pick_that_changes_a_part_of_the_page_it_then_takes_away_is_refused(monkeypatch) -> None:
+    """1.17: what a pick sends is read, not only whether the form draws -- the form above drew,
+    and its piece did not open on a click. Here a pick is made to grey the lag's Limits rows
+    once they are on the page and then draw them again."""
+    from runlab.lab import app
+
+    real = app.Lab._clear
+
+    def greyed_then_drawn_again(self) -> None:
+        real(self)
+        rows = self._controls.get("limits")
+        if rows is not None:
+            rows.disabled = not rows.disabled
+            rows.value = "[0.5]"
+
+    monkeypatch.setattr(app.Lab, "_clear", greyed_then_drawn_again)
+    with pytest.raises(AssertionError, match=r"the piece 'lag': picking it changes 5 part\(s\) "
+                                             r"of the page that it then takes away \(Button, "
+                                             r"TextInput\); a browser was never sent them"):
+        check_project(sources=[TOY])
+
+
 def test_a_link_to_nowhere_is_no_file_of_the_project(tmp_path) -> None:
     """1.16, found on the other project's computer: a stale build's links point at a folder that
     is gone; the check of imports reads the project's files, and a link to nowhere is none."""

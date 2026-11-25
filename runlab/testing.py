@@ -19,8 +19,11 @@ import tempfile
 import warnings
 from collections.abc import Sequence
 from pathlib import Path
+from types import SimpleNamespace
 
 import plotly.graph_objects as go
+from panel.io.document import create_doc_if_none_exists
+from panel.io.state import set_curdoc
 
 import runlab
 from runlab.figure.chart import chart_of, mean_band_of
@@ -57,7 +60,8 @@ def check_project(runs: Sequence[str | os.PathLike[str]] = (), *,
     - a piece does not hold ``Config`` (a ``Settings``), ``run`` and ``Record`` (a ``Record``
       whose ``component`` is the piece's registered name), or its defaults do not build;
     - a piece's settings do not build the Lab's form, or its form does not draw as the page
-      draws it on picking the piece (from 1.15);
+      draws it on picking the piece (from 1.15), or picking the piece changes a part of the page
+      it then takes away, which a browser refuses whole, staying on the piece before (from 1.17);
     - one of ``runs``, record files the project made, is of no registered piece, does not load
       through its piece's ``Record``, declares a chart that does not draw, as a still or on
       the page, or whose band of a mean (``Series.mean_band``) does not answer for the run's
@@ -134,23 +138,55 @@ def _check_drawn_forms() -> None:
     """Each piece picked on a page made here, over no runs, its form drawn as the page draws
     it (from 1.15): reading a form's settings is not drawing them -- a setting's words given in
     a shape the form reads but the page cannot draw passed the reading (found moving the other
-    project onto RunLab, its flight's table)."""
+    project onto RunLab, its flight's table).
+
+    The page is on a document, as a browser's session holds it, and what each pick sends is
+    read (from 1.17): a change to a part of the page that was not on it before the pick and is
+    not on it after -- one the browser was never sent. A browser refuses the whole of such a
+    pick ("reference ... isn't known") and stays on the piece before; the drawing alone passed
+    it (a project's form holding a table greyed at its defaults, which a click did not open)."""
     with tempfile.TemporaryDirectory() as root:
         said: list[str] = []
-        pieces = state.pieces()
-        lab = None
-        for piece in pieces:
-            try:
-                # the page draws its first piece's form as it is made
-                if lab is None:
-                    lab = Lab(root, "results", queue=jobs.Queue(start=_never_started),
-                              every=_NoClock(), toast=said.append)
-                else:
-                    lab._on_piece(piece["name"])
-            except Exception as exc:
-                raise AssertionError(f"the piece {piece['name']!r}: its form does not draw -- "
-                                     f"{type(exc).__name__}: {exc}") from exc
-            assert not said, f"the piece {piece['name']!r}: picking it said {said}"
+        sent: list[object] = []
+        doc = create_doc_if_none_exists(None)        # Panel's own: a new one, there being none
+        doc.on_change(sent.append)
+        lab = page = None
+        try:
+            with set_curdoc(doc):
+                for piece in state.pieces():
+                    name = piece["name"]
+                    try:
+                        if lab is None:
+                            # the page draws its first piece's form as it is made; once on the
+                            # document, that piece is picked as every other is
+                            lab = Lab(root, "results", queue=jobs.Queue(start=_never_started),
+                                      every=_NoClock(), toast=said.append)
+                            page = lab.page()
+                            page.server_doc(doc)
+                        before = {model.id for model in doc.models}
+                        sent.clear()
+                        doc.hold("combine")          # around the pick's own hold: read whole
+                        try:
+                            lab._on_piece(name)
+                        finally:
+                            doc.unhold()
+                    except Exception as exc:
+                        raise AssertionError(f"the piece {name!r}: its form does not draw -- "
+                                             f"{type(exc).__name__}: {exc}") from exc
+                    assert not said, f"the piece {name!r}: picking it said {said}"
+                    # every change that names a part of the page names it as its `model`
+                    parts = [getattr(change, "model", None) for change in sent]
+                    lost = [part for part in parts if part is not None and part.id not in before
+                            and doc.get_model_by_id(part.id) is None]
+                    kinds = ", ".join(sorted({type(part).__name__ for part in lost}))
+                    assert not lost, \
+                        (f"the piece {name!r}: picking it changes {len(lost)} part(s) of the page "
+                         f"that it then takes away ({kinds}); a browser was never sent them, "
+                         f"refuses the whole pick and stays on the piece before")
+        finally:
+            if page is not None:
+                # as the server does when a session ends: the page off Panel's list of views
+                page._server_destroy(SimpleNamespace(_document=doc))
 
 
 def _check_run(path: Path, names: Sequence[str], out: Path) -> None:

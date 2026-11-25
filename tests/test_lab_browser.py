@@ -43,7 +43,7 @@ from runlab.lab import jobs
 from runlab.lab.app import serve
 from runlab.runner import planned
 from tests.stand_ins import settled
-from tests.toy import wave
+from tests.toy import lag, wave
 
 #: The words the page shows, leaf by leaf, through its shadow roots (DeePC's ``_TEXT``).
 _TEXT = """() => {
@@ -453,6 +453,23 @@ def test_a_list_setting_shows_a_labelled_row_per_item_and_adds_one(tmp_path) -> 
         page.wait_for_timeout(1500)
         assert box.input_value() == "y and u", "every key reached the box (code review)"
         assert not errors[switched:], errors[switched:]
+
+
+def test_a_piece_whose_rows_start_greyed_opens_on_a_pick(tmp_path, monkeypatch) -> None:
+    """1.17: a click on a piece whose form held a table greyed at its defaults left the page on
+    the piece before (a project's page, 2026-11-25): the pick's one batch held changes to boxes
+    the browser was never sent, and it dropped the batch whole, raising "reference ... isn't
+    known". Here the lag's Limits rows are shut at its defaults; picked, the page shows the lag's
+    one run."""
+    limits = lag.Config.param["limits"]
+    monkeypatch.setattr(limits, "metadata",
+                        {**limits.metadata, "needs": {"drive": {"in": ["built"]}}})
+    with _served(tmp_path, lag=True) as (page, errors, _root, _out_dir):
+        _shows(page, "2 on disk")
+        page.locator("select").first.select_option(label="Lag")
+        _shows(page, "1 on disk")
+        page.wait_for_timeout(1500)
+        assert not [e for e in errors if "isn't known" in e], errors
 
 
 def test_a_figure_the_piece_draws_itself_is_drawn_in_the_browser_as_the_piece_drew_it(

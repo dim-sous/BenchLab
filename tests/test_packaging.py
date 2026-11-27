@@ -29,6 +29,9 @@ def test_the_built_package_holds_runlabs_own_words_and_fonts_and_no_test(tmp_pat
     [wheel] = (tmp_path / "dist").glob("*.whl")
     names = zipfile.ZipFile(wheel).namelist()
     assert "runlab/lab/words.toml" in names
+    assert "runlab/py.typed" in names, "a project's type checker reads RunLab's hints (PEP 561)"
+    [metadata] = [n for n in names if n.endswith(".dist-info/METADATA")]
+    assert "License-Expression: MIT" in zipfile.ZipFile(wheel).read(metadata).decode()
     fonts = {f"runlab/lab/fonts/{p.name}" for p in (ROOT / "runlab/lab/fonts").iterdir()}
     assert len(fonts) == 6 and fonts <= set(names), "five fonts and their licence"
     assert {n.split("/")[0] for n in names if "/" in n and ".dist-info/" not in n} == {"runlab"}, \

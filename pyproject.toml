@@ -1,5 +1,7 @@
 [build-system]
-requires = ["setuptools>=61"]
+# 77: `license = "MIT"`, an SPDX expression (PEP 639), fails to build on setuptools 76.1.0 and
+# builds on 77.0.1 (measured 2026-11-27)
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -8,6 +10,9 @@ name = "runlab"
 version = "1.17.1"
 description = "The bench every project shares: settings and run files, charts, a command line and the Lab's page over a project's pieces"
 readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "dim-sous" }]
 requires-python = ">=3.13"
 # each minimum a version the whole suite passed on, every dependency at its minimum at once, on
 # Python 3.13 (uv's lowest-direct resolution, 2026-11-19: 456 passed). matplotlib 3.7 to 3.9.1
@@ -19,6 +24,9 @@ dependencies = [
     "param>=2.4.2",
     "plotly>=6.6.0",
 ]
+
+[project.urls]
+Repository = "https://github.com/dim-sous/RunLab"
 
 [dependency-groups]
 dev = [
@@ -47,6 +55,8 @@ include = ["runlab*"]
 # the page's own words and its fonts: the files of the package that are not Python, left out of
 # an installed copy unless named here (tests/test_packaging.py builds the package and looks)
 "runlab.lab" = ["words.toml", "fonts/*"]
+# PEP 561: a project's type checker reads the hints RunLab's code carries
+"runlab" = ["py.typed"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

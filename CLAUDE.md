@@ -6,7 +6,8 @@ and how a project declares itself: `README.md`. What it is to become, and every 
 far: the notes' `design.md`. This file holds the working rules.
 
 **This repository holds only what a library holds** (the developer, 2026-11-17): the package,
-its tests, `README.md`, the licence, the settings and these rules. Every note (the session log,
+its tests, `README.md`, the licence, the settings and these rules, and from 2026-11-27 (the
+developer) what GitHub runs for it (`.github/workflows/`). Every note (the session log,
 the plans, the findings, the incidents, the design's record) lives in "the notes": the private
 repository `dim-sous/project-notes`, folder `runlab/`. No note is written here.
 

@@ -1,0 +1,28 @@
+# The checks CLAUDE.md names, run by GitHub on every pull request to main and every push to it.
+name: checks
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: checks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: astral-sh/setup-uv@v10.3.3
+      # --locked: a uv.lock that pyproject.toml has moved past fails here, not in a project
+      - run: uv sync --locked
+      - run: uv run ruff check .
+      - run: uv run playwright install --with-deps chromium
+      - run: uv run pytest

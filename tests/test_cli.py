@@ -6,10 +6,14 @@ from __future__ import annotations
 
 import json
 import os
+import re
 
 import pytest
 
 from runlab import cli
+
+#: The projects RunLab's code cites, as a word in any case.
+SIBLINGS = re.compile(r"\b(bess|deepc|rcws)\b", re.IGNORECASE)
 
 
 def _run(out, *words: str) -> None:
@@ -23,6 +27,18 @@ def test_the_command_is_the_projects_and_its_pieces_are_the_choices() -> None:
                                          "settings.")
     with pytest.raises(SystemExit):
         parser.parse_args(["run", "bogus"])
+
+
+@pytest.mark.parametrize("words", [[], ["run"], ["draw"], ["settings"]],
+                         ids=["toy", "run", "draw", "settings"])
+def test_the_help_names_no_other_project(words, capsys) -> None:
+    """What ``--help`` prints is shown in every project, so it names none of the projects
+    RunLab's code cites (``CLAUDE.md``, "RunLab names no project")."""
+    with pytest.raises(SystemExit) as stopped:
+        cli.main([*words, "--help"])
+    shown = capsys.readouterr().out
+    assert stopped.value.code == 0 and shown.startswith("usage: toy")
+    assert not SIBLINGS.findall(shown), shown
 
 
 def test_a_run_saves_its_record_and_prints_its_path_and_numbers(tmp_path, capsys) -> None:

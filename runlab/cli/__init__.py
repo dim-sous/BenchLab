@@ -1,4 +1,6 @@
-"""``<command>``: run a piece, draw its records, list its settings. BESS's ``bess`` (``devkit/terminal``).
+"""``<command>``: run a piece, draw its records, list its settings.
+
+BESS's ``bess`` (``devkit/terminal``).
 
     <command> run  <piece> [config.json] [--set SETTING=VALUE ...] [--sweep SETTING=V1,V2,... ...]
                   [--name NAME] [--out-dir DIR]

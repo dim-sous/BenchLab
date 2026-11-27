@@ -383,7 +383,8 @@ may. It builds the Lab's page and drives it both without a browser and in one.
 
 ## Versions
 
-Each release is a git tag (`v1.17.0`), and its commit says what it added. Until 1.0, RunLab was
+Each release is a git tag (`v1.17.0`) with a GitHub release whose notes list the pull requests
+merged since the tag before it. Until 1.0, RunLab was
 installed as `benchlab`. A project on an earlier version moves by changing that name to `runlab`
 in its dependency line, its imports, its two commands and its entry-point group; every run it
 saved still reads.

@@ -1,0 +1,34 @@
+# A GitHub release for every version tag that has none, its notes GitHub's list of the pull
+# requests merged since the tag before it. Runs when a tag is pushed, or by hand.
+name: releases
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  releases:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          held=$(gh release list --limit 1000 --json tagName --jq '.[].tagName')
+          tags=$(git tag --list 'v*' --sort=v:refname)
+          newest=$(echo "$tags" | tail -n 1)
+          before=""
+          for tag in $tags; do
+            if ! grep -qx "$tag" <<< "$held"; then
+              latest=false; [ "$tag" = "$newest" ] && latest=true
+              gh release create "$tag" --verify-tag --title "$tag" --generate-notes \
+                ${before:+--notes-start-tag "$before"} --latest="$latest"
+            fi
+            before=$tag
+          done
